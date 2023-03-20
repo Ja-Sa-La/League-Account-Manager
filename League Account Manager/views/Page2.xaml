@@ -1,0 +1,23 @@
+﻿<Page
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page2"
+    mc:Ignorable="d"
+    d:DesignHeight="450" d:DesignWidth="800"
+    Title="Page2">
+
+    <Grid>
+        <ui:TextBox x:Name="Username" HorizontalAlignment="Left" Margin="23,79,0,0" Text="" MinWidth="300"
+                    VerticalAlignment="Top" Width="300" MaxLines="1" />
+        <ui:PasswordBox x:Name="Password" HorizontalAlignment="Left" Margin="23,168,0,0" Text="" MinWidth="300"
+                        VerticalAlignment="Top" MaxLines="1" Width="300" />
+        <Label Content="Password" HorizontalAlignment="Left" Margin="23,143,0,0" VerticalAlignment="Top" />
+        <Label Content="Username" HorizontalAlignment="Left" Margin="23,54,0,0" VerticalAlignment="Top" />
+        <Button Content="Add Account" Margin="23,225,0,0" VerticalAlignment="Top" Click="Button_Click" />
+        <ui:Card x:Name="MissingPass" Content="Error Username or password is missing!" HorizontalAlignment="Left"
+                 Margin="476,54,0,0" VerticalAlignment="Top" Height="100" Width="500" Foreground="#FF7B1717"
+                 Visibility="Hidden" FontSize="22" Background="#0FD20000" />
+    </Grid>
+</Page>

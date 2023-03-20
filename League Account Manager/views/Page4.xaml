@@ -1,0 +1,151 @@
+﻿<Page
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page4"
+    mc:Ignorable="d"
+    d:DesignHeight="696" d:DesignWidth="1394"
+    Title="Page4">
+
+    <Grid>
+        <ui:TextBox x:Name="Player5" HorizontalAlignment="Left" Margin="712,622,0,0" MinWidth="200"
+                    TextWrapping="NoWrap" Text="Player Name" VerticalAlignment="Top" Width="367" Height="74" />
+        <Label Content="Player 5" HorizontalAlignment="Left" Margin="712,566,0,0" VerticalAlignment="Top"
+               RenderTransformOrigin="-0.383,0.436" Width="200" FontSize="36" FontFamily="Bernard MT Condensed"
+               Height="50" />
+        <ui:TextBox x:Name="Player4" HorizontalAlignment="Left" Margin="16,0,0,37" MinWidth="200"
+                    TextWrapping="NoWrap" Text="Player Name" VerticalAlignment="Bottom" Width="368" Height="75" />
+        <Label Content="Player 4" HorizontalAlignment="Left" Margin="20,566,0,0" VerticalAlignment="Top"
+               RenderTransformOrigin="-0.383,0.436" Width="200" FontSize="36" FontFamily="Bernard MT Condensed"
+               Height="50" />
+        <ui:TextBox x:Name="Player3" HorizontalAlignment="Left" Margin="16,400,0,0" MinWidth="200"
+                    TextWrapping="NoWrap" Text="Player Name" VerticalAlignment="Top" Width="368" Height="75" />
+        <Label Content="Player 3" HorizontalAlignment="Left" Margin="20,336,0,0" VerticalAlignment="Top"
+               RenderTransformOrigin="-0.383,0.436" Width="200" FontSize="36" FontFamily="Bernard MT Condensed"
+               Height="50" />
+        <ui:TextBox x:Name="Player2" HorizontalAlignment="Left" Margin="712,376,0,0" MinWidth="200"
+                    TextWrapping="NoWrap" Text="Player Name" VerticalAlignment="Top" Width="369" Height="74" />
+        <Label Content="Player 2" HorizontalAlignment="Left" Margin="712,321,0,0" VerticalAlignment="Top"
+               RenderTransformOrigin="-0.383,0.436" Width="200" FontSize="36" FontFamily="Bernard MT Condensed"
+               Height="50" />
+        <ui:TextBox x:Name="Player1" HorizontalAlignment="Left" Margin="20,185,0,0" MinWidth="200"
+                    TextWrapping="NoWrap"
+                    Text="Player Name" VerticalAlignment="Top" Width="368" Height="74" />
+        <Label Content="Player 1" HorizontalAlignment="Left" Margin="20,130,0,0" VerticalAlignment="Top"
+               RenderTransformOrigin="-0.383,0.436" Width="200" FontSize="36" FontFamily="Bernard MT Condensed"
+               Height="50" />
+        <Button Content="Pull info" Margin="1065,65,0,0" VerticalAlignment="Top" Click="Button_Click" Height="68"
+                Width="98" />
+        <Button Content="Open multi.op.gg" Margin="1168,65,0,0" VerticalAlignment="Top" Click="Button_Click_6"
+                Height="68" Width="174" />
+        <Button Content="Open op.gg" Margin="234,146,0,0" VerticalAlignment="Top" Click="Button_Click_1" Height="68"
+                Width="180" />
+        <Button Content="Open op.gg" Margin="930,337,0,0" VerticalAlignment="Top" Click="Button_Click_2" Height="68"
+                Width="180" />
+        <Button Content="Open op.gg" Margin="234,361,0,0" VerticalAlignment="Top" Click="Button_Click_3"
+                RenderTransformOrigin="-1.116,-0.857" Height="67" Width="180" />
+        <Button Content="Open op.gg" Margin="234,588,0,0" VerticalAlignment="Top" Click="Button_Click_4" Height="67"
+                Width="180" />
+        <Button Content="Open op.gg" Margin="926,583,0,0" VerticalAlignment="Top" Click="Button_Click_5" Height="67"
+                Width="180" />
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="1160,488,0,0"
+                VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+            <Grid Margin="9,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                </Grid.RowDefinitions>
+                <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="1" Name="player5peak" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="2" Content="Current Rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="3" Name="player5rank" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="4" Content="Winrate and kda" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="5" Name="player5wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+            </Grid>
+        </Border>
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="450,488,0,0"
+                VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+            <Grid Margin="9,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                </Grid.RowDefinitions>
+                <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="1" Name="player4peak" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="2" Content="Current Rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="3" Name="player4rank" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="4" Content="Winrate and kda" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="5" Name="player4wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+            </Grid>
+        </Border>
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="450,276,0,0"
+                VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+            <Grid Margin="9,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                </Grid.RowDefinitions>
+                <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="1" Name="player3peak" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="2" Content="Current Rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="3" Name="player3rank" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="4" Content="Winrate and kda" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="5" Name="player3wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+            </Grid>
+        </Border>
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="450,52,0,0" VerticalAlignment="Top"
+                Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+            <Grid Margin="9,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                </Grid.RowDefinitions>
+                <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="1" Name="player1peak" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="2" Content="Current Rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="3" Name="player1rank" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="4" Content="Winrate and kda" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="5" Name="player1wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+            </Grid>
+        </Border>
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="1160,276,0,0"
+                VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+            <Grid Margin="9,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                </Grid.RowDefinitions>
+                <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="1" Name="player2peak" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="2" Content="Current Rank" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="3" Name="player2rank" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+                <Label Grid.Row="4" Content="Winrate and kda" FontFamily="Segoe UI Semibold" FontSize="22" />
+                <Label Grid.Row="5" Name="player2wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
+            </Grid>
+        </Border>
+        <TextBlock HorizontalAlignment="Left" Margin="712,65,0,0" TextWrapping="Wrap" VerticalAlignment="Top"
+                   Height="127" Width="227" FontSize="24" Text="Ranked winrate and kda are from Players last 40 games!"
+                   Foreground="#FFB5B5B5" FontFamily="Segoe UI Black" />
+    </Grid>
+</Page>
