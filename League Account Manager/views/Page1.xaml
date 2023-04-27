@@ -29,13 +29,17 @@
             </DataGrid.Resources>
 
         </DataGrid>
+        <ui:Button x:Name="killleague" Content="Kill client" Margin="204,4,0,0" VerticalAlignment="Top" Height="27"
+                   FontSize="12" Click="killleague_Click" />
+        <ui:Button x:Name="openleague1" Content="Open League" Margin="280,4,0,0" VerticalAlignment="Top" Height="27"
+                   FontSize="12" Click="openleague1_Click" />
         <ui:Button x:Name="PullData" Content="PullData" Margin="131,4,0,0" VerticalAlignment="Top" Height="27"
                    FontSize="12" Click="PullData_Click" />
         <ui:Button x:Name="Delete" Content="Delete" Margin="68,4,0,0" VerticalAlignment="Top" Height="27" FontSize="12"
                    Click="Delete_Click" />
         <ui:Button x:Name="Login" Content="Login" Margin="10,4,0,0" VerticalAlignment="Top" Height="27" FontSize="12"
                    Click="Button_Click" />
-        <Grid />
+        <Grid Margin="0,36,0,0" />
         <Grid x:Name="Progressgrid" MaxWidth="400" MaxHeight="300" Margin="225,124,237,124" Visibility="Hidden">
             <Grid.Background>
                 <SolidColorBrush Color="#FF1D1D1D" Opacity="0.8" />

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -23,7 +24,8 @@ public partial class Page1 : Page
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     public DataTable dt = new();
     private double running;
-    public string SelectedUsername, SelectedPassword;
+    public static string SelectedUsername, SelectedPassword;
+
 
     public Page1()
     {
@@ -99,6 +101,10 @@ public partial class Page1 : Page
 
     private async void PullData_Click(object sender, RoutedEventArgs e)
     {
+        if (SelectedUsername == null || SelectedPassword == null)
+        {
+            new Window1().ShowDialog();
+        }
         Progressgrid.Visibility = Visibility.Visible;
         ring();
         var resp = await lcu.Connector("league", "get", "/lol-service-status/v1/lcu-status", "");
@@ -249,11 +255,27 @@ public partial class Page1 : Page
             i++;
         }
 
-        var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
-            "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
-        var resp2 = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
-            "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
-            "\", \"persistLogin\":\"false\"}");
+        killleaguefunc();
+        Process[] processesByName = Process.GetProcessesByName("RiotClientUx");
+        Process[] processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+        int num = 0;
+        if (processesByName.Length != 0 || processesByName2.Length != 0)
+        {
+            return;
+        }
+        Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe", "--launch-product=league_of_legends --launch-patchline=live");
+        while (processesByName.Length == 0)
+        {
+            processesByName = Process.GetProcessesByName("RiotClientUx");
+            Thread.Sleep(1000);
+            num++;
+            if (num == 5)
+            {
+                return;
+            }
+        }
+        await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
+        await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials", "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword + "\", \"persistLogin\":\"false\"}");
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
@@ -288,5 +310,35 @@ public partial class Page1 : Page
         public string champions { get; set; }
         public string skins { get; set; }
         public string Loot { get; set; }
+    }
+
+    private void killleaguefunc()
+    {
+        List<string> source = new List<string> { "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler", "LeagueCrashHandler", "LeagueClientUxRender", "LeagueClientUx", "LeagueClient" };
+        try
+        {
+            foreach (Process item in source.SelectMany((string name) => Process.GetProcessesByName(name)))
+            {
+                item.Kill();
+            }
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private void killleague_Click(object sender, RoutedEventArgs e)
+    {
+        killleaguefunc();
+    }
+
+    private void openleague1_Click(object sender, RoutedEventArgs e)
+    {
+        openleague();
+    }
+
+    private void openleague()
+    {
+        Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe", "--launch-product=league_of_legends --launch-patchline=live");
     }
 }

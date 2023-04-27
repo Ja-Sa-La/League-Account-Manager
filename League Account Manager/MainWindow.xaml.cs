@@ -46,4 +46,9 @@ public partial class MainWindow : UiWindow
         GC.Collect();
         GC.WaitForPendingFinalizers();
     }
+
+    private void NavigationItem_Click_5(object sender, RoutedEventArgs e)
+    {
+        RootFrame.Navigate(new Page5());
+    }
 }

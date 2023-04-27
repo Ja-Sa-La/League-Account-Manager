@@ -19,5 +19,6 @@
         <ui:Card x:Name="MissingPass" Content="Error Username or password is missing!" HorizontalAlignment="Left"
                  Margin="476,54,0,0" VerticalAlignment="Top" Height="100" Width="500" Foreground="#FF7B1717"
                  Visibility="Hidden" FontSize="22" Background="#0FD20000" />
+        <ui:Button Content="Bulk add accounts" Margin="422,72,0,0" VerticalAlignment="Top" Height="144" Width="250" FontSize="20" Click="Button_Click_1" />
     </Grid>
 </Page>
