@@ -9,10 +9,12 @@ Was made to test some stuff in lcu and as a coding excersise.
 
 - Light/dark mode toggle
 - Accounts stored locally
+- Save rank/level/champions/skins on your account
 - Allows you to quickly buy 20 champions
-- Stores all accounts locally
+- Stores all accounts locally in a cvs file
 - Allows you to show player names in champion select
 
+![image](https://user-images.githubusercontent.com/54846990/235322186-19bee79e-c3c8-41f5-936f-abe081be0c62.png)
 
 ## Installation
 
