@@ -14,14 +14,8 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Page2 : Page
 {
+    public static List<usernamelist> bulkadd = new();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
-
-    public class usernamelist
-    {
-        public string username { get; set; }
-
-        public string password { get; set; }
-    }
 
     public Page2()
     {
@@ -55,6 +49,34 @@ public partial class Page2 : Page
         }
     }
 
+    private void Button_Click_1(object sender, RoutedEventArgs e)
+    {
+        new Window2().ShowDialog();
+        using (var reader = new StreamReader(Directory.GetCurrentDirectory() + "/List.csv"))
+        {
+            using var csvReader = new CsvReader(reader, config);
+            var records = csvReader.GetRecords<Champs>();
+            jotain = records.ToList();
+        }
+
+        foreach (var item in bulkadd)
+            jotain.Add(new Champs
+            {
+                username = item.username,
+                password = item.password
+            });
+        using var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv");
+        using var csvWriter = new CsvWriter(writer, config);
+        csvWriter.WriteRecords(jotain);
+    }
+
+    public class usernamelist
+    {
+        public string username { get; set; }
+
+        public string password { get; set; }
+    }
+
     public class Champs
     {
         public string username { get; set; }
@@ -67,29 +89,5 @@ public partial class Page2 : Page
         public string champions { get; set; }
         public string skins { get; set; }
         public string Loot { get; set; }
-    }
-
-    public static List<usernamelist> bulkadd = new List<usernamelist>();
-
-    private void Button_Click_1(object sender, RoutedEventArgs e)
-    {
-        new Window2().ShowDialog();
-        using (StreamReader reader = new StreamReader(Directory.GetCurrentDirectory() + "/List.csv"))
-        {
-            using CsvReader csvReader = new CsvReader(reader, config);
-            IEnumerable<Champs> records = csvReader.GetRecords<Champs>();
-            jotain = records.ToList();
-        }
-        foreach (usernamelist item in bulkadd)
-        {
-            jotain.Add(new Champs
-            {
-                username = item.username,
-                password = item.password
-            });
-        }
-        using StreamWriter writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv");
-        using CsvWriter csvWriter = new CsvWriter(writer, config);
-        csvWriter.WriteRecords(jotain);
     }
 }

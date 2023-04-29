@@ -107,7 +107,7 @@ public partial class Page4 : Page
         wr = double.Round(wr, 4) * 100;
         kills += assists;
 
-        double kda = (double)kills/ death;
+        var kda = (double)kills / death;
         kda = double.Round(kda, 2);
 
         switch (i)

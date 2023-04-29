@@ -118,8 +118,8 @@
             CornerRadius="8,8,8,8" Grid.RowSpan="2">
             <Grid Margin="0,0,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="673*"/>
-                    <ColumnDefinition Width="721*"/>
+                    <ColumnDefinition Width="673*" />
+                    <ColumnDefinition Width="721*" />
                 </Grid.ColumnDefinitions>
                 <Frame x:Name="RootFrame" Grid.ColumnSpan="2" />
                 <ui:Breadcrumb

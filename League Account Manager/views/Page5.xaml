@@ -1,22 +1,21 @@
 ﻿<Page x:Class="League_Account_Manager.views.Page5"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-      xmlns:local="clr-namespace:League_Account_Manager.views"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-      mc:Ignorable="d" 
+      mc:Ignorable="d"
       d:DesignHeight="450" d:DesignWidth="800"
       Title="Page5">
 
     <Grid>
         <ui:Button Click="Button_Click" ContentControl.Content="buy 20 champions" FrameworkElement.Margin="10,10,0,0"
-                   FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151"/>
+                   FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
         <Label Name="statusmessage" Content="Currently buying: " HorizontalAlignment="Left" Margin="182,10,0,0"
-               VerticalAlignment="Top" Height="40" Width="1175" FontSize="24"/>
+               VerticalAlignment="Top" Height="40" Width="1175" FontSize="24" />
         <TextBlock Name="success" HorizontalAlignment="Left" Margin="10,75,0,0" Text="Bought champions" Width="363"
-                   Foreground="White" FontSize="18" Height="611" VerticalAlignment="Top"/>
+                   Foreground="White" FontSize="18" Height="611" VerticalAlignment="Top" />
         <TextBlock Name="failure" HorizontalAlignment="Left" Margin="400,75,0,10" Text="Failed to Buy" Width="363"
-                   Foreground="White" FontSize="18"/>
+                   Foreground="White" FontSize="18" />
     </Grid>
 </Page>

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 using System.Windows;
 using League_Account_Manager.views;
 using Wpf.Ui.Controls;
@@ -19,7 +18,7 @@ public partial class MainWindow : UiWindow
     }
 
     // [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
-   // private static extern int AllocConsole();
+    // private static extern int AllocConsole();
 
     private void NavigationItem_Click_1(object sender, RoutedEventArgs e)
     {
