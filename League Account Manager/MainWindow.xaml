@@ -15,9 +15,9 @@
         Margin="0,0,0,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="761*" />
-            <RowDefinition Height="39*" />
+            <RowDefinition Height="3*" />
         </Grid.RowDefinitions>
-        <ui:NavigationStore Margin="586,-518,754,83" RenderTransformOrigin="0.5,0.5">
+        <ui:NavigationStore Margin="662,-625,655,9" RenderTransformOrigin="0.5,0.5">
             <ui:NavigationStore.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform />
@@ -110,6 +110,20 @@
                         </TransformGroup>
                     </ui:NavigationItem.RenderTransform>
                 </ui:NavigationItem>
+                <ui:NavigationItem
+                    Content="Report tool"
+                    Icon="Alert24"
+                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
+                    VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_6">
+                    <ui:NavigationItem.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform />
+                            <SkewTransform />
+                            <RotateTransform Angle="90.516" />
+                            <TranslateTransform />
+                        </TransformGroup>
+                    </ui:NavigationItem.RenderTransform>
+                </ui:NavigationItem>
             </ui:NavigationStore.Items>
         </ui:NavigationStore>
         <Border
@@ -132,7 +146,7 @@
         </Border>
         <ui:TitleBar
             Title="League Account Manager"
-            Grid.Row="0" FontFamily="Arial Black" FontSize="20" Height="29" Focusable="True" ShowMaximize="False"
+            Grid.Row="0" FontFamily="Arial Black" FontSize="20" Height="21" Focusable="True" ShowMaximize="False"
             CanMaximize="False" Padding="16,0,16,0">
             <ui:TitleBar.Tray>
                 <ui:NotifyIcon

@@ -251,27 +251,32 @@ public partial class Page1 : Page
             else if (i == 1) SelectedPassword = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
             i++;
         }
-
-        killleaguefunc();
         var processesByName = Process.GetProcessesByName("RiotClientUx");
         var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+        killleaguefunc(processesByName, processesByName2);
+
         var num = 0;
-        if (processesByName.Length != 0 || processesByName2.Length != 0) return;
         Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
             "--launch-product=league_of_legends --launch-patchline=live");
-        while (processesByName.Length == 0)
+        while (processesByName.Length == 0 || processesByName2.Length == 0)
         {
+            processesByName2 = Process.GetProcessesByName("RiotClientUxRender");
             processesByName = Process.GetProcessesByName("RiotClientUx");
-            Thread.Sleep(1000);
+            Thread.Sleep(2000);
             num++;
             if (num == 5) return;
         }
 
-        await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
+        var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
             "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
-        await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
+        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
             "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
             "\", \"persistLogin\":\"false\"}");
+        var responseBody1 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Console.WriteLine(SelectedPassword);
+        Console.WriteLine(SelectedUsername);
+
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
@@ -294,8 +299,9 @@ public partial class Page1 : Page
         }
     }
 
-    private void killleaguefunc()
+    private void killleaguefunc(dynamic processesByName, dynamic processesByName2)
     {
+        while(processesByName.Length != 0 || processesByName2.Length != 0){
         var source = new List<string>
         {
             "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler", "LeagueCrashHandler",
@@ -308,15 +314,24 @@ public partial class Page1 : Page
         catch (Exception)
         {
         }
+        processesByName = Process.GetProcessesByName("RiotClientUx");
+        processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+        Thread.Sleep(1000);
+        }
     }
 
     private void killleague_Click(object sender, RoutedEventArgs e)
     {
-        killleaguefunc();
+        var processesByName = Process.GetProcessesByName("RiotClientUx");
+        var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+        killleaguefunc(processesByName, processesByName2);
     }
 
     private void openleague1_Click(object sender, RoutedEventArgs e)
     {
+        var processesByName = Process.GetProcessesByName("RiotClientUx");
+        var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+        killleaguefunc(processesByName, processesByName2);
         openleague();
     }
 

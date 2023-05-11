@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using League_Account_Manager.views;
 using Wpf.Ui.Controls;
@@ -13,12 +14,12 @@ public partial class MainWindow : UiWindow
     public MainWindow()
     {
         InitializeComponent();
-        //AllocConsole();
+        AllocConsole();
         RootFrame.Navigate(new Page1());
     }
 
-    // [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
-    // private static extern int AllocConsole();
+     [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
+     private static extern int AllocConsole();
 
     private void NavigationItem_Click_1(object sender, RoutedEventArgs e)
     {
@@ -49,5 +50,10 @@ public partial class MainWindow : UiWindow
     private void NavigationItem_Click_5(object sender, RoutedEventArgs e)
     {
         RootFrame.Navigate(new Page5());
+    }
+
+    private void NavigationItem_Click_6(object sender, RoutedEventArgs e)
+    {
+        RootFrame.Navigate(new Page6());
     }
 }
