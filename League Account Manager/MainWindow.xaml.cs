@@ -14,12 +14,12 @@ public partial class MainWindow : UiWindow
     public MainWindow()
     {
         InitializeComponent();
-        AllocConsole();
+        //AllocConsole();
         RootFrame.Navigate(new Page1());
     }
 
-     [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
-     private static extern int AllocConsole();
+    // [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
+    // private static extern int AllocConsole();
 
     private void NavigationItem_Click_1(object sender, RoutedEventArgs e)
     {

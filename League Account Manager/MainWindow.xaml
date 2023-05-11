@@ -17,7 +17,7 @@
             <RowDefinition Height="761*" />
             <RowDefinition Height="3*" />
         </Grid.RowDefinitions>
-        <ui:NavigationStore Margin="662,-625,655,9" RenderTransformOrigin="0.5,0.5">
+        <ui:NavigationStore Margin="662,-640,668,24" Width="70" RenderTransformOrigin="0.5,0.5">
             <ui:NavigationStore.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform />
@@ -100,7 +100,7 @@
                     Content="Buy Champs"
                     Icon="Backpack24"
                     PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
-                    VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_5">
+                    VerticalAlignment="Top" Height="66" Width="70" Click="NavigationItem_Click_5">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform />
@@ -127,7 +127,7 @@
             </ui:NavigationStore.Items>
         </ui:NavigationStore>
         <Border
-            Margin="3,102,3,2"
+            Margin="3,108,3,2"
             Background="{ui:ThemeResource ControlFillColorDefaultBrush}"
             CornerRadius="8,8,8,8" Grid.RowSpan="2">
             <Grid Margin="0,0,0,0">
@@ -135,7 +135,7 @@
                     <ColumnDefinition Width="673*" />
                     <ColumnDefinition Width="721*" />
                 </Grid.ColumnDefinitions>
-                <Frame x:Name="RootFrame" Grid.ColumnSpan="2" />
+                <Frame x:Name="RootFrame" Grid.ColumnSpan="2" Margin="0,10,0,0" />
                 <ui:Breadcrumb
                     Grid.Row="0"
                     Margin="0"
