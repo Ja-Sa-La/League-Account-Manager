@@ -25,4 +25,4 @@ Requires .net 7.0 to run
 ```
     
 ## 🔗 Links
-[Our website, to buy your smurf accounts!](https://smurflabs.io/)
+[Discord](https://discord.gg/ggez/)
