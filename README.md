@@ -25,4 +25,4 @@ Requires .net 7.0 to run
 ```
     
 ## 🔗 Links
-[Discord](https://discord.gg/ggez/)
+[Discord](https://discord.gg/ggez)
