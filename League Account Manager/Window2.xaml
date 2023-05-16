@@ -4,7 +4,7 @@
         Width="400" WindowStyle="None" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
     <Grid Background="#FF252525" Margin="0,0,0,0           ">
         <ui:TextBox Name="accountlogins" HorizontalAlignment="Center" Margin="0,47,0,0" TextWrapping="WrapWithOverflow"
-                    Text="Add accounts in username:password format!" MinWidth="380" MinHeight="374"
+                    Text="" PlaceholderText="Add accounts in username:password format!" MinWidth="380" MinHeight="374"
                     VerticalAlignment="Top" Width="380" AcceptsReturn="True" VerticalScrollBarVisibility="Visible"
                     Height="374" />
         <ui:Button Content="Add accounts" Margin="0,10,0,0" VerticalAlignment="Top" Width="200"

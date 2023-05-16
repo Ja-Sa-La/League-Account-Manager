@@ -22,7 +22,7 @@ public partial class Page2 : Page
         InitializeComponent();
     }
 
-    public List<Champs> jotain { get; private set; }
+    public List<Page1.accountlist> jotain { get; private set; }
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
@@ -33,18 +33,13 @@ public partial class Page2 : Page
         else
         {
             MissingPass.Visibility = Visibility.Hidden;
-            using (var reader = new StreamReader(Directory.GetCurrentDirectory() + "/List.csv"))
-            using (var csv = new CsvReader(reader, config))
-            {
-                var records = csv.GetRecords<Champs>();
-                jotain = records.ToList();
-            }
-
-            jotain.Add(new Champs { username = Username.Text, password = Password.Password });
+            Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
+            Page1.ActualAccountlists.Add(new Page1.accountlist() { username = Username.Text, password = Password.Password });
+            Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
             using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
             using (var csv2 = new CsvWriter(writer, config))
             {
-                csv2.WriteRecords(jotain);
+                csv2.WriteRecords(Page1.ActualAccountlists);
             }
         }
     }
@@ -52,22 +47,17 @@ public partial class Page2 : Page
     private void Button_Click_1(object sender, RoutedEventArgs e)
     {
         new Window2().ShowDialog();
-        using (var reader = new StreamReader(Directory.GetCurrentDirectory() + "/List.csv"))
-        {
-            using var csvReader = new CsvReader(reader, config);
-            var records = csvReader.GetRecords<Champs>();
-            jotain = records.ToList();
-        }
-
+        Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
         foreach (var item in bulkadd)
-            jotain.Add(new Champs
+            Page1.ActualAccountlists.Add(new Page1.accountlist
             {
                 username = item.username,
                 password = item.password
             });
         using var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv");
         using var csvWriter = new CsvWriter(writer, config);
-        csvWriter.WriteRecords(jotain);
+        Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+        csvWriter.WriteRecords(Page1.ActualAccountlists);
     }
 
     public class usernamelist
@@ -75,19 +65,5 @@ public partial class Page2 : Page
         public string username { get; set; }
 
         public string password { get; set; }
-    }
-
-    public class Champs
-    {
-        public string username { get; set; }
-        public string password { get; set; }
-        public string level { get; set; }
-        public string server { get; set; }
-        public string be { get; set; }
-        public string rp { get; set; }
-        public string rank { get; set; }
-        public string champions { get; set; }
-        public string skins { get; set; }
-        public string Loot { get; set; }
     }
 }

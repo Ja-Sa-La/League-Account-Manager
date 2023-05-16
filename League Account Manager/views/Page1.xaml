@@ -5,14 +5,18 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page1"
     mc:Ignorable="d"
-    d:DesignHeight="450" d:DesignWidth="800"
+    d:DesignHeight="450" d:DesignWidth="1400"
     Title="Page1" KeyUp="Championlist_OnKeyDown" KeyDown="Championlist_OnKeyDown">
 
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="73*"/>
+            <ColumnDefinition Width="102*"/>
+        </Grid.ColumnDefinitions>
         <DataGrid x:Name="Championlist" SelectionUnit="FullRow" SelectionChanged="DataGrid_SelectionChanged"
                   IsReadOnly="True"
                   HorizontalContentAlignment="Stretch"
-                  ColumnWidth="auto" SelectionMode="Single" Margin="0,36,0,0">
+                  ColumnWidth="auto" SelectionMode="Single" Margin="0,36,0,0" Grid.ColumnSpan="2">
             <DataGrid.Resources>
                 <Style TargetType="{x:Type DataGridCell}">
                     <Style.Triggers>
@@ -39,8 +43,8 @@
                    Click="Delete_Click" />
         <ui:Button x:Name="Login" Content="Login" Margin="10,4,0,0" VerticalAlignment="Top" Height="27" FontSize="12"
                    Click="Button_Click" />
-        <Grid Margin="0,36,0,0" />
-        <Grid x:Name="Progressgrid" MaxWidth="400" MaxHeight="300" Margin="225,124,237,124" Visibility="Hidden">
+        <Grid Margin="0,36,0,0" Grid.ColumnSpan="2" />
+        <Grid x:Name="Progressgrid" MaxWidth="400" MaxHeight="300" Margin="225,124,237,124" Visibility="Hidden" Grid.ColumnSpan="2">
             <Grid.Background>
                 <SolidColorBrush Color="#FF1D1D1D" Opacity="0.8" />
             </Grid.Background>
@@ -48,5 +52,7 @@
                    VerticalAlignment="Top" FontSize="24" FontFamily="Arial Black" />
             <ui:ProgressRing x:Name="edistyy" HorizontalAlignment="Center" Margin="0,101,0,0" VerticalAlignment="Top" />
         </Grid>
+        <ui:TextBox Name="champfilter" PlaceholderText="Champion, skin, loot or server name" Margin="0,1,43,0" TextWrapping="NoWrap"  VerticalAlignment="Top" MinWidth="373" Height="30" FontSize="10" HorizontalAlignment="Right" Width="373" Grid.Column="1" TextChanged="TextBox_TextChanged" />
+        <Label Content="Filter by champion, skin, loot or server " HorizontalAlignment="Left" Margin="149,1,0,0" VerticalAlignment="Top" Height="28" Width="246" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Foreground="White" RenderTransformOrigin="0.167,0.618" Grid.Column="1"/>
     </Grid>
 </Page>
