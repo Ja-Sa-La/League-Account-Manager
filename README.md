@@ -14,7 +14,9 @@ Was made to test some stuff in lcu and as a coding excersise.
 - Stores all accounts locally in a cvs file
 - Allows you to show player names in champion select
 
-![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/e8e5096b-05cf-4b5b-a144-f55346667f72)
+![League_Account_Manager](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/1a481fb4-b83d-4e3c-9fa1-3edbf2afa9cc)
+
+
 
 ## Installation
 
