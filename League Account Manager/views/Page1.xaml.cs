@@ -299,7 +299,7 @@ public partial class Page1 : Page
         }
     }
 
-    private void killleaguefunc(dynamic processesByName, dynamic processesByName2)
+    public static void killleaguefunc(dynamic processesByName, dynamic processesByName2)
     {
         while(processesByName.Length != 0 || processesByName2.Length != 0){
         var source = new List<string>

@@ -13,18 +13,4 @@ public partial class Page3 : Page
     {
         InitializeComponent();
     }
-
-    private void RadioButton_Checked(object sender, RoutedEventArgs e)
-    {
-        Wpf.Ui.Appearance.Theme.Apply(
-            ThemeType.Dark // Whether to change accents automatically
-        );
-    }
-
-    private void RadioButton_Checked_1(object sender, RoutedEventArgs e)
-    {
-        Wpf.Ui.Appearance.Theme.Apply(
-            ThemeType.Light // Whether to change accents automatically
-        );
-    }
 }
