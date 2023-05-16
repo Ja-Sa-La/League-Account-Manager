@@ -133,8 +133,6 @@ internal class lcu
                     client.Dispose();
                     return response;
                 }
-
-                ;
             case "post":
                 if (data != null)
                 {
@@ -151,7 +149,6 @@ internal class lcu
                     return response;
                 }
 
-                ;
             case "put":
                 if (data != null)
                 {
@@ -168,7 +165,13 @@ internal class lcu
                     return response;
                 }
 
-                ;
+            case "delete":
+            {
+                HttpContent content = new StringContent(data, Encoding.UTF8, "application/json");
+                response = await client.DeleteAsync("https://127.0.0.1:" + smth[1] + endpoint);
+                client.Dispose();
+                return response;
+            }
         }
 
         return "NoResponse";

@@ -11,8 +11,12 @@
     <Grid>
         <ui:Button Click="Button_Click" ContentControl.Content="Nuke logs" FrameworkElement.Margin="10,10,0,0"
                    FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
-        <TextBlock Name="success" Margin="10,75,10,19" Text="Deleted files" 
-                   Foreground="White" FontSize="18" />
+        <ScrollViewer Margin="0,75,0,0">
+            <TextBlock Name="success" Margin="0,0,0,0" Text="Deleted files/friends"
+                       Foreground="White" FontSize="18" TextWrapping="WrapWithOverflow" />
+        </ScrollViewer>
+        <ui:Button Click="Button_Click1" Content="Nuke friends" Margin="166,10,0,0"
+                   VerticalAlignment="Top" Height="40" Width="151" />
 
     </Grid>
 </Page>

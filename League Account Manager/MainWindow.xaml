@@ -30,7 +30,8 @@
                 <ui:NavigationItem
                     Content="Home"
                     Icon="Home24"
-                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" Height="65" Width="67" Click="NavigationItem_Click_2">
+                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" Height="65" Width="67"
+                    Click="NavigationItem_Click_2">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform />
@@ -111,7 +112,7 @@
                     </ui:NavigationItem.RenderTransform>
                 </ui:NavigationItem>
                 <ui:NavigationItem
-                    Content="Log cleaner"
+                    Content="Cleaner"
                     Icon="BinFull24"
                     PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
                     VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_7">
@@ -147,7 +148,7 @@
         <ui:TitleBar
             Title="League Account Manager"
             Grid.Row="0" FontFamily="Arial Black" FontSize="20" Height="31" Focusable="True" ShowMaximize="False"
-            CanMaximize="False" Padding="0,0,0,0">
+            CanMaximize="False" Padding="0,0,0,0" Margin="10,0,0,0">
             <ui:TitleBar.Tray>
                 <ui:NotifyIcon
                     FocusOnLeftClick="True"

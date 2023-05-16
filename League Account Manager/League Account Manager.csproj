@@ -9,7 +9,7 @@
     <Platforms>x64</Platforms>
     <SignAssembly>False</SignAssembly>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
-    
+
   </PropertyGroup>
   <PropertyGroup>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

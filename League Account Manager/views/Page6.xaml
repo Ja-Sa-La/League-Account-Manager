@@ -11,9 +11,15 @@
     <Grid>
         <ui:Button Click="Button_Click" ContentControl.Content="Report player" FrameworkElement.Margin="10,10,0,0"
                    FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
-        <ui:TextBox Name="playername" HorizontalAlignment="Left" Margin="198,15,0,0" TextWrapping="Wrap" Text="Username" VerticalAlignment="Top" MinWidth="359" Width="359" TextChanged="playername_TextChanged"/>
-        <Label Content="Please do note, you can only report player once. &#xD;&#xA;You can report again after restarting client" HorizontalAlignment="Left" Margin="10,55,0,0" VerticalAlignment="Top" Height="86" Width="484" Background="{x:Null}" FontSize="22"/>
-        <Label Content="" Name="reportstatus" HorizontalAlignment="Left" Margin="10,146,0,0" VerticalAlignment="Top" Height="86" Width="484" Background="{x:Null}" FontSize="22"/>
+        <ui:TextBox Name="playername" HorizontalAlignment="Left" Margin="198,15,0,0" TextWrapping="Wrap"
+                    Text="Username" VerticalAlignment="Top" MinWidth="359" Width="359"
+                    TextChanged="playername_TextChanged" />
+        <Label
+            Content="Please do note, you can only report player once. &#xD;&#xA;You can report again after restarting client"
+            HorizontalAlignment="Left" Margin="10,55,0,0" VerticalAlignment="Top" Height="86" Width="484"
+            Background="{x:Null}" FontSize="22" />
+        <Label Content="" Name="reportstatus" HorizontalAlignment="Left" Margin="10,146,0,0" VerticalAlignment="Top"
+               Height="86" Width="484" Background="{x:Null}" FontSize="22" />
 
     </Grid>
 </Page>

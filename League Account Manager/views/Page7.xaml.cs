@@ -1,89 +1,103 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Newtonsoft.Json.Linq;
 
-namespace League_Account_Manager.views
+namespace League_Account_Manager.views;
+
+/// <summary>
+///     Interaction logic for Page7.xaml
+/// </summary>
+public partial class Page7 : Page
 {
-    /// <summary>
-    /// Interaction logic for Page7.xaml
-    /// </summary>
-    public partial class Page7 : Page
+    public static int yayornay = new();
+
+    private readonly string[] list =
     {
-        public Page7()
-        {
-            InitializeComponent();
-        }
+        "C:\\ProgramData\\Riot Games\\",
+        "C:\\Riot Games\\Riot Client\\UX\\GPUCache",
+        "C:\\Users\\" + Environment.UserName + "\\AppData\\Local\\Riot Games\\",
+        "C:\\Riot Games\\Riot Client\\UX\\databases-incognito",
+        "C:\\Users\\" + Environment.UserName + "\\AppData\\LocalLow\\Microsoft\\CryptnetUrlCache\\",
+        "C:\\Riot Games\\Riot Client\\UX\\icudtl.dat",
+        "C:\\Riot Games\\League of Legends\\databases-off-the-record",
+        "C:\\Riot Games\\League of Legends\\debug.log",
+        "C:\\Riot Games\\League of Legends\\Logs",
+        "C:\\Riot Games\\League of Legends\\Config",
+        "C:\\Riot Games\\League of Legends\\icudtl.dat",
+        "C:\\Riot Games\\League of Legends\\system.yaml",
+        "C:\\Riot Games\\League of Legends\\snapshot_blob.bin",
+        "C:\\Riot Games\\League of Legends\\natives_blob.bin",
+        "C:\\Riot Games\\Riot Client\\snapshot_blob.bin",
+        "C:\\Riot Games\\Riot Client\\natives_blob.bin",
+        "C:\\Riot Games\\Riot Client\\UX\\icudtl.dat",
+        "C:\\Riot Games\\Riot Client\\UX\\v8_context_snapshot.bin",
+        "C:\\Riot Games\\Riot Client\\UX\\snapshot_blob.bin",
+        "C:\\Riot Games\\Riot Client\\UX\\natives_blob.bin",
+        "C:\\Riot Games\\League of Legends\\DATA",
+        "C:\\Riot Games\\League of Legends\\v8_context_snapshot.bin"
+    };
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            var championsbought = "Files \n";
-            var processesByName = Process.GetProcessesByName("RiotClientUx");
-            var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-            Page1.killleaguefunc(processesByName, processesByName2);
-            DeleteFilesAndFolders(list, championsbought);
-            
-        }
+    public Page7()
+    {
+        InitializeComponent();
+    }
 
-        private string[] list = new string[]
+    private void Button_Click(object sender, RoutedEventArgs e)
+    {
+        var championsbought = "Files \n";
+        var processesByName = Process.GetProcessesByName("RiotClientUx");
+        var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+        Page1.killleaguefunc(processesByName, processesByName2);
+        DeleteFilesAndFolders(list, championsbought);
+    }
+
+    public void DeleteFilesAndFolders(string[] paths, string championsbought)
+    {
+        foreach (var path in paths)
         {
-            "C:\\ProgramData\\Riot Games\\",
-            "C:\\Riot Games\\Riot Client\\UX\\GPUCache",
-            "C:\\Users\\"+ Environment.UserName + "\\AppData\\Local\\Riot Games\\",
-            "C:\\Riot Games\\Riot Client\\UX\\databases-incognito",
-            "C:\\Users\\"+ Environment.UserName + "\\AppData\\LocalLow\\Microsoft\\CryptnetUrlCache\\",
-            "C:\\Riot Games\\Riot Client\\UX\\icudtl.dat",
-            "C:\\Riot Games\\League of Legends\\databases-off-the-record",
-            "C:\\Riot Games\\League of Legends\\debug.log",
-            "C:\\Riot Games\\League of Legends\\Logs",
-            "C:\\Riot Games\\League of Legends\\Config",
-            "C:\\Riot Games\\League of Legends\\icudtl.dat",
-            "C:\\Riot Games\\League of Legends\\system.yaml",
-            "C:\\Riot Games\\League of Legends\\snapshot_blob.bin",
-            "C:\\Riot Games\\League of Legends\\natives_blob.bin",
-            "C:\\Riot Games\\Riot Client\\snapshot_blob.bin",
-            "C:\\Riot Games\\Riot Client\\natives_blob.bin",
-            "C:\\Riot Games\\Riot Client\\UX\\icudtl.dat",
-            "C:\\Riot Games\\Riot Client\\UX\\v8_context_snapshot.bin",
-            "C:\\Riot Games\\Riot Client\\UX\\snapshot_blob.bin",
-            "C:\\Riot Games\\Riot Client\\UX\\natives_blob.bin",
-            "C:\\Riot Games\\League of Legends\\DATA",
-            "C:\\Riot Games\\League of Legends\\v8_context_snapshot.bin"
-        };
-        public void DeleteFilesAndFolders(string[] paths, string championsbought)
-        {
-            foreach (string path in paths)
+            if (File.Exists(path))
             {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                    championsbought = championsbought + "Deleted Item: " + path + "\n";
-                }
-                else if (Directory.Exists(path))
-                {
-                    Directory.Delete(path, true);
-                    championsbought = championsbought + "Deleted Item: " + path + "\n";
-                }
-                else
-                {
-                    championsbought = championsbought + "Failed to delete item or item does not exist: " + path + "\n";
-                }
-                success.Text = championsbought;
+                File.Delete(path);
+                championsbought = championsbought + "Deleted Item: " + path + "\n";
             }
-            championsbought = championsbought + "LOGS HAVE BEEN CLEANED!!!";
+            else if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+                championsbought = championsbought + "Deleted Item: " + path + "\n";
+            }
+            else
+            {
+                championsbought = championsbought + "Failed to delete item or item does not exist: " + path + "\n";
+            }
+
             success.Text = championsbought;
+        }
+
+        championsbought = championsbought + "LOGS HAVE BEEN CLEANED!!!";
+        success.Text = championsbought;
+    }
+
+    private async void Button_Click1(object sender, RoutedEventArgs e)
+    {
+        new Window3().ShowDialog();
+        if (yayornay == 1)
+        {
+            var championsbought = "Friends \n";
+            var resp = await lcu.Connector("league", "get", "/lol-chat/v1/friends", "");
+            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var rankedinfo = JArray.Parse(responseBody2);
+            Console.WriteLine(rankedinfo);
+            foreach (var VARIABLE in rankedinfo)
+            {
+                resp = await lcu.Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
+                championsbought = championsbought + "Deleted Friend: " + VARIABLE["gameName"] + "\n";
+                success.Text = championsbought;
+                Thread.Sleep(400);
+            }
         }
     }
 }
