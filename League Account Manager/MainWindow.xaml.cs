@@ -56,4 +56,9 @@ public partial class MainWindow : UiWindow
     {
         RootFrame.Navigate(new Page6());
     }
+
+    private void NavigationItem_Click_7(object sender, RoutedEventArgs e)
+    {
+        RootFrame.Navigate(new Page7());
+    }
 }

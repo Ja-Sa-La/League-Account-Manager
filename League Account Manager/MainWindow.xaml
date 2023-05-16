@@ -17,7 +17,7 @@
             <RowDefinition Height="761*" />
             <RowDefinition Height="3*" />
         </Grid.RowDefinitions>
-        <ui:NavigationStore Margin="662,-640,668,24" Width="70" RenderTransformOrigin="0.5,0.5">
+        <ui:NavigationStore Margin="668,-634,662,31" Width="70" RenderTransformOrigin="0.5,0.5">
             <ui:NavigationStore.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform />
@@ -30,7 +30,7 @@
                 <ui:NavigationItem
                     Content="Home"
                     Icon="Home24"
-                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" Click="NavigationItem_Click_2">
+                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" Height="65" Width="67" Click="NavigationItem_Click_2">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform />
@@ -44,7 +44,7 @@
                     Content="Add Accounts"
                     Icon="PersonAccounts20"
                     PageTag="dashboard" RenderTransformOrigin="0.5,0.5" Click="NavigationItem_Click_1"
-                    VerticalAlignment="Top" Width="81" Height="62">
+                    VerticalAlignment="Top" Height="65" Width="67">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform />
@@ -57,7 +57,7 @@
                 <ui:NavigationItem
                     Content="Champ select"
                     Icon="Group24"
-                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Top" Width="81" Height="63"
+                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Top" Height="65" Width="67"
                     Click="NavigationItem_Click_3">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
@@ -83,24 +83,10 @@
                     </ui:NavigationItem.RenderTransform>
                 </ui:NavigationItem>
                 <ui:NavigationItem
-                    Content="GC"
-                    Icon="AlertOn24"
-                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
-                    VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_4">
-                    <ui:NavigationItem.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform />
-                            <SkewTransform />
-                            <RotateTransform Angle="90.516" />
-                            <TranslateTransform />
-                        </TransformGroup>
-                    </ui:NavigationItem.RenderTransform>
-                </ui:NavigationItem>
-                <ui:NavigationItem
                     Content="Buy Champs"
                     Icon="Backpack24"
                     PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
-                    VerticalAlignment="Top" Height="66" Width="70" Click="NavigationItem_Click_5">
+                    VerticalAlignment="Top" Height="65" Width="67" Click="NavigationItem_Click_5">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform />
@@ -114,7 +100,21 @@
                     Content="Report tool"
                     Icon="Alert24"
                     PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
-                    VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_6">
+                    VerticalAlignment="Top" Height="65" Width="67" Click="NavigationItem_Click_6">
+                    <ui:NavigationItem.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform />
+                            <SkewTransform />
+                            <RotateTransform Angle="90.516" />
+                            <TranslateTransform />
+                        </TransformGroup>
+                    </ui:NavigationItem.RenderTransform>
+                </ui:NavigationItem>
+                <ui:NavigationItem
+                    Content="Log cleaner"
+                    Icon="BinFull24"
+                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
+                    VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_7">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform />
@@ -146,8 +146,8 @@
         </Border>
         <ui:TitleBar
             Title="League Account Manager"
-            Grid.Row="0" FontFamily="Arial Black" FontSize="20" Height="21" Focusable="True" ShowMaximize="False"
-            CanMaximize="False" Padding="16,0,16,0">
+            Grid.Row="0" FontFamily="Arial Black" FontSize="20" Height="31" Focusable="True" ShowMaximize="False"
+            CanMaximize="False" Padding="0,0,0,0">
             <ui:TitleBar.Tray>
                 <ui:NotifyIcon
                     FocusOnLeftClick="True"
