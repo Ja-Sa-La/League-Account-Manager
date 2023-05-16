@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -10,13 +9,10 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using CsvHelper;
 using CsvHelper.Configuration;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Wpf.Ui.Controls;
-
+using MessageBox = Wpf.Ui.Controls.MessageBox;
 
 namespace League_Account_Manager.views;
 
@@ -31,15 +27,13 @@ public partial class Page1 : Page
     private double running;
 
 
-
     public Page1()
     {
         InitializeComponent();
         loaddata();
-        
     }
 
-    public List<accountlist> jotain { get; private set; }
+    public List<accountlist> jotain { get; }
     public static List<accountlist> ActualAccountlists { get; set; }
 
     public void loaddata()
@@ -47,12 +41,14 @@ public partial class Page1 : Page
         if (File.Exists(Directory.GetCurrentDirectory() + "/List.csv"))
         {
             ActualAccountlists = LoadCSV(Directory.GetCurrentDirectory() + "/List.csv");
-            
         }
         else
         {
             File.Create(Directory.GetCurrentDirectory() + "/List.csv");
+            loaddata();
+            return;
         }
+
         ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
         RemoveDoubleQuotesFromList(ActualAccountlists);
         Championlist.ItemsSource = ActualAccountlists;
@@ -64,10 +60,12 @@ public partial class Page1 : Page
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        accountlist selectedrow = Championlist.SelectedItem as accountlist;
+        var selectedrow = Championlist.SelectedItem as accountlist;
         if (selectedrow != null)
         {
-            var itemToRemove = ActualAccountlists.SingleOrDefault(r => r.username == selectedrow.username &&  r.password == selectedrow.password && r.server == selectedrow.server);
+            var itemToRemove = ActualAccountlists.SingleOrDefault(r =>
+                r.username == selectedrow.username && r.password == selectedrow.password &&
+                r.server == selectedrow.server);
             if (itemToRemove != null)
                 ActualAccountlists.Remove(itemToRemove);
 
@@ -80,6 +78,7 @@ public partial class Page1 : Page
             {
                 csv.WriteRecords(ActualAccountlists);
             }
+
             Championlist.UpdateLayout();
             Championlist.Items.Refresh();
         }
@@ -124,7 +123,7 @@ public partial class Page1 : Page
                     var jotain = JToken.Parse(responseBody2);
                     if (jotain["errorCode"] != "RPC_ERROR")
                     {
-                        Wpf.Ui.Controls.MessageBox MSG = new Wpf.Ui.Controls.MessageBox();
+                        var MSG = new MessageBox();
                         MSG.Show("Fatal error!", "program will now quit");
                         Environment.Exit(1);
                     }
@@ -216,7 +215,7 @@ public partial class Page1 : Page
         }
         else
         {
-            Wpf.Ui.Controls.MessageBox MSG = new Wpf.Ui.Controls.MessageBox();
+            var MSG = new MessageBox();
             MSG.Show("Error", "lcu is still loading, please try again in a bit!");
         }
 
@@ -237,6 +236,7 @@ public partial class Page1 : Page
             else if (i == 1) SelectedPassword = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
             i++;
         }
+
         var processesByName = Process.GetProcessesByName("RiotClientUx");
         var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
         killleaguefunc(processesByName, processesByName2);
@@ -260,17 +260,18 @@ public partial class Page1 : Page
             "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
             "\", \"persistLogin\":\"false\"}");
         var responseBody1 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Delete)
         {
-            accountlist selectedrow = Championlist.SelectedItem as accountlist;
+            var selectedrow = Championlist.SelectedItem as accountlist;
             if (selectedrow != null)
             {
-                var itemToRemove = ActualAccountlists.SingleOrDefault(r => r.username == selectedrow.username && r.password == selectedrow.password && r.server == selectedrow.server);
+                var itemToRemove = ActualAccountlists.SingleOrDefault(r =>
+                    r.username == selectedrow.username && r.password == selectedrow.password &&
+                    r.server == selectedrow.server);
                 if (itemToRemove != null)
                     ActualAccountlists.Remove(itemToRemove);
 
@@ -279,6 +280,7 @@ public partial class Page1 : Page
                 {
                     csv.WriteRecords(ActualAccountlists);
                 }
+
                 Championlist.UpdateLayout();
                 Championlist.Items.Refresh();
             }
@@ -287,22 +289,25 @@ public partial class Page1 : Page
 
     public static void killleaguefunc(dynamic processesByName, dynamic processesByName2)
     {
-        while(processesByName.Length != 0 || processesByName2.Length != 0){
-        var source = new List<string>
+        while (processesByName.Length != 0 || processesByName2.Length != 0)
         {
-            "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler", "LeagueCrashHandler",
-            "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
-        };
-        try
-        {
-            foreach (var item in source.SelectMany(name => Process.GetProcessesByName(name))) item.Kill();
-        }
-        catch (Exception)
-        {
-        }
-        processesByName = Process.GetProcessesByName("RiotClientUx");
-        processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-        Thread.Sleep(1000);
+            var source = new List<string>
+            {
+                "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
+                "LeagueCrashHandler",
+                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
+            };
+            try
+            {
+                foreach (var item in source.SelectMany(name => Process.GetProcessesByName(name))) item.Kill();
+            }
+            catch (Exception)
+            {
+            }
+
+            processesByName = Process.GetProcessesByName("RiotClientUx");
+            processesByName2 = Process.GetProcessesByName("LeagueClientUx");
+            Thread.Sleep(1000);
         }
     }
 
@@ -327,26 +332,17 @@ public partial class Page1 : Page
             "--launch-product=league_of_legends --launch-patchline=live");
     }
 
-    public class accountlist
-    {
-        public string username { get; set; }
-        public string password { get; set; }
-        public string level { get; set; }
-        public string server { get; set; }
-        public string be { get; set; }
-        public string rp { get; set; }
-        public string rank { get; set; }
-        public string champions { get; set; }
-        public string skins { get; set; }
-        public string Loot { get; set; }
-    }
-
     private async void TextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (champfilter.Text != "")
         {
-            List<accountlist> filteredList = ActualAccountlists.Where(word => word.champions.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 || word.skins.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 || word.Loot.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 || word.server.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList(); ;
+            var filteredList = ActualAccountlists.Where(word =>
+                    word.champions.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    word.skins.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    word.Loot.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    word.server.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+            ;
             Championlist.ItemsSource = filteredList;
         }
         else
@@ -360,18 +356,18 @@ public partial class Page1 : Page
 
     public List<accountlist> LoadCSV(string filePath)
     {
-        List<accountlist> records = new List<accountlist>();
+        var records = new List<accountlist>();
 
         try
         {
-            using (StreamReader reader = new StreamReader(filePath))
+            using (var reader = new StreamReader(filePath))
             {
                 while (!reader.EndOfStream)
                 {
-                    string line = reader.ReadLine();
-                    string[] values = line.Split(';');
+                    var line = reader.ReadLine();
+                    var values = line.Split(';');
 
-                    accountlist record = new accountlist
+                    var record = new accountlist
                     {
                         username = values[0],
                         password = values[1],
@@ -382,7 +378,7 @@ public partial class Page1 : Page
                         rank = values[6],
                         champions = values[7],
                         skins = values[8],
-                        Loot = values[9],
+                        Loot = values[9]
                     };
 
                     records.Add(record);
@@ -393,13 +389,13 @@ public partial class Page1 : Page
         {
             Console.WriteLine("An error occurred while loading the CSV file: " + ex.Message);
         }
-        
 
 
         return records;
     }
+
     //Hacky fix for now
-    public static void  RemoveDoubleQuotesFromList(List<accountlist> accountList)
+    public static void RemoveDoubleQuotesFromList(List<accountlist> accountList)
     {
         foreach (var account in accountList)
         {
@@ -418,11 +414,22 @@ public partial class Page1 : Page
 
     public static string RemoveDoubleQuotes(string input)
     {
-        if (string.IsNullOrEmpty(input))
-        {
-            return input;
-        }
+        if (string.IsNullOrEmpty(input)) return input;
 
         return input.Replace("\"", "");
+    }
+
+    public class accountlist
+    {
+        public string username { get; set; }
+        public string password { get; set; }
+        public string level { get; set; }
+        public string server { get; set; }
+        public string be { get; set; }
+        public string rp { get; set; }
+        public string rank { get; set; }
+        public string champions { get; set; }
+        public string skins { get; set; }
+        public string Loot { get; set; }
     }
 }

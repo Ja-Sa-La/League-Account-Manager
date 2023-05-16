@@ -1,6 +1,4 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-using Wpf.Ui.Appearance;
+﻿using System.Windows.Controls;
 
 namespace League_Account_Manager.views;
 

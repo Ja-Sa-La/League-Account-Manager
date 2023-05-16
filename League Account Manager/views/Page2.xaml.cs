@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using CsvHelper;
@@ -22,7 +21,7 @@ public partial class Page2 : Page
         InitializeComponent();
     }
 
-    public List<Page1.accountlist> jotain { get; private set; }
+    public List<Page1.accountlist> jotain { get; }
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
@@ -34,7 +33,8 @@ public partial class Page2 : Page
         {
             MissingPass.Visibility = Visibility.Hidden;
             Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-            Page1.ActualAccountlists.Add(new Page1.accountlist() { username = Username.Text, password = Password.Password });
+            Page1.ActualAccountlists.Add(new Page1.accountlist
+                { username = Username.Text, password = Password.Password });
             Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
             using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
             using (var csv2 = new CsvWriter(writer, config))

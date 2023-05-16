@@ -14,9 +14,11 @@
         <Label Content="Please fill the login info" HorizontalContentAlignment="Center" HorizontalAlignment="Center"
                Margin="0,30,0,0" VerticalAlignment="Top" Width="280" Background="#FF252525" Foreground="#FFC1C1C1"
                FontSize="10" />
-        <ui:TextBox Name="username" PlaceholderText="username" HorizontalAlignment="Left" Margin="10,0,0,0" TextWrapping="Wrap" Text=""
+        <ui:TextBox Name="username" PlaceholderText="username" HorizontalAlignment="Left" Margin="10,0,0,0"
+                    TextWrapping="Wrap" Text=""
                     MinWidth="120" Width="120" />
-        <ui:PasswordBox PlaceholderText="pass" Name="password" HorizontalAlignment="Left" Margin="170,0,0,0" Text="" MinWidth="120"
+        <ui:PasswordBox PlaceholderText="pass" Name="password" HorizontalAlignment="Left" Margin="170,0,0,0" Text=""
+                        MinWidth="120"
                         Width="120" />
         <ui:Button Content="OK" Margin="0,108,0,0" VerticalAlignment="Top" HorizontalAlignment="Center"
                    Click="Button_Click" />

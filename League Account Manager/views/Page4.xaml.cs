@@ -20,7 +20,6 @@ public partial class Page4 : Page
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
-
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
         var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         region = JObject.Parse(responseBody2);
@@ -83,7 +82,8 @@ public partial class Page4 : Page
         var death = 0;
         var assists = 0;
         foreach (var item in rankedinfo2["games"]["games"])
-            if (item["mapId"] == 11 && item["gameType"].ToString() == "MATCHED_GAME" && item["queueId"].ToString() == "420")
+            if (item["mapId"] == 11 && item["gameType"].ToString() == "MATCHED_GAME" &&
+                item["queueId"].ToString() == "420")
             {
                 var jotain = item["participants"][0]["stats"]["win"];
                 if (jotain == true)
