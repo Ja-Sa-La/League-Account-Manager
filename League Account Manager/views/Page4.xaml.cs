@@ -82,8 +82,6 @@ public partial class Page4 : Page
         var kills = 0;
         var death = 0;
         var assists = 0;
-        //420
-        Console.WriteLine(rankedinfo2);
         foreach (var item in rankedinfo2["games"]["games"])
             if (item["mapId"] == 11 && item["gameType"].ToString() == "MATCHED_GAME" && item["queueId"].ToString() == "420")
             {

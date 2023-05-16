@@ -164,8 +164,6 @@ public partial class Page5 : Page
             }
             catch (Exception value)
             {
-                Console.WriteLine(value);
-                Console.WriteLine(val2);
                 statusmessage.Content = "Bought: " + item.Column3 + "! progress: " + count + "/20 Total BE used: " +
                                         totalcost;
                 championsfailed = championsfailed + item.Column3 + " " + val2["message"] + "\n";

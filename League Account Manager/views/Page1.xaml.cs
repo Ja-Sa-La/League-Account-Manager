@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -9,10 +10,13 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Wpf.Ui.Controls;
+
 
 namespace League_Account_Manager.views;
 
@@ -27,49 +31,31 @@ public partial class Page1 : Page
     private double running;
 
 
+
     public Page1()
     {
         InitializeComponent();
         loaddata();
+        
     }
 
-    public List<Page2.Champs> jotain { get; private set; }
+    public List<accountlist> jotain { get; private set; }
+    public static List<accountlist> ActualAccountlists { get; set; }
 
     public void loaddata()
     {
         if (File.Exists(Directory.GetCurrentDirectory() + "/List.csv"))
         {
-            using (var reader = new StreamReader(Directory.GetCurrentDirectory() + "/List.csv"))
-            using (var csv = new CsvReader(reader, config))
-            {
-                // Do any configuration to `CsvReader` before creating CsvDataReader.
-                using (var dr = new CsvDataReader(csv))
-                {
-                    dt.Clear();
-                    dt.Load(dr);
-                    Championlist.ItemsSource = null;
-                    Championlist.ItemsSource = dt.DefaultView;
-                }
-            }
+            ActualAccountlists = LoadCSV(Directory.GetCurrentDirectory() + "/List.csv");
+            
         }
         else
         {
-            var records = new List<champs>
-            {
-                new()
-                {
-                    username = "username", password = "Password", level = "10", server = "EUW", be = "1000",
-                    rp = "1000", rank = "bronze", champions = "10", skins = "10"
-                }
-            };
-            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
-            using (var csv = new CsvWriter(writer, config))
-            {
-                csv.WriteRecords(records);
-            }
-
-            loaddata();
+            File.Create(Directory.GetCurrentDirectory() + "/List.csv");
         }
+        ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
+        RemoveDoubleQuotesFromList(ActualAccountlists);
+        Championlist.ItemsSource = ActualAccountlists;
     }
 
     private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -78,18 +64,24 @@ public partial class Page1 : Page
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        var selectedItem = Championlist.SelectedItem;
-        if (selectedItem != null)
+        accountlist selectedrow = Championlist.SelectedItem as accountlist;
+        if (selectedrow != null)
         {
-            dt.Rows.Remove((Championlist.SelectedItem as DataRowView).Row);
-            var serializeddt = JsonConvert.SerializeObject(dt, Formatting.Indented);
-            var clslist = JsonConvert.DeserializeObject<List<champs>>(serializeddt,
-                new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+            var itemToRemove = ActualAccountlists.SingleOrDefault(r => r.username == selectedrow.username &&  r.password == selectedrow.password && r.server == selectedrow.server);
+            if (itemToRemove != null)
+                ActualAccountlists.Remove(itemToRemove);
+
+
+            ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
+
+
             using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
             using (var csv = new CsvWriter(writer, config))
             {
-                csv.WriteRecords(clslist);
+                csv.WriteRecords(ActualAccountlists);
             }
+            Championlist.UpdateLayout();
+            Championlist.Items.Refresh();
         }
     }
 
@@ -132,7 +124,8 @@ public partial class Page1 : Page
                     var jotain = JToken.Parse(responseBody2);
                     if (jotain["errorCode"] != "RPC_ERROR")
                     {
-                        MessageBox.Show("Fatal error! program will now quit");
+                        Wpf.Ui.Controls.MessageBox MSG = new Wpf.Ui.Controls.MessageBox();
+                        MSG.Show("Fatal error!", "program will now quit");
                         Environment.Exit(1);
                     }
                     else
@@ -206,16 +199,9 @@ public partial class Page1 : Page
             ring();
             skinlist = skincount + " " + skinlist;
             champlist = champcount + " " + champlist;
-            using (var reader = new StreamReader(Directory.GetCurrentDirectory() + "/List.csv"))
-            using (var csv = new CsvReader(reader, config))
-            {
-                var records = csv.GetRecords<Page2.Champs>();
-                jotain = records.ToList();
-            }
-
             ring();
-            jotain.RemoveAll(x => x.username == SelectedUsername);
-            jotain.Add(new Page2.Champs
+            ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
+            ActualAccountlists.Add(new accountlist
             {
                 username = SelectedUsername, password = SelectedPassword, level = summonerinfo["summonerLevel"],
                 server = region["region"], be = wallet["ip"], rp = wallet["rp"], rank = Rank, champions = champlist,
@@ -225,17 +211,17 @@ public partial class Page1 : Page
             using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
             using (var csv2 = new CsvWriter(writer, config))
             {
-                csv2.WriteRecords(jotain);
+                csv2.WriteRecords(ActualAccountlists);
             }
         }
         else
         {
-            MessageBox.Show("Error", "lcu is still loading, please try again in a bit!");
+            Wpf.Ui.Controls.MessageBox MSG = new Wpf.Ui.Controls.MessageBox();
+            MSG.Show("Error", "lcu is still loading, please try again in a bit!");
         }
 
         running = 0;
         Progressgrid.Visibility = Visibility.Hidden;
-        loaddata();
         NavigationService.Refresh();
         Championlist.Items.Refresh();
     }
@@ -274,8 +260,6 @@ public partial class Page1 : Page
             "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
             "\", \"persistLogin\":\"false\"}");
         var responseBody1 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Console.WriteLine(SelectedPassword);
-        Console.WriteLine(SelectedUsername);
 
     }
 
@@ -283,18 +267,20 @@ public partial class Page1 : Page
     {
         if (e.Key == Key.Delete)
         {
-            var selectedItem = Championlist.SelectedItem;
-            if (selectedItem != null)
+            accountlist selectedrow = Championlist.SelectedItem as accountlist;
+            if (selectedrow != null)
             {
-                dt.Rows.Remove((Championlist.SelectedItem as DataRowView).Row);
-                var serializeddt = JsonConvert.SerializeObject(dt, Formatting.Indented);
-                var clslist = JsonConvert.DeserializeObject<List<champs>>(serializeddt,
-                    new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+                var itemToRemove = ActualAccountlists.SingleOrDefault(r => r.username == selectedrow.username && r.password == selectedrow.password && r.server == selectedrow.server);
+                if (itemToRemove != null)
+                    ActualAccountlists.Remove(itemToRemove);
+
                 using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
                 using (var csv = new CsvWriter(writer, config))
                 {
-                    csv.WriteRecords(clslist);
+                    csv.WriteRecords(ActualAccountlists);
                 }
+                Championlist.UpdateLayout();
+                Championlist.Items.Refresh();
             }
         }
     }
@@ -341,7 +327,7 @@ public partial class Page1 : Page
             "--launch-product=league_of_legends --launch-patchline=live");
     }
 
-    public class champs
+    public class accountlist
     {
         public string username { get; set; }
         public string password { get; set; }
@@ -353,5 +339,90 @@ public partial class Page1 : Page
         public string champions { get; set; }
         public string skins { get; set; }
         public string Loot { get; set; }
+    }
+
+    private async void TextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (champfilter.Text != "")
+        {
+            List<accountlist> filteredList = ActualAccountlists.Where(word => word.champions.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 || word.skins.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 || word.Loot.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 || word.server.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList(); ;
+            Championlist.ItemsSource = filteredList;
+        }
+        else
+        {
+            Championlist.ItemsSource = ActualAccountlists;
+        }
+
+        Championlist.UpdateLayout();
+        Championlist.Items.Refresh();
+    }
+
+    public List<accountlist> LoadCSV(string filePath)
+    {
+        List<accountlist> records = new List<accountlist>();
+
+        try
+        {
+            using (StreamReader reader = new StreamReader(filePath))
+            {
+                while (!reader.EndOfStream)
+                {
+                    string line = reader.ReadLine();
+                    string[] values = line.Split(';');
+
+                    accountlist record = new accountlist
+                    {
+                        username = values[0],
+                        password = values[1],
+                        level = values[2],
+                        server = values[3],
+                        be = values[4],
+                        rp = values[5],
+                        rank = values[6],
+                        champions = values[7],
+                        skins = values[8],
+                        Loot = values[9],
+                    };
+
+                    records.Add(record);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("An error occurred while loading the CSV file: " + ex.Message);
+        }
+        
+
+
+        return records;
+    }
+    //Hacky fix for now
+    public static void  RemoveDoubleQuotesFromList(List<accountlist> accountList)
+    {
+        foreach (var account in accountList)
+        {
+            account.username = RemoveDoubleQuotes(account.username);
+            account.password = RemoveDoubleQuotes(account.password);
+            account.level = RemoveDoubleQuotes(account.level);
+            account.server = RemoveDoubleQuotes(account.server);
+            account.be = RemoveDoubleQuotes(account.be);
+            account.rp = RemoveDoubleQuotes(account.rp);
+            account.rank = RemoveDoubleQuotes(account.rank);
+            account.champions = RemoveDoubleQuotes(account.champions);
+            account.skins = RemoveDoubleQuotes(account.skins);
+            account.Loot = RemoveDoubleQuotes(account.Loot);
+        }
+    }
+
+    public static string RemoveDoubleQuotes(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        return input.Replace("\"", "");
     }
 }
