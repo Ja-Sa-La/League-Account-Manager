@@ -1,7 +1,7 @@
 
 # League Account Manager
 
-Allows you to store your smurf accounts in a one place n login to them with a click of a button.
+Allows you to store your league of legends smurf accounts in a one place n login to them with a click of a button.
 Was made to test some stuff in lcu and as a coding excersise.
 
 
