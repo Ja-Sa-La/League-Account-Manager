@@ -35,6 +35,7 @@ internal class lcu
         if (target == "riot")
         {
             var processes = Process.GetProcessesByName("RiotClientUx");
+            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (processes.Length > 0)
             {
                 string Value;
@@ -45,7 +46,7 @@ internal class lcu
                 Riot.path = processes[0].MainModule.FileName;
                 Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
             }
-            else
+            else if (leagueclientprocess.Length > 0)
             {
                 var processes2 = Process.GetProcessesByName("LeagueClientUx");
                 string Value;
@@ -55,6 +56,10 @@ internal class lcu
                 Riot.token = showMatch(Riot.Value, "--riotclient-auth-token=([\\w-]*)");
                 Riot.path = processes2[0].MainModule.FileName;
                 Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
+            }
+            else
+            {
+                return 0;
             }
 
             smth = Riot.port.Split("=");

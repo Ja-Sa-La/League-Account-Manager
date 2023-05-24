@@ -14,7 +14,7 @@
         <Label Name="statusmessage" Content="Currently buying: " HorizontalAlignment="Left" Margin="182,10,0,0"
                VerticalAlignment="Top" Height="40" Width="1175" FontSize="24" />
         <TextBlock Name="success" HorizontalAlignment="Left" Margin="10,75,0,0" Text="Bought champions" Width="363"
-                   Foreground="White" FontSize="18" Height="611" VerticalAlignment="Top" />
+                   Foreground="White" FontSize="18" Height="365" VerticalAlignment="Top" />
         <TextBlock Name="failure" HorizontalAlignment="Left" Margin="400,75,0,10" Text="Failed to Buy" Width="363"
                    Foreground="White" FontSize="18" />
     </Grid>

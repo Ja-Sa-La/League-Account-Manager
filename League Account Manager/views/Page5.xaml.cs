@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using Notification.Wpf;
 
 namespace League_Account_Manager.views;
 
@@ -153,6 +154,13 @@ public partial class Page5 : Page
                 "{\"items\":[{\"itemKey\":{\"inventoryType\":\"CHAMPION\",\"itemId\":" + item.Column1 +
                 "},\"purchaseCurrencyInfo\":{\"currencyType\":\"IP\",\"price\":" + item.Column2 +
                 ",\"purchasable\":true},\"source\":\"cdp\",\"quantity\":1}]}");
+            if (val.ToString() == "0")
+            {
+                notif.notificationManager.Show("Error", "League of legends client is not running!",
+                    NotificationType.Error, "WindowArea", onClick: () => notif.donothing());
+                return;
+            }
+
             var val2 = JsonArray.Parse(await val.Content.ReadAsStringAsync().ConfigureAwait(false));
             try
             {

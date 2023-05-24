@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using CsvHelper;
 using CsvHelper.Configuration;
+using Notification.Wpf;
 
 namespace League_Account_Manager.views;
 
@@ -21,26 +22,27 @@ public partial class Page2 : Page
         InitializeComponent();
     }
 
+
     public List<Page1.accountlist> jotain { get; }
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private void Button_Click(object sender, RoutedEventArgs e)
     {
         if (Password.Password == "" || Username.Text == "")
         {
-            MissingPass.Visibility = Visibility.Visible;
+            notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Error,
+                "WindowArea", onClick: () => notif.donothing());
+            return;
         }
-        else
+
+        Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
+        Page1.ActualAccountlists.Add(new Page1.accountlist
+            { username = Username.Text, password = Password.Password });
+        Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+        using (var writer =
+               new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
+        using (var csv2 = new CsvWriter(writer, config))
         {
-            MissingPass.Visibility = Visibility.Hidden;
-            Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-            Page1.ActualAccountlists.Add(new Page1.accountlist
-                { username = Username.Text, password = Password.Password });
-            Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
-            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
-            using (var csv2 = new CsvWriter(writer, config))
-            {
-                csv2.WriteRecords(Page1.ActualAccountlists);
-            }
+            csv2.WriteRecords(Page1.ActualAccountlists);
         }
     }
 
@@ -54,7 +56,8 @@ public partial class Page2 : Page
                 username = item.username,
                 password = item.password
             });
-        using var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv");
+        using var writer =
+            new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
         using var csvWriter = new CsvWriter(writer, config);
         Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
         csvWriter.WriteRecords(Page1.ActualAccountlists);

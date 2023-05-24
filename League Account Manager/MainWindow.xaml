@@ -9,7 +9,9 @@
     mc:Ignorable="d"
     Title="MainWindow" Height="800" Width="1400"
     AllowsTransparency="True"
-    Background="Transparent">
+    Background="Transparent"
+    xmlns:notifications="clr-namespace:Notification.Wpf.Controls;assembly=Notification.Wpf">
+
     <Grid
         x:Name="RootMainGrid"
         Margin="0,0,0,0">
@@ -17,7 +19,9 @@
             <RowDefinition Height="761*" />
             <RowDefinition Height="3*" />
         </Grid.RowDefinitions>
+
         <ui:NavigationStore Margin="668,-634,662,31" Width="70" RenderTransformOrigin="0.5,0.5">
+
             <ui:NavigationStore.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform />
@@ -156,5 +160,6 @@
                     TooltipText="League Account Manager" />
             </ui:TitleBar.Tray>
         </ui:TitleBar>
+        <notifications:NotificationArea x:Name="WindowArea" Position="TopRight" MaxItems="1" Margin="-3,-7,3,7" />
     </Grid>
 </ui:UiWindow>
