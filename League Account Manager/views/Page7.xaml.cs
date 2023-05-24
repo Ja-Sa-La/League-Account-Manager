@@ -5,6 +5,8 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
+using Notification.Wpf;
+using static League_Account_Manager.lcu;
 
 namespace League_Account_Manager.views;
 
@@ -87,13 +89,20 @@ public partial class Page7 : Page
         if (yayornay == 1)
         {
             var championsbought = "Friends \n";
-            var resp = await lcu.Connector("league", "get", "/lol-chat/v1/friends", "");
+            var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
+            if (resp.ToString() == "0")
+            {
+                notif.notificationManager.Show("Error", "League of legends client is not running!",
+                    NotificationType.Error, "WindowArea", onClick: notif.donothing);
+                return;
+            }
+
             var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var rankedinfo = JArray.Parse(responseBody2);
             Console.WriteLine(rankedinfo);
             foreach (var VARIABLE in rankedinfo)
             {
-                resp = await lcu.Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
+                resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
                 championsbought = championsbought + "Deleted Friend: " + VARIABLE["gameName"] + "\n";
                 success.Text = championsbought;
                 Thread.Sleep(400);

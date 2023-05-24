@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
@@ -12,7 +13,7 @@ using System.Windows.Input;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Newtonsoft.Json.Linq;
-using MessageBox = Wpf.Ui.Controls.MessageBox;
+using Notification.Wpf;
 
 namespace League_Account_Manager.views;
 
@@ -21,7 +22,8 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Page1 : Page
 {
-    public static string SelectedUsername, SelectedPassword;
+    public static string? SelectedUsername;
+    public static string? SelectedPassword;
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     public DataTable dt = new();
     private double running;
@@ -38,13 +40,14 @@ public partial class Page1 : Page
 
     public void loaddata()
     {
-        if (File.Exists(Directory.GetCurrentDirectory() + "/List.csv"))
+        if (File.Exists(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
         {
-            ActualAccountlists = LoadCSV(Directory.GetCurrentDirectory() + "/List.csv");
+            ActualAccountlists =
+                LoadCSV(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
         }
         else
         {
-            File.Create(Directory.GetCurrentDirectory() + "/List.csv");
+            File.Create(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
             loaddata();
             return;
         }
@@ -52,6 +55,7 @@ public partial class Page1 : Page
         ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
         RemoveDoubleQuotesFromList(ActualAccountlists);
         Championlist.ItemsSource = ActualAccountlists;
+        Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
     }
 
     private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -73,7 +77,8 @@ public partial class Page1 : Page
             ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
 
 
-            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
+            using (var writer =
+                   new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
             using (var csv = new CsvWriter(writer, config))
             {
                 csv.WriteRecords(ActualAccountlists);
@@ -92,6 +97,14 @@ public partial class Page1 : Page
 
     private async void PullData_Click(object sender, RoutedEventArgs e)
     {
+        var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
+        if (leagueclientprocess.Length == 0)
+        {
+            notif.notificationManager.Show("Error", "League of legends client is not running!", NotificationType.Error,
+                "WindowArea", onClick: () => notif.donothing());
+            return;
+        }
+
         if (SelectedUsername == null || SelectedPassword == null) new Window1().ShowDialog();
         Progressgrid.Visibility = Visibility.Visible;
         ring();
@@ -122,15 +135,9 @@ public partial class Page1 : Page
                 {
                     var jotain = JToken.Parse(responseBody2);
                     if (jotain["errorCode"] != "RPC_ERROR")
-                    {
-                        var MSG = new MessageBox();
-                        MSG.Show("Fatal error!", "program will now quit");
                         Environment.Exit(1);
-                    }
                     else
-                    {
                         Thread.Sleep(2000);
-                    }
                 }
 
             ring();
@@ -207,16 +214,11 @@ public partial class Page1 : Page
                 skins = skinlist, Loot = Lootlist
             });
             ring();
-            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
+            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + Settings.settingsloaded.filename))
             using (var csv2 = new CsvWriter(writer, config))
             {
                 csv2.WriteRecords(ActualAccountlists);
             }
-        }
-        else
-        {
-            var MSG = new MessageBox();
-            MSG.Show("Error", "lcu is still loading, please try again in a bit!");
         }
 
         running = 0;
@@ -259,7 +261,14 @@ public partial class Page1 : Page
         resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
             "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
             "\", \"persistLogin\":\"false\"}");
-        var responseBody1 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var responseBody1 = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+        if (responseBody1["error"] == "auth_failure")
+        {
+            notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
+                "WindowArea", onClick: () => notif.donothing());
+        }
+
+        ;
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
@@ -269,13 +278,16 @@ public partial class Page1 : Page
             var selectedrow = Championlist.SelectedItem as accountlist;
             if (selectedrow != null)
             {
-                var itemToRemove = ActualAccountlists.SingleOrDefault(r =>
+                var itemToRemove = ActualAccountlists.FindAll(r =>
                     r.username == selectedrow.username && r.password == selectedrow.password &&
                     r.server == selectedrow.server);
                 if (itemToRemove != null)
-                    ActualAccountlists.Remove(itemToRemove);
+                    foreach (var VARIABLE in itemToRemove)
+                        ActualAccountlists.Remove(VARIABLE);
 
-                using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "/List.csv"))
+
+                using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "\\" +
+                                                     Settings.settingsloaded.filename + ".csv"))
                 using (var csv = new CsvWriter(writer, config))
                 {
                     csv.WriteRecords(ActualAccountlists);
@@ -387,7 +399,9 @@ public partial class Page1 : Page
         }
         catch (Exception ex)
         {
-            Console.WriteLine("An error occurred while loading the CSV file: " + ex.Message);
+            notif.notificationManager.Show("Error", "An error occurred while loading the CSV file",
+                NotificationType.Error,
+                "WindowArea", onClick: () => notif.donothing());
         }
 
 
@@ -412,7 +426,7 @@ public partial class Page1 : Page
         }
     }
 
-    public static string RemoveDoubleQuotes(string input)
+    public static string? RemoveDoubleQuotes(string? input)
     {
         if (string.IsNullOrEmpty(input)) return input;
 
@@ -421,15 +435,15 @@ public partial class Page1 : Page
 
     public class accountlist
     {
-        public string username { get; set; }
-        public string password { get; set; }
-        public string level { get; set; }
-        public string server { get; set; }
-        public string be { get; set; }
-        public string rp { get; set; }
-        public string rank { get; set; }
-        public string champions { get; set; }
-        public string skins { get; set; }
-        public string Loot { get; set; }
+        public string? username { get; set; }
+        public string? password { get; set; }
+        public string? level { get; set; }
+        public string? server { get; set; }
+        public string? be { get; set; }
+        public string? rp { get; set; }
+        public string? rank { get; set; }
+        public string? champions { get; set; }
+        public string? skins { get; set; }
+        public string? Loot { get; set; }
     }
 }

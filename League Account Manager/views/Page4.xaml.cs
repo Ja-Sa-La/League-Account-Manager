@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
+using Notification.Wpf;
 
 namespace League_Account_Manager.views;
 
@@ -21,6 +22,13 @@ public partial class Page4 : Page
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+        if (resp.ToString() == "0")
+        {
+            notif.notificationManager.Show("Error", "League of legends client is not running!", NotificationType.Error,
+                "WindowArea", onClick: () => notif.donothing());
+            return;
+        }
+
         var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         region = JObject.Parse(responseBody2);
         resp = await lcu.Connector("riot", "get", "/chat/v5/participants/champ-select", "");

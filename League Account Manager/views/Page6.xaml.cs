@@ -2,6 +2,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
+using Notification.Wpf;
+using static League_Account_Manager.lcu;
 
 namespace League_Account_Manager.views;
 
@@ -19,10 +21,17 @@ public partial class Page6 : Page
     {
         try
         {
-            var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/summoners?name=" + playername.Text, "");
+            var resp = await Connector("league", "get", "/lol-summoner/v1/summoners?name=" + playername.Text, "");
+            if (resp.ToString() == "0")
+            {
+                notif.notificationManager.Show("Error", "League of legends client is not running!",
+                    NotificationType.Error, "WindowArea", onClick: () => notif.donothing());
+                return;
+            }
+
             var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var rankedinfo = JObject.Parse(responseBody);
-            var resp2 = await lcu.Connector("league", "get",
+            var resp2 = await Connector("league", "get",
                 "/lol-match-history/v1/products/lol/" + rankedinfo["puuid"].ToString() +
                 "/matches?begIndex=0&endIndex=0", "");
             var responseBody2 = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -34,7 +43,7 @@ public partial class Page6 : Page
                                       ",\"categories\":[\"NEGATIVE_ATTITUDE\",\"VERBAL_ABUSE\",\"HATE_SPEECH\"],\"offenderSummonerId\":" +
                                       rankedinfo["accountId"].ToString() + ",\"offenderPuuid\":\"" +
                                       rankedinfo["puuid"].ToString() + "\"}";
-                resp = await lcu.Connector("league", "post", "/lol-end-of-game/v2/player-reports", reportstring);
+                resp = await Connector("league", "post", "/lol-end-of-game/v2/player-reports", reportstring);
                 var responseBody3 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             }
 
