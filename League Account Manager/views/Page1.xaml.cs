@@ -206,6 +206,7 @@ public partial class Page1 : Page
             skinlist = skincount + " " + skinlist;
             champlist = champcount + " " + champlist;
             ring();
+            Console.WriteLine("a1");
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
             ActualAccountlists.Add(new accountlist
             {
@@ -213,16 +214,20 @@ public partial class Page1 : Page
                 server = region["region"], be = wallet["ip"], rp = wallet["rp"], rank = Rank, champions = champlist,
                 skins = skinlist, Loot = Lootlist
             });
+            Console.WriteLine("a1");
             ring();
-            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + Settings.settingsloaded.filename))
+            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
             using (var csv2 = new CsvWriter(writer, config))
             {
                 csv2.WriteRecords(ActualAccountlists);
             }
-        }
+            Console.WriteLine("a1");
 
+        }
         running = 0;
         Progressgrid.Visibility = Visibility.Hidden;
+        Championlist.ItemsSource = ActualAccountlists;
+        Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
         NavigationService.Refresh();
         Championlist.Items.Refresh();
     }
