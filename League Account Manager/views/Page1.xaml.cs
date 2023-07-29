@@ -149,9 +149,13 @@ public partial class Page1 : Page
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var Rankedinfo = JToken.Parse(responseBody2);
             ring();
-            resp = await lcu.Connector("league", "get", "/lol-store/v1/wallet", "");
+            resp = await lcu.Connector("league", "get", "/lol-inventory/v1/wallet/lol_blue_essence", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var wallet = JToken.Parse(responseBody2);
+            wallet Wallet = new wallet();
+            Wallet.be = JToken.Parse(responseBody2)["lol_blue_essence"];
+            resp = await lcu.Connector("league", "get", "/lol-inventory/v1/wallet/RP", "");
+            responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            Wallet.rp = JToken.Parse(responseBody2)["RP"];
             ring();
             resp = await lcu.Connector("league", "get", "/riotclient/get_region_locale", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -211,7 +215,7 @@ public partial class Page1 : Page
             ActualAccountlists.Add(new accountlist
             {
                 username = SelectedUsername, password = SelectedPassword, level = summonerinfo["summonerLevel"],
-                server = region["region"], be = wallet["ip"], rp = wallet["rp"], rank = Rank, champions = champlist,
+                server = region["region"], be = Wallet.be, rp = Wallet.rp, rank = Rank, champions = champlist,
                 skins = skinlist, Loot = Lootlist
             });
             Console.WriteLine("a1");
@@ -450,5 +454,10 @@ public partial class Page1 : Page
         public string? champions { get; set; }
         public string? skins { get; set; }
         public string? Loot { get; set; }
+    }
+    public class wallet
+    {
+        public string? be { get; set; }
+        public string? rp { get; set; }
     }
 }
