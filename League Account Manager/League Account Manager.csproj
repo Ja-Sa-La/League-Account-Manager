@@ -10,6 +10,7 @@
     <Platforms>x64</Platforms>
     <SignAssembly>False</SignAssembly>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
+    <Configurations>Debug;Release;Test</Configurations>
 
   </PropertyGroup>
   <PropertyGroup>
@@ -26,9 +27,10 @@
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="30.0.1" />
+    <PackageReference Include="FlaUI.UIA3" Version="4.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Notification.Wpf" Version="7.0.0" />
-    <PackageReference Include="WPF-UI" Version="2.0.3" />
+    <PackageReference Include="Notification.Wpf" Version="7.0.0.2" />
+    <PackageReference Include="WPF-UI" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup>

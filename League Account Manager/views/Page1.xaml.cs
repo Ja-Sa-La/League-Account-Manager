@@ -6,14 +6,20 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using CsvHelper;
 using CsvHelper.Configuration;
+using FlaUI.Core;
+using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
+using FlaUI.UIA3;
 using Newtonsoft.Json.Linq;
 using Notification.Wpf;
+
 
 namespace League_Account_Manager.views;
 
@@ -253,8 +259,9 @@ public partial class Page1 : Page
         killleaguefunc(processesByName, processesByName2);
 
         var num = 0;
-        Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+        Process RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
             "--launch-product=league_of_legends --launch-patchline=live");
+        
         while (processesByName.Length == 0 || processesByName2.Length == 0)
         {
             processesByName2 = Process.GetProcessesByName("RiotClientUxRender");
@@ -263,21 +270,75 @@ public partial class Page1 : Page
             num++;
             if (num == 5) return;
         }
+        while(true){
+            try
+            {
+                FlaUI.Core.Application app = FlaUI.Core.Application.Attach("RiotClientUx");
+                Console.WriteLine(app.ProcessId);
+                using (var automation = new UIA3Automation())
+                {
+                    AutomationElement window = app.GetMainWindow(automation);
+                    AutomationElement riotcontent =
+                        window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
 
-        var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
-            "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
-        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
-            "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
-            "\", \"persistLogin\":\"false\"}");
-        var responseBody1 = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        if (responseBody1["error"] == "auth_failure")
-        {
-            notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
-                "WindowArea", onClick: () => notif.donothing());
+
+                    var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
+                        .AsTextBox();
+                    if (usernameField == null)
+                    {
+                        throw new Exception("Username field not found");
+                    }
+
+
+                    // Find the password field
+                    var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
+                        .AsTextBox();
+                    if (passwordField == null)
+                    {
+                        throw new Exception("Password field not found");
+                    }
+
+
+                    // Find the login button
+                    AutomationElement[] Buttons = riotcontent.FindAllChildren(cf => cf.ByControlType(ControlType.Button));
+                    if (Buttons == null)
+                    {
+                        throw new Exception("Login button not found");
+                    }
+                    var signInElement = Buttons.FirstOrDefault(element => element.Name == "Sign in").AsButton();
+
+
+
+
+                    foreach (var button in Buttons)
+                    {
+                        Console.WriteLine(button);
+                    }
+                    usernameField.Text = SelectedUsername;
+                    passwordField.Text = SelectedPassword;
+                    
+                    while (!signInElement.IsEnabled)
+                    {
+                        Thread.Sleep(100);
+                    }
+                    signInElement.Click();
+                   
+                    bool authStatus = false;
+                    if (!authStatus)
+                    {
+                        notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
+                            "WindowArea", onClick: () => notif.donothing());
+                    }
+
+                    break;
+                }
+
+            }
+            catch (Exception)
+            {
+                Thread.Sleep(100);
+            }
         }
-
-        ;
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
