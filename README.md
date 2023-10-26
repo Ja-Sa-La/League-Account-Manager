@@ -28,6 +28,4 @@ Just download the binary and you are done
 ```
 Requires .net 7.0 to run
 ```
-    
-## 🔗 Links
-[Discord](https://discord.gg/ggez)
+
