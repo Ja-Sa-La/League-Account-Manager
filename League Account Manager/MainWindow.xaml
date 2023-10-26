@@ -62,7 +62,7 @@
                 <ui:NavigationItem
                     Content="Champ select"
                     Icon="Group24"
-                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Top" Height="65" Width="67"
+                    PageTag="dashboard" RenderTransformOrigin="0.5,0.5" VerticalAlignment="Top" Height="65" Width="70"
                     Click="NavigationItem_Click_3">
                     <ui:NavigationItem.RenderTransform>
                         <TransformGroup>

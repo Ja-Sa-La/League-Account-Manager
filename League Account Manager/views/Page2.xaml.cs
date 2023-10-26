@@ -49,6 +49,8 @@ public partial class Page2 : Page
     private void Button_Click_1(object sender, RoutedEventArgs e)
     {
         new Window2().ShowDialog();
+        if (bulkadd.Count < 1)
+            return;
         Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
         foreach (var item in bulkadd)
             Page1.ActualAccountlists.Add(new Page1.accountlist

@@ -18,6 +18,10 @@ public partial class Window2 : Window
     {
         var array = accountlogins.Text.Split(new string[1] { Environment.NewLine }, StringSplitOptions.None);
         Page2.bulkadd.Clear();
+        if (array.Length < 1 || array[0].Length == 0)
+        {
+            Close();return;
+        }
         var array2 = array;
         for (var i = 0; i < array2.Length; i++)
         {
