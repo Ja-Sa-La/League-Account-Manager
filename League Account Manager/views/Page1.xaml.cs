@@ -163,7 +163,7 @@ public partial class Page1 : Page
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             Wallet.rp = JToken.Parse(responseBody2)["RP"];
             ring();
-            resp = await lcu.Connector("league", "get", "/riotclient/get_region_locale", "");
+            resp = await lcu.Connector("league", "get", "/riotclient/region-locale", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var region = JToken.Parse(responseBody2);
             ring();
@@ -255,8 +255,8 @@ public partial class Page1 : Page
         }
 
         var processesByName = Process.GetProcessesByName("RiotClientUx");
-        var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-        killleaguefunc(processesByName, processesByName2);
+        var processesByName2 = Process.GetProcessesByName("RiotClientServices");
+        killleaguefunc();
 
         var num = 0;
         Process RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
@@ -317,14 +317,9 @@ public partial class Page1 : Page
                     {
                         Thread.Sleep(100);
                     }
-                    signInElement.Click();
-                   
-                    bool authStatus = false;
-                    if (!authStatus)
-                    {
-                        notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
-                            "WindowArea", onClick: () => notif.donothing());
-                    }
+                    signInElement.Invoke();
+                    
+
 
                     break;
                 }
@@ -365,42 +360,53 @@ public partial class Page1 : Page
         }
     }
 
-    public static void killleaguefunc(dynamic processesByName, dynamic processesByName2)
+    public static void killleaguefunc()
     {
-        while (processesByName.Length != 0 || processesByName2.Length != 0)
+        var source = new string[]
         {
-            var source = new List<string>
+            "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
+            "LeagueCrashHandler",
+            "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
+        };
+
+        bool allProcessesKilled = false;
+
+        while (!allProcessesKilled)
+        {
+            allProcessesKilled = true;
+
+            foreach (var processName in source)
             {
-                "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
-                "LeagueCrashHandler",
-                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
-            };
-            try
-            {
-                foreach (var item in source.SelectMany(name => Process.GetProcessesByName(name))) item.Kill();
-            }
-            catch (Exception)
-            {
+                var processes = Process.GetProcessesByName(processName);
+
+                foreach (var process in processes)
+                {
+                    process.Kill();
+                    allProcessesKilled = false;
+                }
             }
 
-            processesByName = Process.GetProcessesByName("RiotClientUx");
-            processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-            Thread.Sleep(1000);
+            if (!allProcessesKilled)
+            {
+                // Wait for a moment before checking again
+                Thread.Sleep(1000); // You can adjust the time interval if needed
+            }
         }
+
+        
     }
 
     private void killleague_Click(object sender, RoutedEventArgs e)
     {
-        var processesByName = Process.GetProcessesByName("RiotClientUx");
-        var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-        killleaguefunc(processesByName, processesByName2);
+
+        killleaguefunc();
     }
 
     private void openleague1_Click(object sender, RoutedEventArgs e)
     {
         var processesByName = Process.GetProcessesByName("RiotClientUx");
         var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-        killleaguefunc(processesByName, processesByName2);
+        killleaguefunc();
         openleague();
     }
 
