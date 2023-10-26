@@ -51,9 +51,7 @@ public partial class Page7 : Page
     private void Button_Click(object sender, RoutedEventArgs e)
     {
         var championsbought = "Files \n";
-        var processesByName = Process.GetProcessesByName("RiotClientUx");
-        var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-        Page1.killleaguefunc(processesByName, processesByName2);
+        Page1.killleaguefunc();
         DeleteFilesAndFolders(list, championsbought);
     }
 
@@ -108,5 +106,34 @@ public partial class Page7 : Page
                 Thread.Sleep(400);
             }
         }
+    }
+    private async void Button_Click2(object sender, RoutedEventArgs e)
+    {
+        string friendlist = "";
+            var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
+            if (resp.ToString() == "0")
+            {
+                notif.notificationManager.Show("Error", "League of legends client is not running!",
+                    NotificationType.Error, "WindowArea", onClick: notif.donothing);
+                return;
+            }
+
+                var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                JArray rankedinfo = JArray.Parse(responseBody2);
+                Console.WriteLine(rankedinfo);
+        foreach (var VARIABLE in rankedinfo)
+        {
+            var resp2 = await Connector("league", "get",
+                "/lol-match-history/v1/products/lol/" + VARIABLE["puuid"].ToString() +
+                "/matches?begIndex=0&endIndex=0", "");
+             dynamic Game = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
+             Console.WriteLine(Game);
+            var rankedinfo2 = JObject.Parse(Game);
+            Console.Write(rankedinfo2["games"]["games"][0]["gameCreation"]);
+            long date = (long)rankedinfo2["games"]["games"][0]["gameCreation"] / 1000;
+            friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " RiotID: " + VARIABLE["gameName"] +"#" + VARIABLE["gameTag"] + " LastPlayed: " + DateTimeOffset.FromUnixTimeSeconds(date).ToString("dd/MM/yyyy") + "\n";
+            success.Text = friendlist;
+        }
+
     }
 }

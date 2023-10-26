@@ -116,7 +116,7 @@
                     </ui:NavigationItem.RenderTransform>
                 </ui:NavigationItem>
                 <ui:NavigationItem
-                    Content="Cleaner"
+                    Content="Misc"
                     Icon="BinFull24"
                     PageTag="dashboard" RenderTransformOrigin="0.5,0.5"
                     VerticalAlignment="Top" Height="66" Width="62" Click="NavigationItem_Click_7">
