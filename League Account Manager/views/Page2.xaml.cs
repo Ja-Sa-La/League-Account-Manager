@@ -9,66 +9,55 @@ using Notification.Wpf;
 
 namespace League_Account_Manager.views;
 
-/// <summary>
-///     Interaction logic for Page2.xaml
-/// </summary>
 public partial class Page2 : Page
 {
-    public static List<usernamelist> bulkadd = new();
-    private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
+    public static List<UserNameList> BulkAdd = new();
+    private readonly CsvConfiguration _config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
 
     public Page2()
     {
         InitializeComponent();
     }
 
-
-    public List<Page1.accountlist> jotain { get; }
+    public List<Page1.accountlist> AccountLists { get; }
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
-        if (Password.Password == "" || Username.Text == "")
+        if (string.IsNullOrWhiteSpace(Password.Password) || string.IsNullOrWhiteSpace(Username.Text))
         {
             notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Error,
                 "WindowArea", onClick: () => notif.donothing());
             return;
         }
 
-        Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-        Page1.ActualAccountlists.Add(new Page1.accountlist
-            { username = Username.Text, password = Password.Password });
-        Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
-        using (var writer =
-               new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
-        using (var csv2 = new CsvWriter(writer, config))
-        {
-            csv2.WriteRecords(Page1.ActualAccountlists);
-        }
+        UpdateAccountList(Username.Text, Password.Password);
     }
 
     private void Button_Click_1(object sender, RoutedEventArgs e)
     {
         new Window2().ShowDialog();
-        if (bulkadd.Count < 1)
+
+        if (BulkAdd.Count < 1)
             return;
+
+        foreach (var item in BulkAdd) UpdateAccountList(item.Username, item.Password);
+    }
+
+    private void UpdateAccountList(string username, string password)
+    {
         Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-        foreach (var item in bulkadd)
-            Page1.ActualAccountlists.Add(new Page1.accountlist
-            {
-                username = item.username,
-                password = item.password
-            });
-        using var writer =
-            new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
-        using var csvWriter = new CsvWriter(writer, config);
+        Page1.ActualAccountlists.Add(new Page1.accountlist { username = username, password = password });
         Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+
+        using var writer =
+            new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"));
+        using var csvWriter = new CsvWriter(writer, _config);
         csvWriter.WriteRecords(Page1.ActualAccountlists);
     }
 
-    public class usernamelist
+    public class UserNameList
     {
-        public string username { get; set; }
-
-        public string password { get; set; }
+        public string Username { get; set; }
+        public string Password { get; set; }
     }
 }
