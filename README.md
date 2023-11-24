@@ -17,7 +17,8 @@ Was made to test some stuff in lcu and as a coding excersise.
 - Report players you have not even played with
 - All done in lcu no autoclicker scripts!
 
-![League_Account_Manager](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/1a481fb4-b83d-4e3c-9fa1-3edbf2afa9cc)
+![League_Account_Manager_uHJXomJJQa](https://github.com/Ja-Sa-La/League-Account-Manager/assets/54846990/5f6d7770-03e0-4464-a79f-6f6f6db817eb)
+
 
 
 
