@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using Notification.Wpf;
 using static League_Account_Manager.lcu;
@@ -108,51 +106,47 @@ public partial class Page7 : Page
             }
         }
     }
+
     private async void Button_Click2(object sender, RoutedEventArgs e)
     {
-        string friendlist = "";
-            var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
-            if (resp.ToString() == "0")
+        var friendlist = "";
+        var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
+        if (resp.ToString() == "0")
+        {
+            notif.notificationManager.Show("Error", "League of legends client is not running!",
+                NotificationType.Error, "WindowArea", onClick: notif.donothing);
+            return;
+        }
+
+        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        JArray rankedinfo = JArray.Parse(responseBody2);
+        Console.WriteLine(rankedinfo);
+        foreach (var VARIABLE in rankedinfo)
+            try
             {
-                notif.notificationManager.Show("Error", "League of legends client is not running!",
-                    NotificationType.Error, "WindowArea", onClick: notif.donothing);
-                return;
-            }
-
-                var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                JArray rankedinfo = JArray.Parse(responseBody2);
-                Console.WriteLine(rankedinfo);
-                foreach (var VARIABLE in rankedinfo)
+                var resp2 = await Connector("league", "get",
+                    "/lol-match-history/v1/products/lol/" + VARIABLE["puuid"] +
+                    "/matches?begIndex=0&endIndex=0", "");
+                var Game = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var rankedinfo2 = JObject.Parse(Game);
+                if (rankedinfo2["games"]["gameCount"] == 0)
                 {
-                    try
-                    {
-                        var resp2 = await Connector("league", "get",
-                            "/lol-match-history/v1/products/lol/" + VARIABLE["puuid"].ToString() +
-                            "/matches?begIndex=0&endIndex=0", "");
-                        dynamic Game = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        var rankedinfo2 = JObject.Parse(Game);
-                        if (rankedinfo2["games"]["gameCount"] == 0)
-                        {
-                            friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " ,RiotID: " +
-                                         VARIABLE["gameName"] + "#" + VARIABLE["gameTag"] + " ,LastPlayed: " +
-                                         "Inactive account"  + "\n";
-                            success.Text = friendlist;
+                    friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " ,RiotID: " +
+                                 VARIABLE["gameName"] + "#" + VARIABLE["gameTag"] + " ,LastPlayed: " +
+                                 "Inactive account" + "\n";
+                    success.Text = friendlist;
                 }
-                        else
-                        {
-                            long date = (long)rankedinfo2["games"]["games"][0]["gameCreation"] / 1000;
-                            friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " ,RiotID: " +
-                                         VARIABLE["gameName"] + "#" + VARIABLE["gameTag"] + " ,LastPlayed: " +
-                                         DateTimeOffset.FromUnixTimeSeconds(date).ToString("dd/MM/yyyy") + "\n";
-                            success.Text = friendlist;
+                else
+                {
+                    var date = (long)rankedinfo2["games"]["games"][0]["gameCreation"] / 1000;
+                    friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " ,RiotID: " +
+                                 VARIABLE["gameName"] + "#" + VARIABLE["gameTag"] + " ,LastPlayed: " +
+                                 DateTimeOffset.FromUnixTimeSeconds(date).ToString("dd/MM/yyyy") + "\n";
+                    success.Text = friendlist;
                 }
-
-                    }
-                    catch (Exception ex)
-                    {
-                      
-                    }
-                }
-
+            }
+            catch (Exception ex)
+            {
+            }
     }
 }

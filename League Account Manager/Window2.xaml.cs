@@ -16,20 +16,22 @@ public partial class Window2 : Window
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
-        var array = accountlogins.Text.Split(new string[1] { Environment.NewLine }, StringSplitOptions.None);
-        Page2.bulkadd.Clear();
-        if (array.Length < 1 || array[0].Length == 0)
+        var lines = accountlogins.Text.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+        Page2.BulkAdd.Clear();
+
+        if (lines.Length < 1 || string.IsNullOrWhiteSpace(lines[0]))
         {
-            Close();return;
+            Close();
+            return;
         }
-        var array2 = array;
-        for (var i = 0; i < array2.Length; i++)
+
+        foreach (var line in lines)
         {
-            var array3 = array2[i].Split(":");
-            Page2.bulkadd.Add(new Page2.usernamelist
+            var credentials = line.Split(":");
+            Page2.BulkAdd.Add(new Page2.UserNameList
             {
-                username = array3[0],
-                password = array3[1]
+                Username = credentials[0],
+                Password = credentials[1]
             });
         }
 

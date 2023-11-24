@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -21,165 +19,132 @@ internal class lcu
 
     public static async Task<dynamic> Connector(string target, string mode, string endpoint, string data)
     {
-        var clientHandler = new HttpClientHandler();
-        clientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
+        var clientHandler = new HttpClientHandler
         {
-            return true;
+            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
         };
         var client = new HttpClient(clientHandler);
 
-        string[] smth;
-        string[] smth1;
+        string[] portSplit, tokenSplit;
         byte[] token;
 
         if (target == "riot")
         {
-            var processes = Process.GetProcessesByName("RiotClientUx");
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (processes.Length > 0)
+            var riotProcess = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
+            var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
+
+            if (riotProcess != null)
             {
-                string Value;
-                ProcessCommandLine.Retrieve(processes[0], out Value);
-                Riot.Value = Value;
-                Riot.port = showMatch(Riot.Value, "-app-port=(\\d*)");
-                Riot.token = showMatch(Riot.Value, "--remoting-auth-token=([\\w-]*)");
-                Riot.path = processes[0].MainModule.FileName;
-                Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
+                ProcessCommandLine.Retrieve(riotProcess, out var value);
+                SetRiotValues(riotProcess, value);
             }
-            else if (leagueclientprocess.Length > 0)
+            else if (leagueClientProcess != null)
             {
-                var processes2 = Process.GetProcessesByName("LeagueClientUx");
-                string Value;
-                ProcessCommandLine.Retrieve(processes2[0], out Value);
-                Riot.Value = Value;
-                Riot.port = showMatch(Riot.Value, "--riotclient-app-port=(\\d*)");
-                Riot.token = showMatch(Riot.Value, "--riotclient-auth-token=([\\w-]*)");
-                Riot.path = processes2[0].MainModule.FileName;
-                Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
+                ProcessCommandLine.Retrieve(leagueClientProcess, out var value);
+                SetRiotValues(leagueClientProcess, value, true);
             }
             else
             {
                 return 0;
             }
 
-            smth = Riot.port.Split("=");
-            smth1 = Riot.token.Split("=");
-            token = Encoding.UTF8.GetBytes("riot:" + smth1[1]);
-            client.DefaultRequestHeaders.Add("Host", "127.0.0.1:" + smth[1]);
-            client.DefaultRequestHeaders.Add("Connection", "keep-alive");
-            client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(token));
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.DefaultRequestHeaders.Add("Access-Control-Allow-Credentials", "true");
-            client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "127.0.0.1");
-            client.DefaultRequestHeaders.Add("Origin", "127.0.0.1:" + smth[1]);
-            client.DefaultRequestHeaders.Add("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) RiotClient/" +
-                Riot.version.FileVersion + " (CEF 74) Safari/537.36");
-            client.DefaultRequestHeaders.Add("X-Riot-Source", "127.0.0.1:" + smth[1]);
-            client.DefaultRequestHeaders.Add("sec-ch-ua", "Chromium");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-User", "?F");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "same-origin");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
-            client.DefaultRequestHeaders.Add("Referer", "https://127.0.0.1:" + smth[1] + "/index.html");
-            client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
-            client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+            portSplit = Riot.port.Split("=");
+            tokenSplit = Riot.token.Split("=");
+            token = Encoding.UTF8.GetBytes("riot:" + tokenSplit[1]);
+            SetClientHeaders(client, portSplit[1], token, Riot.version.FileVersion);
         }
         else
         {
-            var processes = Process.GetProcessesByName("LeagueClientUx");
-            if (processes.Length < 1) return 0;
-            string Value;
-            ProcessCommandLine.Retrieve(processes[0], out Value);
-            League.Value = Value;
-            League.port = showMatch(League.Value, "--app-port=(\\d*)");
-            League.token = showMatch(League.Value, "--remoting-auth-token=([\\w-]*)");
-            League.path = processes[0].MainModule.FileName;
-            League.version = FileVersionInfo.GetVersionInfo(League.path);
-            smth = League.port.Split("=");
-            smth1 = League.token.Split("=");
-            token = Encoding.UTF8.GetBytes("riot:" + smth1[1]);
-            client.DefaultRequestHeaders.Add("Host", "127.0.0.1:" + smth[1]);
-            client.DefaultRequestHeaders.Add("Connection", "keep-alive");
-            client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(token));
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.DefaultRequestHeaders.Add("Origin", "127.0.0.1:" + smth[1]);
-            client.DefaultRequestHeaders.Add("Access-Control-Allow-Credentials", "true");
-            client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "127.0.0.1");
-            client.DefaultRequestHeaders.Add("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) RiotClient/" +
-                League.version.FileVersion + " (CEF 74) Safari/537.36");
-            client.DefaultRequestHeaders.Add("X-Riot-Source", "127.0.0.1:" + smth[1]);
-            client.DefaultRequestHeaders.Add("sec-ch-ua", "Chromium");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-User", "?F");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "same-origin");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
-            client.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
-            client.DefaultRequestHeaders.Add("Referer", "https://127.0.0.1:" + smth[1] + "/index.html");
-            client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
-            client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+            var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
+            if (leagueClientProcess == null) return 0;
+
+            ProcessCommandLine.Retrieve(leagueClientProcess, out var value);
+            SetLeagueValues(leagueClientProcess, value);
+
+            portSplit = League.port.Split("=");
+            tokenSplit = League.token.Split("=");
+            token = Encoding.UTF8.GetBytes("riot:" + tokenSplit[1]);
+            SetClientHeaders(client, portSplit[1], token, League.version.FileVersion);
         }
 
+        return await SendRequest(client, mode, endpoint, data, portSplit[1]);
+    }
+
+    private static void SetRiotValues(Process process, string value, bool isLeagueClient = false)
+    {
+        Riot.Value = value;
+        Riot.port = showMatch(Riot.Value, isLeagueClient ? "--riotclient-app-port=(\\d*)" : "-app-port=(\\d*)");
+        Riot.token = showMatch(Riot.Value,
+            isLeagueClient ? "--riotclient-auth-token=([\\w-]*)" : "--remoting-auth-token=([\\w-]*)");
+        Riot.path = process.MainModule.FileName;
+        Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
+    }
+
+    private static void SetLeagueValues(Process process, string value)
+    {
+        League.Value = value;
+        League.port = showMatch(League.Value, "--app-port=(\\d*)");
+        League.token = showMatch(League.Value, "--remoting-auth-token=([\\w-]*)");
+        League.path = process.MainModule.FileName;
+        League.version = FileVersionInfo.GetVersionInfo(League.path);
+    }
+
+    private static void SetClientHeaders(HttpClient client, string port, byte[] token, string version)
+    {
+        client.DefaultRequestHeaders.Add("Host", "127.0.0.1:" + port);
+        client.DefaultRequestHeaders.Add("Connection", "keep-alive");
+        client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(token));
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+        client.DefaultRequestHeaders.Add("Access-Control-Allow-Credentials", "true");
+        client.DefaultRequestHeaders.Add("Access-Control-Allow-Origin", "127.0.0.1");
+        client.DefaultRequestHeaders.Add("Origin", "127.0.0.1:" + port);
+        client.DefaultRequestHeaders.Add("User-Agent",
+            $"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) RiotClient/{version} (CEF 74) Safari/537.36");
+        client.DefaultRequestHeaders.Add("X-Riot-Source", "127.0.0.1:" + port);
+        client.DefaultRequestHeaders.Add("sec-ch-ua", "Chromium");
+        client.DefaultRequestHeaders.Add("Sec-Fetch-User", "?F");
+        client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "same-origin");
+        client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
+        client.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
+        client.DefaultRequestHeaders.Add("Referer", "https://127.0.0.1:" + port + "/index.html");
+        client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, be");
+        client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+    }
+
+    private static async Task<dynamic> SendRequest(HttpClient client, string mode, string endpoint, string data,
+        string port)
+    {
         HttpResponseMessage response;
+        var url = "";
+        if (endpoint.Contains("https"))
+            url = endpoint;
+        else
+            url = $"https://127.0.0.1:{port}{endpoint}";
+
+        Console.WriteLine(url);
+
         switch (mode)
         {
             case "get":
-                if (data != null)
-                {
-                    HttpContent content = new StringContent(data, Encoding.UTF8, "application/json");
-                    response = await client.GetAsync("https://127.0.0.1:" + smth[1] + endpoint);
-                    client.Dispose();
-                    return response;
-                }
-                else
-                {
-                    HttpContent content = new StringContent("", Encoding.UTF8, "application/json");
-                    response = await client.GetAsync("https://127.0.0.1:" + smth[1] + endpoint);
-                    client.Dispose();
-                    return response;
-                }
+                url += string.IsNullOrEmpty(data) ? "" : "?" + data;
+                response = await client.GetAsync(url);
+                break;
             case "post":
-                if (data != null)
-                {
-                    HttpContent content = new StringContent(data, Encoding.UTF8, "application/json");
-                    response = await client.PostAsync("https://127.0.0.1:" + smth[1] + endpoint, content);
-                    client.Dispose();
-                    return response;
-                }
-                else
-                {
-                    HttpContent content = new StringContent("", Encoding.UTF8, "application/json");
-                    response = await client.PostAsync("https://127.0.0.1:" + smth[1] + endpoint, content);
-                    client.Dispose();
-                    return response;
-                }
-
             case "put":
-                if (data != null)
-                {
-                    HttpContent content = new StringContent(data, Encoding.UTF8, "application/json");
-                    response = await client.PutAsync("https://127.0.0.1:" + smth[1] + endpoint, content);
-                    client.Dispose();
-                    return response;
-                }
-                else
-                {
-                    HttpContent content = new StringContent("", Encoding.UTF8, "application/json");
-                    response = await client.PutAsync("https://127.0.0.1:" + smth[1] + endpoint, content);
-                    client.Dispose();
-                    return response;
-                }
-
+                var content = new StringContent(string.IsNullOrEmpty(data) ? "" : data, Encoding.UTF8,
+                    "application/json");
+                response = mode == "post" ? await client.PostAsync(url, content) : await client.PutAsync(url, content);
+                break;
             case "delete":
-            {
-                HttpContent content = new StringContent(data, Encoding.UTF8, "application/json");
-                response = await client.DeleteAsync("https://127.0.0.1:" + smth[1] + endpoint);
+                response = await client.DeleteAsync(url);
+                break;
+            default:
                 client.Dispose();
-                return response;
-            }
+                return "NoResponse";
         }
 
-        return "NoResponse";
+        client.Dispose();
+        return response;
     }
 
     private static string showMatch(string text, string expr)
@@ -226,19 +191,6 @@ public static class ProcessCommandLine
         return false;
     }
 
-    public static string ErrorToString(int error)
-    {
-        return new[]
-        {
-            "Success",
-            "Failed to open process for reading",
-            "Failed to query process information",
-            "PEB address was null",
-            "Failed to read PEB information",
-            "Failed to read process parameters",
-            "Failed to read command line from process"
-        }[Math.Abs(error)];
-    }
 
     public static int Retrieve(Process process, out string commandLine)
     {
@@ -327,29 +279,6 @@ public static class ProcessCommandLine
             rc = -1;
 
         return rc;
-    }
-
-    public static IReadOnlyList<string> CommandLineToArgs(string commandLine)
-    {
-        if (string.IsNullOrEmpty(commandLine)) return Array.Empty<string>();
-
-        var argv = Win32Native.CommandLineToArgv(commandLine, out var argc);
-        if (argv == nint.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
-        try
-        {
-            var args = new string[argc];
-            for (var i = 0; i < args.Length; ++i)
-            {
-                var p = Marshal.ReadIntPtr(argv, i * nint.Size);
-                args[i] = Marshal.PtrToStringUni(p);
-            }
-
-            return args.ToList().AsReadOnly();
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(argv);
-        }
     }
 
     public static class Win32Native

@@ -6,20 +6,18 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using CsvHelper;
 using CsvHelper.Configuration;
-using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
 using Newtonsoft.Json.Linq;
 using Notification.Wpf;
-
+using Application = FlaUI.Core.Application;
 
 namespace League_Account_Manager.views;
 
@@ -122,6 +120,7 @@ public partial class Page1 : Page
             resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var summonerinfo = JObject.Parse(responseBody2);
+            Console.WriteLine(summonerinfo.ToString());
             ring();
             resp = await lcu.Connector("league", "get", "/lol-catalog/v1/items/CHAMPION_SKIN", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -157,7 +156,7 @@ public partial class Page1 : Page
             ring();
             resp = await lcu.Connector("league", "get", "/lol-inventory/v1/wallet/lol_blue_essence", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            wallet Wallet = new wallet();
+            var Wallet = new wallet();
             Wallet.be = JToken.Parse(responseBody2)["lol_blue_essence"];
             resp = await lcu.Connector("league", "get", "/lol-inventory/v1/wallet/RP", "");
             responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -220,20 +219,22 @@ public partial class Page1 : Page
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
             ActualAccountlists.Add(new accountlist
             {
-                username = SelectedUsername, password = SelectedPassword, level = summonerinfo["summonerLevel"],
+                username = SelectedUsername, password = SelectedPassword,
+                riotID = summonerinfo["gameName"] + "#" + summonerinfo["tagLine"],
+                level = summonerinfo["summonerLevel"],
                 server = region["region"], be = Wallet.be, rp = Wallet.rp, rank = Rank, champions = champlist,
                 skins = skinlist, Loot = Lootlist
             });
 
             ring();
-            using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
+            using (var writer =
+                   new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
             using (var csv2 = new CsvWriter(writer, config))
             {
                 csv2.WriteRecords(ActualAccountlists);
             }
-
-
         }
+
         running = 0;
         Progressgrid.Visibility = Visibility.Hidden;
         Championlist.ItemsSource = ActualAccountlists;
@@ -254,82 +255,68 @@ public partial class Page1 : Page
             i++;
         }
 
-        var processesByName = Process.GetProcessesByName("RiotClientUx");
-        var processesByName2 = Process.GetProcessesByName("RiotClientServices");
-        killleaguefunc();
 
+        killleaguefunc();
+        Process[] leagueProcess;
         var num = 0;
-        Process RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+        var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
             "--launch-product=league_of_legends --launch-patchline=live");
-        
-        while (processesByName.Length == 0 || processesByName2.Length == 0)
+
+        while (true)
         {
-            processesByName2 = Process.GetProcessesByName("RiotClientUxRender");
-            processesByName = Process.GetProcessesByName("RiotClientUx");
+            if (Process.GetProcessesByName("RiotClientUxRender").Length != 0 &&
+                Process.GetProcessesByName("RiotClientUx").Length != 0)
+                break;
+
             Thread.Sleep(2000);
             num++;
             if (num == 5) return;
         }
-        while(true){
+
+        while (true)
             try
             {
-                FlaUI.Core.Application app = FlaUI.Core.Application.Attach("RiotClientUx");
+                var app = Application.Attach("RiotClientUx");
 
                 using (var automation = new UIA3Automation())
                 {
                     AutomationElement window = app.GetMainWindow(automation);
-                    AutomationElement riotcontent =
+                    var riotcontent =
                         window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
 
 
                     var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
                         .AsTextBox();
-                    if (usernameField == null)
-                    {
-                        throw new Exception("Username field not found");
-                    }
+                    if (usernameField == null) throw new Exception("Username field not found");
 
 
                     // Find the password field
                     var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
                         .AsTextBox();
-                    if (passwordField == null)
-                    {
-                        throw new Exception("Password field not found");
-                    }
+                    if (passwordField == null) throw new Exception("Password field not found");
 
 
                     // Find the login button
-                    AutomationElement[] Buttons = riotcontent.FindAllChildren(cf => cf.ByControlType(ControlType.Button));
-                    if (Buttons == null)
-                    {
-                        throw new Exception("Login button not found");
-                    }
+                    AutomationElement[] Buttons =
+                        riotcontent.FindAllChildren(cf => cf.ByControlType(ControlType.Button));
+                    if (Buttons == null) throw new Exception("Login button not found");
                     var signInElement = Buttons.FirstOrDefault(element => element.Name == "Sign in").AsButton();
-
-
 
 
                     usernameField.Text = SelectedUsername;
                     passwordField.Text = SelectedPassword;
-                    
-                    while (!signInElement.IsEnabled)
-                    {
-                        Thread.Sleep(100);
-                    }
+
+                    while (!signInElement.IsEnabled) Thread.Sleep(100);
                     signInElement.Invoke();
-                    
 
 
                     break;
                 }
-
             }
             catch (Exception)
             {
                 Thread.Sleep(100);
             }
-        }
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
@@ -362,14 +349,14 @@ public partial class Page1 : Page
 
     public static void killleaguefunc()
     {
-        var source = new string[]
+        var source = new[]
         {
             "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
             "LeagueCrashHandler",
             "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
         };
 
-        bool allProcessesKilled = false;
+        var allProcessesKilled = false;
 
         while (!allProcessesKilled)
         {
@@ -387,18 +374,13 @@ public partial class Page1 : Page
             }
 
             if (!allProcessesKilled)
-            {
                 // Wait for a moment before checking again
                 Thread.Sleep(1000); // You can adjust the time interval if needed
-            }
         }
-
-        
     }
 
     private void killleague_Click(object sender, RoutedEventArgs e)
     {
-
         killleaguefunc();
     }
 
@@ -509,6 +491,7 @@ public partial class Page1 : Page
     {
         public string? username { get; set; }
         public string? password { get; set; }
+        public string? riotID { get; set; }
         public string? level { get; set; }
         public string? server { get; set; }
         public string? be { get; set; }
@@ -518,6 +501,7 @@ public partial class Page1 : Page
         public string? skins { get; set; }
         public string? Loot { get; set; }
     }
+
     public class wallet
     {
         public string? be { get; set; }
