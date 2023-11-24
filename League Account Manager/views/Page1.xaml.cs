@@ -437,14 +437,15 @@ public partial class Page1 : Page
                     {
                         username = values[0],
                         password = values[1],
-                        level = values[2],
-                        server = values[3],
-                        be = values[4],
-                        rp = values[5],
-                        rank = values[6],
-                        champions = values[7],
-                        skins = values[8],
-                        Loot = values[9]
+                        riotID = values[2],
+                        level = values[3],
+                        server = values[4],
+                        be = values[5],
+                        rp = values[6],
+                        rank = values[7],
+                        champions = values[8],
+                        skins = values[9],
+                        Loot = values[10]
                     };
 
                     records.Add(record);
@@ -469,6 +470,7 @@ public partial class Page1 : Page
         {
             account.username = RemoveDoubleQuotes(account.username);
             account.password = RemoveDoubleQuotes(account.password);
+            account.riotID = RemoveDoubleQuotes(account.riotID);
             account.level = RemoveDoubleQuotes(account.level);
             account.server = RemoveDoubleQuotes(account.server);
             account.be = RemoveDoubleQuotes(account.be);
