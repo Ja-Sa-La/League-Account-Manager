@@ -264,8 +264,7 @@ public partial class Page1 : Page
 
         while (true)
         {
-            if (Process.GetProcessesByName("RiotClientUxRender").Length != 0 &&
-                Process.GetProcessesByName("RiotClientUx").Length != 0)
+            if (Process.GetProcessesByName("RiotClientUx").Length != 0)
                 break;
 
             Thread.Sleep(2000);
@@ -301,8 +300,6 @@ public partial class Page1 : Page
                         riotcontent.FindAllChildren(cf => cf.ByControlType(ControlType.Button));
                     if (Buttons == null) throw new Exception("Login button not found");
                     var signInElement = Buttons.FirstOrDefault(element => element.Name == "Sign in").AsButton();
-
-
                     usernameField.Text = SelectedUsername;
                     passwordField.Text = SelectedPassword;
 
@@ -313,8 +310,9 @@ public partial class Page1 : Page
                     break;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine(ex);
                 Thread.Sleep(100);
             }
     }

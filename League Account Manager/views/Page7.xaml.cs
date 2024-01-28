@@ -58,6 +58,10 @@ public partial class Page7 : Page
     {
         foreach (var path in paths)
         {
+            try
+            {
+
+
             if (File.Exists(path))
             {
                 File.Delete(path);
@@ -72,7 +76,12 @@ public partial class Page7 : Page
             {
                 championsbought = championsbought + "Failed to delete item or item does not exist: " + path + "\n";
             }
+            }
+            catch (Exception e)
+            {
+                championsbought = championsbought + "Failed to delete item or item does not exist: " + path + " , make sure that LAM is running as admin\n";
 
+            }
             success.Text = championsbought;
         }
 
