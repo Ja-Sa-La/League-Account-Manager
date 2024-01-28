@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,13 +31,13 @@ public partial class Page4 : Page
         }
 
         region = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("riot", "get", "/chat/v5/participants/champ-select", "");
+        resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
         var players = JObject.Parse(await GetResponseBody(resp));
-        Console.WriteLine(players);
         var i = 0;
-
         foreach (var player in players["participants"])
         {
+            if (!player["cid"].ToString().Contains("champ-select"))
+            continue;
             var playerText = FindName($"Player{i + 1}") as TextBox;
             playerText.Text = player["game_name"] + "#" + player["game_tag"];
             pullrankedinfo(player["puuid"], i);
@@ -45,15 +47,19 @@ public partial class Page4 : Page
 
     private async void pullrankedinfo(dynamic puuid, int I)
     {
+        try
+        {
+
+
         var resp = await lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
         var rankedinfo = JObject.Parse(await GetResponseBody(resp));
         resp = await lcu.Connector("league", "get",
             $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
         var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
 
-        var gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
-        var wr = gameStats.Wins / (gameStats.Wins + gameStats.Losses);
-        var kda = (gameStats.Kills + gameStats.Assists) / gameStats.Deaths;
+        Gamestats gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
+        double wr = (double)(gameStats.Wins / (gameStats.Wins + gameStats.Losses));
+        double kda = (double)((gameStats.Kills + gameStats.Assists) / gameStats.Deaths);
 
         var playerPeak = FindName($"player{I + 1}peak") as ContentControl;
         var playerRank = FindName($"player{I + 1}rank") as ContentControl;
@@ -64,12 +70,17 @@ public partial class Page4 : Page
         playerRank.Content =
             $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
         playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+
+        }
     }
 
     private async Task<string> GetResponseBody(dynamic resp)
     {
         var data = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        Console.WriteLine(data);
         return data;
     }
 
@@ -136,13 +147,15 @@ public partial class Page4 : Page
     {
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
         region = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("riot", "get", "/chat/v5/participants/champ-select", "");
+        resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
         var players = JObject.Parse(await GetResponseBody(resp));
         var url = $"https://www.op.gg/multisearch/{region["region"]}?summoners=";
 
-        foreach (var player in players["participants"])
-            url += $"{player["name"]},";
-
+        foreach (var player in players["participants"]){
+            if (!player["cid"].ToString().Contains("champ-select"))
+                continue;
+        url += $"{player["game_name"]}%23{player["game_tag"]},";
+        }
         OpenUrl(url);
     }
 
@@ -150,13 +163,17 @@ public partial class Page4 : Page
     {
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
         region = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("riot", "get", "/chat/v5/participants/champ-select", "");
+        resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
         var players = JObject.Parse(await GetResponseBody(resp));
         var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
 
-        foreach (var player in players["participants"])
-            url += $"{player["game_name"]}-{player["game_tag"]},";
+        foreach (var player in players["participants"]){
+            if (!player["cid"].ToString().Contains("champ-select"))
+                continue;
+        url += $"{player["game_name"]} -{player["game_tag"]},";
+        }
 
+        url = url.Remove(url.Length - 1, 1);
         OpenUrl(url);
     }
 
@@ -170,15 +187,14 @@ public partial class Page4 : Page
         var resp = await lcu.Connector("league", "post",
             "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",
             "");
-        Console.WriteLine(resp);
     }
 }
 
 public class Gamestats
 {
-    public int? Wins { get; set; }
-    public int? Losses { get; set; }
-    public int? Kills { get; set; }
-    public int? Deaths { get; set; }
-    public int? Assists { get; set; }
+    public double? Wins { get; set; }
+    public double? Losses { get; set; }
+    public double? Kills { get; set; }
+    public double? Deaths { get; set; }
+    public double? Assists { get; set; }
 }
