@@ -507,4 +507,49 @@ public partial class Page1 : Page
         public string? be { get; set; }
         public string? rp { get; set; }
     }
+
+    private async void Login_Copy_Click(object sender, RoutedEventArgs e)
+    {
+        var i = 0;
+        DataGridCellInfo cellinfo;
+        foreach (var row in Championlist.SelectedCells)
+        {
+            if (i == 0)
+                SelectedUsername = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
+            else if (i == 1) SelectedPassword = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
+            i++;
+        }
+
+
+        killleaguefunc();
+        Process[] leagueProcess;
+        var num = 0;
+        var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+            "--launch-product=league_of_legends --launch-patchline=live");
+
+        while (true)
+        {
+            if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+                break;
+
+            Thread.Sleep(2000);
+            num++;
+            if (num == 5) return;
+        }
+
+        var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
+            "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
+        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
+            "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
+            "\", \"persistLogin\":\"false\"}");
+        var responseBody1 = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+        if (responseBody1["error"] == "auth_failure")
+        {
+            notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
+                "WindowArea", onClick: () => notif.donothing());
+        }
+
+        ;
+    }
 }
