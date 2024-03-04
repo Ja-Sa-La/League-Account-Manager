@@ -191,25 +191,25 @@ public partial class Page1 : Page
 
             ring();
             foreach (var item in LootInfo)
-            foreach (var thing in item)
-                if (thing["count"] > 0)
-                {
-                    resp = await lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + thing["lootId"], "");
-                    responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    try
+                foreach (var thing in item)
+                    if (thing["count"] > 0)
                     {
-                        var Loot = JObject.Parse(responseBody2);
-                        if (Loot["itemDesc"] != "")
-                            Lootlist = Lootlist + " : " + Loot["itemDesc"] + "x" + Loot["count"];
-                        else if (Loot["localizedName"] != "")
-                            Lootlist = Lootlist + " : " + Loot["localizedName"] + "x" + Loot["count"];
-                        else
-                            Lootlist = Lootlist + " : " + Loot["asset"] + "x" + Loot["count"];
+                        resp = await lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + thing["lootId"], "");
+                        responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        try
+                        {
+                            var Loot = JObject.Parse(responseBody2);
+                            if (Loot["itemDesc"] != "")
+                                Lootlist = Lootlist + " : " + Loot["itemDesc"] + "x" + Loot["count"];
+                            else if (Loot["localizedName"] != "")
+                                Lootlist = Lootlist + " : " + Loot["localizedName"] + "x" + Loot["count"];
+                            else
+                                Lootlist = Lootlist + " : " + Loot["asset"] + "x" + Loot["count"];
+                        }
+                        catch (Exception ex)
+                        {
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                    }
-                }
 
             ring();
             skinlist = skincount + " " + skinlist;
@@ -219,11 +219,17 @@ public partial class Page1 : Page
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
             ActualAccountlists.Add(new accountlist
             {
-                username = SelectedUsername, password = SelectedPassword,
+                username = SelectedUsername,
+                password = SelectedPassword,
                 riotID = summonerinfo["gameName"] + "#" + summonerinfo["tagLine"],
                 level = summonerinfo["summonerLevel"],
-                server = region["region"], be = Wallet.be, rp = Wallet.rp, rank = Rank, champions = champlist,
-                skins = skinlist, Loot = Lootlist
+                server = region["region"],
+                be = Wallet.be,
+                rp = Wallet.rp,
+                rank = Rank,
+                champions = champlist,
+                skins = skinlist,
+                Loot = Lootlist
             });
 
             ring();
@@ -264,7 +270,7 @@ public partial class Page1 : Page
 
         while (true)
         {
-            if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+            if (Process.GetProcessesByName("Riot Client").Length != 0)
                 break;
 
             Thread.Sleep(2000);
@@ -275,7 +281,7 @@ public partial class Page1 : Page
         while (true)
             try
             {
-                var app = Application.Attach("RiotClientUx");
+                var app = Application.Attach("Riot Client");
 
                 using (var automation = new UIA3Automation())
                 {
@@ -296,18 +302,18 @@ public partial class Page1 : Page
 
 
                     // Find the login button
-                    AutomationElement[] Buttons =
-                        riotcontent.FindAllChildren(cf => cf.ByControlType(ControlType.Button));
-                    if (Buttons == null) throw new Exception("Login button not found");
-                    var signInElement = Buttons.FirstOrDefault(element => element.Name == "Sign in").AsButton();
+                    var signInElement = riotcontent.FindFirstByXPath("/Button[7]").AsButton();
+                    if (signInElement == null) throw new Exception("Login button not found");
+
                     usernameField.Text = SelectedUsername;
                     passwordField.Text = SelectedPassword;
-
-                    while (!signInElement.IsEnabled) Thread.Sleep(100);
-                    signInElement.Invoke();
-
-
-                    break;
+                    if (signInElement != null)
+                    {
+                        while (!signInElement.IsEnabled) Thread.Sleep(100);
+                        signInElement.Invoke();
+                        break;
+                    }
+                    Thread.Sleep(1000);
                 }
             }
             catch (Exception ex)
@@ -384,7 +390,7 @@ public partial class Page1 : Page
 
     private void openleague1_Click(object sender, RoutedEventArgs e)
     {
-        var processesByName = Process.GetProcessesByName("RiotClientUx");
+        var processesByName = Process.GetProcessesByName("Riot Client");
         var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
         killleaguefunc();
         openleague();
@@ -529,14 +535,12 @@ public partial class Page1 : Page
 
         while (true)
         {
-            if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+            if (Process.GetProcessesByName("Riot Client").Length != 0)
                 break;
-
             Thread.Sleep(2000);
             num++;
             if (num == 5) return;
         }
-
         var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
             "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
         var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
