@@ -13,7 +13,7 @@
             <ColumnDefinition Width="73*" />
             <ColumnDefinition Width="102*" />
         </Grid.ColumnDefinitions>
-        <DataGrid x:Name="Championlist" SelectionUnit="FullRow" SelectionChanged="DataGrid_SelectionChanged"
+        <DataGrid x:Name="Championlist" SelectionUnit="FullRow" MouseLeftButtonDown="Championlist_MouseLeftButtonDown" Loaded="Championlist_Loaded"  SelectionChanged="DataGrid_SelectionChanged"
                   IsReadOnly="True"
                   HorizontalContentAlignment="Stretch"
                   ColumnWidth="auto" SelectionMode="Single" Margin="0,36,0,0" Grid.ColumnSpan="2">

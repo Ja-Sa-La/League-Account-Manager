@@ -31,6 +31,8 @@ internal class lcu
         if (target == "riot")
         {
             var riotProcess = Process.GetProcessesByName("Riot Client").FirstOrDefault();
+            if (riotProcess == null)
+            riotProcess = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
             var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
 
             if (riotProcess != null)

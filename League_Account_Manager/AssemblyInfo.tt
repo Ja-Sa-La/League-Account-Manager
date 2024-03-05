@@ -37,7 +37,7 @@ using System.Resources;
 
 <#+
     int major = 1;
-    int minor = 0;
+    int minor = 1;
     int revision = 0;
     int build = 0;
 #>
