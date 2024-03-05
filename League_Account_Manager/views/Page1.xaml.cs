@@ -1,22 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using CsvHelper;
+using CsvHelper.Configuration;
+using FlaUI.Core.AutomationElements;
+using FlaUI.UIA3;
+using Newtonsoft.Json.Linq;
+using Notification.Wpf;
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using CsvHelper;
-using CsvHelper.Configuration;
-using FlaUI.Core.AutomationElements;
-using FlaUI.Core.Definitions;
-using FlaUI.UIA3;
-using Newtonsoft.Json.Linq;
-using Notification.Wpf;
 using Application = FlaUI.Core.Application;
 
 namespace League_Account_Manager.views;
@@ -31,6 +26,8 @@ public partial class Page1 : Page
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     public DataTable dt = new();
     private double running;
+    private bool Executing;
+
 
 
     public Page1()
@@ -60,6 +57,7 @@ public partial class Page1 : Page
         RemoveDoubleQuotesFromList(ActualAccountlists);
         Championlist.ItemsSource = ActualAccountlists;
         Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+
     }
 
     private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -87,7 +85,7 @@ public partial class Page1 : Page
             {
                 csv.WriteRecords(ActualAccountlists);
             }
-
+            loaddata();
             Championlist.UpdateLayout();
             Championlist.Items.Refresh();
         }
@@ -171,13 +169,14 @@ public partial class Page1 : Page
             var champlist = "";
             var champcount = 0;
             var Lootlist = "";
+            var Lootcount = 0;
             string Rank = " Rank: " + Rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"] + " With: " +
-                          Rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["wins"] + "Wins and " +
+                          Rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["wins"] + " Wins and " +
                           Rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["losses"] + " Losses";
             foreach (var item in Skininfo)
                 if (item["owned"] != "false")
                 {
-                    skinlist = skinlist + " : " + item["name"];
+                    skinlist = skinlist + ":" + item["name"];
                     skincount++;
                 }
 
@@ -185,7 +184,7 @@ public partial class Page1 : Page
             foreach (var item in Champinfo)
                 if (item["ownership"]["owned"] != "false")
                 {
-                    champlist = champlist + " : " + item["name"];
+                    champlist = champlist + ":" + item["name"];
                     champcount++;
                 }
 
@@ -200,20 +199,19 @@ public partial class Page1 : Page
                         {
                             var Loot = JObject.Parse(responseBody2);
                             if (Loot["itemDesc"] != "")
-                                Lootlist = Lootlist + " : " + Loot["itemDesc"] + "x" + Loot["count"];
+                                Lootlist = Lootlist + ":" + Loot["itemDesc"] + " x " + Loot["count"];
                             else if (Loot["localizedName"] != "")
-                                Lootlist = Lootlist + " : " + Loot["localizedName"] + "x" + Loot["count"];
+                                Lootlist = Lootlist + ":" + Loot["localizedName"] + " x " + Loot["count"];
                             else
-                                Lootlist = Lootlist + " : " + Loot["asset"] + "x" + Loot["count"];
+                                Lootlist = Lootlist + ":" + Loot["asset"] + " x " + Loot["count"];
                         }
                         catch (Exception ex)
                         {
                         }
+                        Lootcount++;
                     }
 
             ring();
-            skinlist = skincount + " " + skinlist;
-            champlist = champcount + " " + champlist;
             ring();
 
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
@@ -228,8 +226,11 @@ public partial class Page1 : Page
                 rp = Wallet.rp,
                 rank = Rank,
                 champions = champlist,
+                Champions = champcount.ToString(),
                 skins = skinlist,
-                Loot = Lootlist
+                Skins = skincount.ToString(),
+                Loot = Lootlist,
+                Loots = Lootcount.ToString(),
             });
 
             ring();
@@ -267,11 +268,20 @@ public partial class Page1 : Page
         var num = 0;
         var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
             "--launch-product=league_of_legends --launch-patchline=live");
-
+        string riotval = string.Empty;
         while (true)
         {
             if (Process.GetProcessesByName("Riot Client").Length != 0)
+            {
+                riotval = "Riot Client";
                 break;
+            }
+            else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+            {
+                riotval = "RiotClientUx";
+                break;
+            }
+
 
             Thread.Sleep(2000);
             num++;
@@ -281,7 +291,7 @@ public partial class Page1 : Page
         while (true)
             try
             {
-                var app = Application.Attach("Riot Client");
+                var app = Application.Attach(riotval);
 
                 using (var automation = new UIA3Automation())
                 {
@@ -419,7 +429,9 @@ public partial class Page1 : Page
         {
             Championlist.ItemsSource = ActualAccountlists;
         }
-
+        Championlist.Columns[12].Visibility = Visibility.Hidden;
+        Championlist.Columns[8].Visibility = Visibility.Hidden;
+        Championlist.Columns[9].Visibility = Visibility.Hidden;
         Championlist.UpdateLayout();
         Championlist.Items.Refresh();
     }
@@ -439,17 +451,20 @@ public partial class Page1 : Page
 
                     var record = new accountlist
                     {
-                        username = values[0],
-                        password = values[1],
-                        riotID = values[2],
-                        level = values[3],
-                        server = values[4],
-                        be = values[5],
-                        rp = values[6],
-                        rank = values[7],
-                        champions = values[8],
-                        skins = values[9],
-                        Loot = values[10]
+                        username = values.Length > 0 ? values[0] : "",
+                        password = values.Length > 1 ? values[1] : "",
+                        riotID = values.Length > 2 ? values[2] : "",
+                        level = values.Length > 3 ? values[3] : "",
+                        server = values.Length > 4 ? values[4] : "",
+                        be = values.Length > 5 ? values[5] : "",
+                        rp = values.Length > 6 ? values[6] : "",
+                        rank = values.Length > 7 ? values[7] : "",
+                        champions = values.Length > 8 ? values[8] : "",
+                        skins = values.Length > 9 ? values[9] : "",
+                        Champions = values.Length > 10 ? values[10] : "",
+                        Skins = values.Length > 11 ? values[11] : "",
+                        Loot = values.Length > 12 ? values[12] : "",
+                        Loots = values.Length > 13 ? values[13] : ""
                     };
 
                     records.Add(record);
@@ -483,6 +498,9 @@ public partial class Page1 : Page
             account.champions = RemoveDoubleQuotes(account.champions);
             account.skins = RemoveDoubleQuotes(account.skins);
             account.Loot = RemoveDoubleQuotes(account.Loot);
+            account.Champions = RemoveDoubleQuotes(account.Champions);
+            account.Skins = RemoveDoubleQuotes(account.Skins);
+            account.Loots = RemoveDoubleQuotes(account.Loots);
         }
     }
 
@@ -505,7 +523,10 @@ public partial class Page1 : Page
         public string? rank { get; set; }
         public string? champions { get; set; }
         public string? skins { get; set; }
+        public string? Champions { get; set; }
+        public string? Skins { get; set; }
         public string? Loot { get; set; }
+        public string? Loots { get; set; }
     }
 
     public class wallet
@@ -526,34 +547,113 @@ public partial class Page1 : Page
             i++;
         }
 
-
-        killleaguefunc();
-        Process[] leagueProcess;
-        var num = 0;
-        var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
-            "--launch-product=league_of_legends --launch-patchline=live");
-
-        while (true)
+        await Task.Run(async () =>
         {
-            if (Process.GetProcessesByName("Riot Client").Length != 0)
-                break;
-            Thread.Sleep(2000);
-            num++;
-            if (num == 5) return;
-        }
-        var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
-            "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
-        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
-            "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
-            "\", \"persistLogin\":\"false\"}");
-        var responseBody1 = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        if (responseBody1["error"] == "auth_failure")
+            killleaguefunc();
+            Process[] leagueProcess;
+            var num = 0;
+            var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+                "--launch-product=league_of_legends --launch-patchline=live");
+
+            while (true)
+            {
+                if (Process.GetProcessesByName("Riot Client").Length != 0 || Process.GetProcessesByName("RiotClientUx").Length != 0)
+                    break;
+                Thread.Sleep(2000);
+                num++;
+                if (num == 5) return;
+            }
+            var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
+                "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
+            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
+                "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
+                "\", \"persistLogin\":\"false\"}");
+            var responseBody1 = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            if (responseBody1["error"] == "auth_failure")
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
+                        "WindowArea", onClick: () => notif.donothing());
+                });
+            }
+
+        });
+    }
+
+    private void Championlist_Loaded(object sender, RoutedEventArgs e)
+    {
+        Championlist.Columns[12].Visibility = Visibility.Hidden;
+        Championlist.Columns[8].Visibility = Visibility.Hidden;
+        Championlist.Columns[9].Visibility = Visibility.Hidden;
+    }
+
+    private async void Championlist_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var dataGrid = sender as DataGrid;
+        if (!Executing)
         {
-            notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
-                "WindowArea", onClick: () => notif.donothing());
+            Executing = true;
+            try
+            {
+                if (dataGrid != null && dataGrid.CurrentCell != null)
+                {
+                    var selectedColumn = dataGrid.CurrentCell.Column;
+
+                    if (selectedColumn != null)
+                    {
+                        var header = selectedColumn.Header?.ToString();
+                        accountlist selectedrow = Championlist.SelectedItem as accountlist;
+                        if (selectedrow == null) return;
+                        if (header == null) return;
+                        Window4? secondWindow = null;
+
+                        switch (header)
+                        {
+                            case "Champions":
+                                secondWindow = new Window4(selectedrow.champions);
+                                break;
+                            case "Skins":
+                                secondWindow = new Window4(selectedrow.skins);
+                                break;
+                            case "Loots":
+                                secondWindow = new Window4(selectedrow.Loot);
+                                break;
+                        }
+
+                        if (secondWindow != null)
+                        {
+                            await secondWindow.Dispatcher.InvokeAsync(() =>
+                            {
+                                secondWindow.Show();
+                            });
+
+                            while (secondWindow.IsLoaded)
+                            {
+                                await Task.Delay(100);
+                            }
+                        }
+
+                    }
+
+                    dataGrid.UnselectAllCells();
+                    dataGrid.SelectedItem = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle the exception (log, display a message, etc.)
+                Console.WriteLine($"Exception in PingData: {ex.Message}");
+            }
+            finally
+            {
+                Executing = false;
+            }
         }
 
-        ;
+        dataGrid.UnselectAllCells();
+        dataGrid.SelectedItem = null;
+
     }
 }
