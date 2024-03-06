@@ -1,9 +1,14 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using FlaUI.Core.WindowsAPI;
+using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
+using NLog;
 using Notification.Wpf;
 using static League_Account_Manager.lcu;
 
@@ -154,8 +159,36 @@ public partial class Page7 : Page
                     success.Text = friendlist;
                 }
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
+                LogManager.GetCurrentClassLogger().Error(exception, "Error");
             }
     }
+
+    private void Button_Click_1(object sender, RoutedEventArgs e)
+    {
+        Page1.killleaguefunc();
+        string installPath = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live", "UninstallString", null);
+        if (installPath != null) {
+            notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
+                NotificationType.Error, "WindowArea", onClick: notif.donothing);
+        }
+        string pattern = "\"(.*?)\"";
+        Match match = Regex.Match(installPath, pattern);
+
+        if (match.Success)
+        {
+            string pathInQuotes = match.Groups[1].Value;
+
+            // Extract arguments after the double quotes
+            string arguments = installPath.Substring(match.Length).Trim();
+            Process.Start(pathInQuotes, arguments);
+        }
+        else
+        {
+            Console.WriteLine("No match found.");
+        }
+        
+    }
+
 }

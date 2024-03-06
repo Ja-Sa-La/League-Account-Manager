@@ -1,14 +1,19 @@
 ﻿using CsvHelper;
 using CsvHelper.Configuration;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
+using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
+using NLog;
 using Notification.Wpf;
+using System;
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -28,7 +33,7 @@ public partial class Page1 : Page
     private double running;
     private bool Executing;
 
-
+    string riotpath = string.Empty;
 
     public Page1()
     {
@@ -41,23 +46,41 @@ public partial class Page1 : Page
 
     public void loaddata()
     {
-        if (File.Exists(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
+        try
         {
-            ActualAccountlists =
-                LoadCSV(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
-        }
-        else
-        {
-            File.Create(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
-            loaddata();
-            return;
-        }
+            string installPath = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game Riot_Client.", "UninstallString", null);
+            if (installPath != null && !File.Exists(riotpath))
+            {
+                notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
+                    NotificationType.Error, "WindowArea", onClick: notif.donothing);
+            }
+            string pattern = "\"(.*?)\"";
+            Match match = Regex.Match(installPath, pattern);
+            if (match.Success)
+            {
+                riotpath = match.Groups[1].Value;
+            }else
+            {
+                riotpath = riotpath;
+            }
+            if (File.Exists(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv"))
+            {
+                ActualAccountlists =
+                    LoadCSV(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
+            }
+            else
+            {
+                File.Create(Directory.GetCurrentDirectory() + "\\" + Settings.settingsloaded.filename + ".csv");
+                loaddata();
+                return;
+            }
 
-        ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-        RemoveDoubleQuotesFromList(ActualAccountlists);
-        Championlist.ItemsSource = ActualAccountlists;
-        Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-
+            ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
+            RemoveDoubleQuotesFromList(ActualAccountlists);
+            Championlist.ItemsSource = ActualAccountlists;
+            Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+        }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
     }
 
     private void DataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -66,6 +89,7 @@ public partial class Page1 : Page
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
+        try { 
         var selectedrow = Championlist.SelectedItem as accountlist;
         if (selectedrow != null)
         {
@@ -90,6 +114,9 @@ public partial class Page1 : Page
             Championlist.Items.Refresh();
         }
     }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+}
+    }
 
     public async void ring()
     {
@@ -99,6 +126,8 @@ public partial class Page1 : Page
 
     private async void PullData_Click(object sender, RoutedEventArgs e)
     {
+        try { 
+
         var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
         if (leagueclientprocess.Length == 0)
         {
@@ -213,7 +242,7 @@ public partial class Page1 : Page
 
             ring();
             ring();
-
+             
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
             ActualAccountlists.Add(new accountlist
             {
@@ -248,10 +277,14 @@ public partial class Page1 : Page
         Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
         NavigationService.Refresh();
         Championlist.Items.Refresh();
+        }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
     }
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
+        try {
+            if (!await CheckLeague())  throw new Exception("League not installed"); 
         var i = 0;
         DataGridCellInfo cellinfo;
         foreach (var row in Championlist.SelectedCells)
@@ -266,7 +299,7 @@ public partial class Page1 : Page
         killleaguefunc();
         Process[] leagueProcess;
         var num = 0;
-        var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+        var RiotClient = Process.Start(riotpath,
             "--launch-product=league_of_legends --launch-patchline=live");
         string riotval = string.Empty;
         while (true)
@@ -311,11 +344,33 @@ public partial class Page1 : Page
                     if (passwordField == null) throw new Exception("Password field not found");
 
 
-                    // Find the login button
-                    var signInElement = riotcontent.FindFirstByXPath("/Button[7]").AsButton();
-                    if (signInElement == null) throw new Exception("Login button not found");
+                        var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
+                        if (riotcontent == null) throw new Exception("Riot content not found");
+                        if (checkbox == null) throw new Exception("Checkbox field not found");
 
-                    usernameField.Text = SelectedUsername;
+                        var siblings = riotcontent.FindAllChildren();
+                        if (checkbox.Parent == null) throw new Exception("Checkbox parent not found");
+                        Console.WriteLine(siblings.Length);
+                        if (siblings.Length <= Array.IndexOf(siblings, checkbox) + 1)
+                        {
+                            throw new Exception("Not enough siblings found for the checkbox");
+                        }
+
+                        int checkBoxIndex = Array.IndexOf(siblings, checkbox);
+                        var signInElement = siblings[checkBoxIndex + 1].AsButton();
+
+                        Console.WriteLine($"Found checkbox: {checkbox.Name}");
+                        Console.WriteLine($"Found siblings count: {siblings.Length}");
+
+                        if (signInElement.ControlType != ControlType.Button)
+                        {
+                            throw new Exception("The element following the checkbox is not a button");
+                        }
+
+                        var signInButton = signInElement.AsButton();
+                        if (signInButton == null) throw new Exception("Login button not found");
+
+                        usernameField.Text = SelectedUsername;
                     passwordField.Text = SelectedPassword;
                     if (signInElement != null)
                     {
@@ -331,10 +386,13 @@ public partial class Page1 : Page
                 Console.WriteLine(ex);
                 Thread.Sleep(100);
             }
+        }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
     }
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
     {
+        
         if (e.Key == Key.Delete)
         {
             var selectedrow = Championlist.SelectedItem as accountlist;
@@ -360,7 +418,14 @@ public partial class Page1 : Page
             }
         }
     }
-
+    public async Task<bool>  CheckLeague()
+    {
+         if(File.Exists(riotpath))
+        {
+            return true;
+        }
+         else { return false; }
+    }
     public static void killleaguefunc()
     {
         var source = new[]
@@ -398,17 +463,24 @@ public partial class Page1 : Page
         killleaguefunc();
     }
 
-    private void openleague1_Click(object sender, RoutedEventArgs e)
+    private async void openleague1_Click(object sender, RoutedEventArgs e)
     {
+        try { 
         var processesByName = Process.GetProcessesByName("Riot Client");
         var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
         killleaguefunc();
-        openleague();
+            if (!await CheckLeague()) throw new Exception("League not installed");
+
+            openleague();
+        }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error Opening league"); }
     }
 
-    private void openleague()
+    private  void openleague()
     {
-        Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+        
+
+        Process.Start(riotpath,
             "--launch-product=league_of_legends --launch-patchline=live");
     }
 
@@ -471,12 +543,13 @@ public partial class Page1 : Page
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
             notif.notificationManager.Show("Error", "An error occurred while loading the CSV file",
                 NotificationType.Error,
                 "WindowArea", onClick: () => notif.donothing());
-        }
+         { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
+    }
 
 
         return records;
@@ -537,6 +610,7 @@ public partial class Page1 : Page
 
     private async void Login_Copy_Click(object sender, RoutedEventArgs e)
     {
+        try { 
         var i = 0;
         DataGridCellInfo cellinfo;
         foreach (var row in Championlist.SelectedCells)
@@ -552,7 +626,7 @@ public partial class Page1 : Page
             killleaguefunc();
             Process[] leagueProcess;
             var num = 0;
-            var RiotClient = Process.Start("C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+            var RiotClient = Process.Start(riotpath,
                 "--launch-product=league_of_legends --launch-patchline=live");
 
             while (true)
@@ -580,6 +654,8 @@ public partial class Page1 : Page
             }
 
         });
+        }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error logging in"); }
     }
 
     private void Championlist_Loaded(object sender, RoutedEventArgs e)
@@ -640,12 +716,10 @@ public partial class Page1 : Page
                     dataGrid.UnselectAllCells();
                     dataGrid.SelectedItem = null;
                 }
+          
             }
-            catch (Exception ex)
-            {
-                // Handle the exception (log, display a message, etc.)
-                Console.WriteLine($"Exception in PingData: {ex.Message}");
-            }
+            catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
+  
             finally
             {
                 Executing = false;
