@@ -1,5 +1,7 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using League_Account_Manager.views;
+using NLog;
 
 namespace League_Account_Manager;
 
@@ -15,11 +17,14 @@ public partial class Window1 : Window
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
+        try { 
         if (username.Text.Length > 0 && password.Text.Length > 0)
         {
             Page1.SelectedUsername = username.Text;
             Page1.SelectedPassword = password.Password;
             Close();
         }
+        }
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error adding logins"); }
     }
 }

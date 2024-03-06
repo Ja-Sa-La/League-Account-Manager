@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
+using NLog;
 using Notification.Wpf;
 
 namespace League_Account_Manager;
@@ -29,6 +30,7 @@ public class Updates
                          " is available, click here to download the new version!";
             notif.notificationManager.Show("Update!", msg, NotificationType.Notification,
                 "WindowArea", TimeSpan.FromSeconds(10), () => launchupdate());
+            LogManager.GetCurrentClassLogger().Info("Update available");
         }
 
         updatecheck.Dispose();

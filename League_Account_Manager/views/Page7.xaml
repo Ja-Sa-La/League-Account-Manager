@@ -19,6 +19,8 @@
                    VerticalAlignment="Top" Height="40" Width="151" />
         <ui:Button Click="Button_Click2" Content="Get Friends" Margin="322,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
+        <ui:Button Click="Button_Click_1" Content="Uninstall league" Margin="478,10,0,0"
+            VerticalAlignment="Top" Height="40" Width="151" />
 
     </Grid>
 </Page>

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
+using NLog;
 using Notification.Wpf;
 
 namespace League_Account_Manager.views;
@@ -71,12 +72,10 @@ public partial class Page4 : Page
             $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
         playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
         }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
+        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
 
-        }
     }
+    
 
     private async Task<string> GetResponseBody(dynamic resp)
     {
@@ -103,9 +102,7 @@ public partial class Page4 : Page
                     tmp.Deaths += int.Parse(game["participants"][0]["stats"]["deaths"].ToString());
                     tmp.Assists += int.Parse(game["participants"][0]["stats"]["assists"].ToString());
                 }
-                catch (Exception ex)
-                {
-                }
+                catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error"); }
             }
 
         return tmp;
@@ -121,6 +118,7 @@ public partial class Page4 : Page
         }
         catch (Exception exception)
         {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error");
             notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data", NotificationType.Error,
                 "WindowArea", onClick: () => notif.donothing());
         }
@@ -138,6 +136,7 @@ public partial class Page4 : Page
         }
         catch (Exception exception)
         {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error");
             notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
                 NotificationType.Error, "WindowArea", onClick: () => notif.donothing());
         }

@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using Newtonsoft.Json.Linq;
+using NLog;
 using Wpf.Ui.Controls;
 using static League_Account_Manager.lcu;
 
@@ -95,7 +96,7 @@ public partial class Page6 : Page
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
+            LogManager.GetCurrentClassLogger().Error(exception, "Error");
             throw;
         }
     }
