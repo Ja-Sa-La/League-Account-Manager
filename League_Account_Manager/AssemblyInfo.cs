@@ -9,11 +9,11 @@ using System.Resources;
 [assembly: AssemblyDescription("Allows you to manage your league of legends accounts")]
 [assembly: AssemblyProduct("League account manager")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCopyright("2023 @j.s.l")]
+[assembly: AssemblyCopyright("2024 @j.s.l")]
 [assembly: AssemblyCulture("")]
 
 // Version informationr(
-[assembly: AssemblyVersion("1.0.0.27")]
-[assembly: AssemblyFileVersion("1.0.0.27")]
+[assembly: AssemblyVersion("1.0.0.28")]
+[assembly: AssemblyFileVersion("1.0.0.28")]
 [assembly: NeutralResourcesLanguageAttribute( "en-US" )]
 

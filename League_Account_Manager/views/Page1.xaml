@@ -56,12 +56,13 @@
                    VerticalAlignment="Top" FontSize="24" FontFamily="Arial Black" />
             <ui:ProgressRing x:Name="edistyy" HorizontalAlignment="Center" Margin="0,101,0,0" VerticalAlignment="Top" />
         </Grid>
-        <ui:TextBox Name="champfilter" PlaceholderText="Champion, skin, loot or server name" Margin="0,1,43,0"
+        <ui:TextBox Name="champfilter" PlaceholderText="Champion, skin, loot or server name" Margin="0,0,10,0"
                     TextWrapping="NoWrap" VerticalAlignment="Top" MinWidth="373" Height="30" FontSize="10"
                     HorizontalAlignment="Right" Width="373" Grid.Column="1" TextChanged="TextBox_TextChanged" />
-        <Label Content="Filter by champion, skin, loot or server " HorizontalAlignment="Left" Margin="0,4,0,0"
+        <Label Content="Filter by champion, skin, loot or server " HorizontalAlignment="Left" Margin="182,1,0,0"
                VerticalAlignment="Top" Height="28" Width="246" HorizontalContentAlignment="Center"
                VerticalContentAlignment="Center" Foreground="White" RenderTransformOrigin="0.167,0.618" Grid.Column="1" />
+        <Label Content="" Name="league_loc" HorizontalAlignment="Left" Margin="457,7,0,0" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="322"/>
 
     </Grid>
 </Page>
