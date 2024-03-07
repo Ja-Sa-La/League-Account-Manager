@@ -161,5 +161,6 @@
             </ui:TitleBar.Tray>
         </ui:TitleBar>
         <notifications:NotificationArea x:Name="WindowArea" Position="TopRight" MaxItems="1" Margin="-3,-7,3,7" />
+        <Label Content="" Name="installloc" HorizontalAlignment="Left" Margin="541,31,0,0" VerticalAlignment="Top" Width="849"/>
     </Grid>
 </ui:UiWindow>
