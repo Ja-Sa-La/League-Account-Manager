@@ -1,9 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
@@ -38,7 +33,7 @@ public partial class Page4 : Page
         foreach (var player in players["participants"])
         {
             if (!player["cid"].ToString().Contains("champ-select"))
-            continue;
+                continue;
             var playerText = FindName($"Player{i + 1}") as TextBox;
             playerText.Text = player["game_name"] + "#" + player["game_tag"];
             pullrankedinfo(player["puuid"], i);
@@ -50,32 +45,32 @@ public partial class Page4 : Page
     {
         try
         {
+            var resp = await lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
+            var rankedinfo = JObject.Parse(await GetResponseBody(resp));
+            resp = await lcu.Connector("league", "get",
+                $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
+            var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
 
+            Gamestats gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
+            var wr = (double)(gameStats.Wins / (gameStats.Wins + gameStats.Losses));
+            var kda = (double)((gameStats.Kills + gameStats.Assists) / gameStats.Deaths);
 
-        var resp = await lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
-        var rankedinfo = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("league", "get",
-            $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
-        var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
+            var playerPeak = FindName($"player{I + 1}peak") as ContentControl;
+            var playerRank = FindName($"player{I + 1}rank") as ContentControl;
+            var playerWr = FindName($"player{I + 1}wr") as ContentControl;
 
-        Gamestats gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
-        double wr = (double)(gameStats.Wins / (gameStats.Wins + gameStats.Losses));
-        double kda = (double)((gameStats.Kills + gameStats.Assists) / gameStats.Deaths);
-
-        var playerPeak = FindName($"player{I + 1}peak") as ContentControl;
-        var playerRank = FindName($"player{I + 1}rank") as ContentControl;
-        var playerWr = FindName($"player{I + 1}wr") as ContentControl;
-
-        playerPeak.Content =
-            $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestTier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestDivision"]}";
-        playerRank.Content =
-            $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
-        playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+            playerPeak.Content =
+                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestTier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestDivision"]}";
+            playerRank.Content =
+                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
+            playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
         }
-        catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error loading data"); }
-
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
-    
+
 
     private async Task<string> GetResponseBody(dynamic resp)
     {
@@ -102,7 +97,10 @@ public partial class Page4 : Page
                     tmp.Deaths += int.Parse(game["participants"][0]["stats"]["deaths"].ToString());
                     tmp.Assists += int.Parse(game["participants"][0]["stats"]["assists"].ToString());
                 }
-                catch (Exception exception) { LogManager.GetCurrentClassLogger().Error(exception, "Error"); }
+                catch (Exception exception)
+                {
+                    LogManager.GetCurrentClassLogger().Error(exception, "Error");
+                }
             }
 
         return tmp;
@@ -129,7 +127,7 @@ public partial class Page4 : Page
         try
         {
             var playerNumber = ((Button)sender).Name.Last();
-            Console.WriteLine($"Player{playerNumber}");
+            //Console.Writeline($"Player{playerNumber}");
             var playerName = FindName($"Player{playerNumber}") as TextBox;
             OpenUrl(
                 $"https://www.leagueofgraphs.com/summoner/{region["region"].ToString().ToLower()}/{playerName.Text.Replace("#", "-")}");
@@ -150,11 +148,13 @@ public partial class Page4 : Page
         var players = JObject.Parse(await GetResponseBody(resp));
         var url = $"https://www.op.gg/multisearch/{region["region"]}?summoners=";
 
-        foreach (var player in players["participants"]){
+        foreach (var player in players["participants"])
+        {
             if (!player["cid"].ToString().Contains("champ-select"))
                 continue;
-        url += $"{player["game_name"]}%23{player["game_tag"]},";
+            url += $"{player["game_name"]}%23{player["game_tag"]},";
         }
+
         OpenUrl(url);
     }
 
@@ -166,10 +166,11 @@ public partial class Page4 : Page
         var players = JObject.Parse(await GetResponseBody(resp));
         var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
 
-        foreach (var player in players["participants"]){
+        foreach (var player in players["participants"])
+        {
             if (!player["cid"].ToString().Contains("champ-select"))
                 continue;
-        url += $"{player["game_name"]} -{player["game_tag"]},";
+            url += $"{player["game_name"]} -{player["game_tag"]},";
         }
 
         url = url.Remove(url.Length - 1, 1);

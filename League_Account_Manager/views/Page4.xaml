@@ -5,88 +5,93 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page4"
     mc:Ignorable="d"
-    d:DesignHeight="696" d:DesignWidth="1394"
+    d:DesignHeight="749" d:DesignWidth="1216"
     Title="Page4">
 
-    <Grid>
+    <Grid Margin="0,0,10,10">
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="20,52,0,0"
-                    VerticalAlignment="Top" Width="410">
+                    VerticalAlignment="Top" Width="300">
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 1" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox Name="Player1" MinWidth="200" Text="Player Name" Height="41" />
+                <ui:TextBox Name="Player1" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
             <StackPanel Orientation="Vertical" Margin="20,0,0,0">
-                <Button Name="opgg1" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="180" Margin="0,0,0,10"/>
+                <Button Name="opgg1" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="125"
+                        Margin="0,0,0,10" />
                 <Button Name="leagueofgraphs1" Content="Open League of Graphs"
-                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="180" />
+                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="125" />
             </StackPanel>
         </StackPanel>
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="20,289,0,0"
-                    VerticalAlignment="Top" Width="410">
+                    VerticalAlignment="Top" Width="300">
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 2" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player2" MinWidth="200" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player2" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
             <StackPanel Orientation="Vertical" Margin="20,0,0,0">
-                <Button Name="opgg2" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="180" Margin="0,0,0,10"/>
+                <Button Name="opgg2" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="125"
+                        Margin="0,0,0,10" />
                 <Button Name="leagueofgraphs2" Content="Open League of Graphs"
-                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="180" />
+                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="125" />
             </StackPanel>
         </StackPanel>
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="712,289,0,0"
-                    VerticalAlignment="Top" Width="410">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="583,289,0,0"
+                    VerticalAlignment="Top" Width="300">
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 3" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player3" MinWidth="200" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player3" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
             <StackPanel Orientation="Vertical" Margin="20,0,0,0">
-                <Button Name="opgg3" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="180" Margin="0,0,0,10"/>
+                <Button Name="opgg3" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="125"
+                        Margin="0,0,0,10" />
                 <Button Name="leagueofgraphs3" Content="Open League of Graphs"
-                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="180" />
+                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="125" />
             </StackPanel>
         </StackPanel>
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="20,501,0,0"
-                    VerticalAlignment="Top" Width="410">
+                    VerticalAlignment="Top" Width="300">
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 4" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player4" MinWidth="200" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player4" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
             <StackPanel Orientation="Vertical" Margin="20,0,0,0">
-                <Button Name="opgg4" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="180" Margin="0,0,0,10" />
+                <Button Name="opgg4" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="125"
+                        Margin="0,0,0,10" />
                 <Button Name="leagueofgraphs4" Content="Open League of Graphs"
-                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="180" />
+                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="125" />
             </StackPanel>
         </StackPanel>
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="712,501,0,0"
-                    VerticalAlignment="Top" Width="410">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="583,501,0,0"
+                    VerticalAlignment="Top" Width="300">
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 5" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player5" MinWidth="200" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player5" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
             <StackPanel Orientation="Vertical" Margin="20,0,0,0">
-                <Button Name="opgg5" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="180" Margin="0,0,0,10"/>
+                <Button Name="opgg5" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="68" Width="125"
+                        Margin="0,0,0,10" />
                 <Button Name="leagueofgraphs5" Content="Open League of Graphs"
-                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="180" />
+                        Click="Button_Click_OpenUrlLeagueOfGraphs" Height="68" Width="125" />
             </StackPanel>
         </StackPanel>
 
 
-        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="1160,488,0,0"
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="921,501,0,0"
                 VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
@@ -105,7 +110,7 @@
                 <Label Grid.Row="5" Name="player5wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
             </Grid>
         </Border>
-        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="450,488,0,0"
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="325,501,0,0"
                 VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
@@ -124,8 +129,8 @@
                 <Label Grid.Row="5" Name="player4wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
             </Grid>
         </Border>
-        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="450,276,0,0"
-                VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="325,0,0,0"
+                VerticalAlignment="Center" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1.5*" />
@@ -143,7 +148,7 @@
                 <Label Grid.Row="5" Name="player2wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
             </Grid>
         </Border>
-        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="450,52,0,0" VerticalAlignment="Top"
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="325,52,0,0" VerticalAlignment="Top"
                 Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
@@ -162,8 +167,8 @@
                 <Label Grid.Row="5" Name="player1wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
             </Grid>
         </Border>
-        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="1160,276,0,0"
-                VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
+        <Border BorderThickness="1" HorizontalAlignment="Left" Height="162" Margin="921,0,0,0"
+                VerticalAlignment="Center" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="1.5*" />
@@ -181,16 +186,25 @@
                 <Label Grid.Row="5" Name="player3wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
             </Grid>
         </Border>
-        <TextBlock HorizontalAlignment="Left" Margin="712,65,0,0" TextWrapping="Wrap" VerticalAlignment="Top"
+        <TextBlock HorizontalAlignment="Left" Margin="574,52,0,0" TextWrapping="Wrap" VerticalAlignment="Top"
                    Height="127" Width="227" FontSize="24" Text="Ranked winrate and kda are from Players last 40 games!"
                    Foreground="#FFB5B5B5" FontFamily="Segoe UI Black" />
-        <Button Content="DODGE" Margin="1065,138,0,0" VerticalAlignment="Top" Click="DODGE" Height="68"
+        <Button Content="DODGE" Margin="826,131,0,0" VerticalAlignment="Top" Click="DODGE" Height="68"
                 Width="114" />
-        <Button Content="Open PoroProfessor" Margin="1184,138,0,0" VerticalAlignment="Top" Click="OpenPoroProfessor"
+        <Button Content="Open PoroProfessor" Margin="945,131,0,0" VerticalAlignment="Top" Click="OpenPoroProfessor"
                 Height="68" Width="158" />
-        <Button Content="Pull info" Click="Button_Click" Height="68" Width="98" Margin="1065,65,0,0"
+        <Button Content="Pull info" Click="Button_Click" Height="68" Width="98" Margin="826,58,0,0"
                 VerticalAlignment="Top" />
-        <Button Content="Open multi.op.gg" Click="Button_Click_6" Height="68" Width="174" Margin="1168,65,0,0"
-                VerticalAlignment="Top" />
+        <Button Content="Open multi.op.gg" Click="Button_Click_6" Height="68" Width="174" Margin="929,58,0,0"
+                VerticalAlignment="Top" RenderTransformOrigin="0.5,0.5">
+            <Button.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform />
+                    <SkewTransform AngleY="0.629" />
+                    <RotateTransform />
+                    <TranslateTransform Y="0.954" />
+                </TransformGroup>
+            </Button.RenderTransform>
+        </Button>
     </Grid>
 </Page>

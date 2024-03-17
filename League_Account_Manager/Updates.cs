@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -29,7 +28,8 @@ public class Updates
             string msg = "New update " + responseBody2["Version"] +
                          " is available, click here to download the new version!";
             notif.notificationManager.Show("Update!", msg, NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), () => launchupdate());
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, () => launchupdate(), "Go to update page",
+                () => notif.donothing(), "Cancel", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             LogManager.GetCurrentClassLogger().Info("Update available");
         }
 

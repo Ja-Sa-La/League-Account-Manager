@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text.Json.Nodes;
-using System.Threading;
+﻿using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using Notification.Wpf;
