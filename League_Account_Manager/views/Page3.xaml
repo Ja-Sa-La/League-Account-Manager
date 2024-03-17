@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page3"
     mc:Ignorable="d"
-    d:DesignHeight="450" d:DesignWidth="800"
+    d:DesignHeight="749" d:DesignWidth="1216"
     Title="Page3">
 
     <Grid>
@@ -13,7 +13,9 @@
                    HorizontalAlignment="Right" Width="153" Height="45" />
         <CheckBox Name="savesettingsupdates" Content="Check for updates automatically" Margin="10,10,0,0"
                   VerticalAlignment="Top" Width="241" />
-        <ui:TextBox Name="settingssaveinfobox" HorizontalAlignment="Left" Margin="10,58,0,0" TextWrapping="Wrap"
+        <ui:TextBox Name="settingssaveinfobox" HorizontalAlignment="Left" Margin="10,88,0,0" TextWrapping="Wrap"
                     Text="" VerticalAlignment="Top" MinWidth="228" Width="228" />
+        <Label Content="Save file name" HorizontalAlignment="Left" Margin="10,58,0,0" VerticalAlignment="Top"
+               Height="25" Width="183" />
     </Grid>
 </Page>

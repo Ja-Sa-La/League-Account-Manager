@@ -1,11 +1,9 @@
 ﻿using System.IO;
-using Microsoft.Win32;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json;
-using Notification.Wpf;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 using System.Windows;
-using System.Diagnostics.Eventing.Reader;
+using Microsoft.Win32;
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace League_Account_Manager;
 
@@ -27,7 +25,6 @@ public class Settings
                 var json = JsonSerializer.Serialize(settingsloaded);
                 File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
             }
-
         }
         else
         {
@@ -39,17 +36,10 @@ public class Settings
         }
     }
 
-    public struct settings1
+    private static string findriot()
     {
-        public string riotPath { get; set; }
-        public string filename { get; set; }
-        public bool updates { get; set; }
-    }
-   private static string findriot()
-    {
-
-
-        string[] registryEntries = {
+        string[] registryEntries =
+        {
             @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game Riot_Client.",
             "UninstallString",
 
@@ -68,45 +58,50 @@ public class Settings
 
         string installPath = null;
 
-        for (int i = 0; i < registryEntries.Length; i += 2)
+        for (var i = 0; i < registryEntries.Length; i += 2)
         {
-            string key = registryEntries[i];
-            string valueName = registryEntries[i + 1];
+            var key = registryEntries[i];
+            var valueName = registryEntries[i + 1];
 
             installPath = (string)Registry.GetValue(key, valueName, null);
 
             if (installPath != null)
             {
-                string pattern = "\"(.*?)\"";
-                Match match = Regex.Match(installPath, pattern);
+                var pattern = "\"(.*?)\"";
+                var match = Regex.Match(installPath, pattern);
                 if (match.Success)
-                {
                     if (File.Exists(match.Groups[1].Value))
-                    return match.Groups[1].Value;
-                }
+                        return match.Groups[1].Value;
             }
-                
         }
 
         if (File.Exists("C:\\Riot Games\\Riot Client\\RiotClientServices.exe"))
-        return "C:\\Riot Games\\Riot Client\\RiotClientServices.exe";
-        OpenFileDialog openFileDialog = new OpenFileDialog();
+            return "C:\\Riot Games\\Riot Client\\RiotClientServices.exe";
+        var openFileDialog = new OpenFileDialog();
         openFileDialog.Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*";
         openFileDialog.FileName = "RiotClientServices.exe";
-        while (true) { 
-        if (openFileDialog.ShowDialog() == true)
-        {
-            if (Path.GetFileName(openFileDialog.FileName) != "RiotClientServices.exe")
+        while (true)
+            if (openFileDialog.ShowDialog() == true)
             {
-                MessageBox.Show($"Please select a file with the name RiotClientServices.exe.", "Invalid Filename", MessageBoxButton.OK, MessageBoxImage.Error);
+                if (Path.GetFileName(openFileDialog.FileName) != "RiotClientServices.exe")
+                {
+                    MessageBox.Show("Please select a file with the name RiotClientServices.exe.", "Invalid Filename",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
                     continue;
-            }
+                }
+
                 return openFileDialog.FileName;
             }
             else
             {
                 Environment.Exit(0);
             }
-        }
+    }
+
+    public struct settings1
+    {
+        public string riotPath { get; set; }
+        public string filename { get; set; }
+        public bool updates { get; set; }
     }
 }

@@ -5,18 +5,17 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page1"
     mc:Ignorable="d"
-    d:DesignHeight="450" d:DesignWidth="1400"
+    d:DesignHeight="749" d:DesignWidth="1216"
     Title="Page1" KeyUp="Championlist_OnKeyDown" KeyDown="Championlist_OnKeyDown">
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="73*" />
-            <ColumnDefinition Width="102*" />
-        </Grid.ColumnDefinitions>
-        <DataGrid x:Name="Championlist" SelectionUnit="FullRow" MouseLeftButtonDown="Championlist_MouseLeftButtonDown" Loaded="Championlist_Loaded"  SelectionChanged="DataGrid_SelectionChanged"
+    <Grid Margin="10,0,10,0">
+        <DataGrid x:Name="Championlist" SelectionUnit="FullRow" MouseLeftButtonDown="Championlist_MouseLeftButtonDown"
+                  Loaded="Championlist_Loaded"
                   IsReadOnly="True"
                   HorizontalContentAlignment="Stretch"
-                  ColumnWidth="auto" SelectionMode="Single" Margin="0,36,0,0" Grid.ColumnSpan="2">
+                  ColumnWidth="auto" SelectionMode="Single" Margin="0,36,0,0"
+                  AutoGeneratingColumn="DataGrid_AutoGeneratingColumn">
+
             <DataGrid.Resources>
                 <Style TargetType="{x:Type DataGridCell}">
                     <Style.Triggers>
@@ -34,18 +33,46 @@
             </DataGrid.Resources>
 
         </DataGrid>
-        <ui:Button x:Name="killleague" Content="Kill client" Margin="281,3,0,0" VerticalAlignment="Top" Height="27"
-                   FontSize="12" Click="killleague_Click" />
-        <ui:Button x:Name="openleague1" Content="Open League" Margin="357,3,0,0" VerticalAlignment="Top" Height="27"
-                   FontSize="12" Click="openleague1_Click" />
-        <ui:Button x:Name="PullData" Content="PullData" Margin="208,3,0,0" VerticalAlignment="Top" Height="27"
-                   FontSize="12" Click="PullData_Click" />
-        <ui:Button x:Name="Delete" Content="Delete" Margin="144,2,0,0" VerticalAlignment="Top" Height="28" FontSize="12"
-                   Click="Delete_Click" />
-        <ui:Button x:Name="Login" Content="Login" Margin="10,0,0,0" VerticalAlignment="Top" Height="31" FontSize="12"
-                   Click="Button_Click" />
-        <ui:Button x:Name="Login_Copy" Content="Login V2" Margin="68,0,0,0" VerticalAlignment="Top" Height="31" FontSize="12"
-            Click="Login_Copy_Click" />
+        <Grid HorizontalAlignment="Left"
+              VerticalAlignment="Top" Margin="10,4,0,0" Grid.ColumnSpan="2" Width="1380">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+
+            <ui:Button Grid.Column="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="killleague" Content="Kill client" FontSize="12"
+                       Click="killleague_Click" />
+            <ui:Button Grid.Column="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="openleague1" Content="Open League" FontSize="12"
+                       Click="openleague1_Click" />
+            <ui:Button Grid.Column="2" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="PullData" Content="PullData" FontSize="12"
+                       Click="PullData_Click" />
+            <ui:Button Grid.Column="3" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="Delete" Content="Delete" FontSize="12" Click="Delete_Click" />
+            <ui:Button Grid.Column="4" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="Login" Content="Login" FontSize="12" Click="Button_Click" />
+            <ui:Button Grid.Column="5" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="Login_Copy" Content="Login V2" FontSize="12"
+                       Click="Login_Copy_Click" />
+            <ui:Button Grid.Column="6" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="openleague1_Copy" Content="Name Change" FontSize="12"
+                       Click="openleague1_Copy_Click" />
+            <ui:TextBox Grid.Column="7" Grid.ColumnSpan="3" Name="champfilter"
+                        PlaceholderText="Champion, skin, loot or server name"
+                        TextWrapping="NoWrap" VerticalAlignment="Center" Padding="6,1" FontSize="10"
+                        TextChanged="TextBox_TextChanged" Margin="10,0,10,0" />
+        </Grid>
+
         <Grid Margin="0,36,0,0" Grid.ColumnSpan="2" />
         <Grid x:Name="Progressgrid" MaxWidth="400" MaxHeight="300" Margin="225,124,237,124" Visibility="Hidden"
               Grid.ColumnSpan="2">
@@ -56,13 +83,7 @@
                    VerticalAlignment="Top" FontSize="24" FontFamily="Arial Black" />
             <ui:ProgressRing x:Name="edistyy" HorizontalAlignment="Center" Margin="0,101,0,0" VerticalAlignment="Top" />
         </Grid>
-        <ui:TextBox Name="champfilter" PlaceholderText="Champion, skin, loot or server name" Margin="0,0,10,0"
-                    TextWrapping="NoWrap" VerticalAlignment="Top" MinWidth="373" Height="30" FontSize="10"
-                    HorizontalAlignment="Right" Width="373" Grid.Column="1" TextChanged="TextBox_TextChanged" />
-        <Label Content="Filter by champion, skin, loot or server " HorizontalAlignment="Left" Margin="182,1,0,0"
-               VerticalAlignment="Top" Height="28" Width="246" HorizontalContentAlignment="Center"
-               VerticalContentAlignment="Center" Foreground="White" RenderTransformOrigin="0.167,0.618" Grid.Column="1" />
-        <Label Content="" Name="league_loc" HorizontalAlignment="Left" Margin="457,7,0,0" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="322"/>
+
 
     </Grid>
 </Page>

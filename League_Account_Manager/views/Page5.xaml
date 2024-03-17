@@ -5,17 +5,17 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       mc:Ignorable="d"
-      d:DesignHeight="450" d:DesignWidth="800"
+      d:DesignHeight="749" d:DesignWidth="1216"
       Title="Page5">
 
     <Grid>
         <ui:Button Click="Button_Click" ContentControl.Content="buy 20 champions" FrameworkElement.Margin="10,10,0,0"
-                   FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
-        <Label Name="statusmessage" Content="Currently buying: " HorizontalAlignment="Left" Margin="182,10,0,0"
-               VerticalAlignment="Top" Height="40" Width="1175" FontSize="24" />
-        <TextBlock Name="success" HorizontalAlignment="Left" Margin="10,75,0,0" Text="Bought champions" Width="363"
-                   Foreground="White" FontSize="18" Height="365" VerticalAlignment="Top" />
-        <TextBlock Name="failure" HorizontalAlignment="Left" Margin="400,75,0,10" Text="Failed to Buy" Width="363"
+                   FrameworkElement.VerticalAlignment="Top" Height="60" Width="249" />
+        <Label Name="statusmessage" Content="Currently buying: " HorizontalAlignment="Left" Margin="264,10,0,0"
+               VerticalAlignment="Top" Height="40" Width="942" FontSize="24" />
+        <TextBlock Name="success" HorizontalAlignment="Left" Margin="10,75,0,0" Text="Bought champions" Width="598"
+                   Foreground="White" FontSize="18" Height="637" VerticalAlignment="Top" />
+        <TextBlock Name="failure" HorizontalAlignment="Left" Margin="613,75,0,10" Text="Failed to Buy" Width="593"
                    Foreground="White" FontSize="18" />
     </Grid>
 </Page>

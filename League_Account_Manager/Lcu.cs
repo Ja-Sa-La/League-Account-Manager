@@ -1,11 +1,8 @@
-﻿using System;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace League_Account_Manager;
 
@@ -32,7 +29,7 @@ internal class lcu
         {
             var riotProcess = Process.GetProcessesByName("Riot Client").FirstOrDefault();
             if (riotProcess == null)
-            riotProcess = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
+                riotProcess = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
             var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
 
             if (riotProcess != null)
@@ -114,39 +111,33 @@ internal class lcu
         client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
     }
 
-    private static async Task<dynamic> SendRequest(HttpClient client, string mode, string endpoint, string data,
-        string port)
+    private static async Task<HttpResponseMessage> SendRequest(HttpClient client, string method, string endpoint,
+        string data, string port)
     {
-        HttpResponseMessage response;
-        var url = "";
-        if (endpoint.Contains("https"))
-            url = endpoint;
-        else
-            url = $"https://127.0.0.1:{port}{endpoint}";
+        // Simplify URL construction
+        var url = endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? endpoint
+            : $"https://127.0.0.1:{port}{endpoint}";
 
-        Console.WriteLine(url);
+        //Console.Writeline(url); // Consider removing or using a logging framework
 
-        switch (mode)
-        {
-            case "get":
-                url += string.IsNullOrEmpty(data) ? "" : "?" + data;
-                response = await client.GetAsync(url);
-                break;
-            case "post":
-            case "put":
-                var content = new StringContent(string.IsNullOrEmpty(data) ? "" : data, Encoding.UTF8,
-                    "application/json");
-                response = mode == "post" ? await client.PostAsync(url, content) : await client.PutAsync(url, content);
-                break;
-            case "delete":
-                response = await client.DeleteAsync(url);
-                break;
-            default:
-                client.Dispose();
-                return "NoResponse";
-        }
+        // Create HttpMethod based on the method argument
+        var httpMethod = new HttpMethod(method.ToLowerInvariant());
 
-        client.Dispose();
+        // Initialize HttpRequestMessage
+        var request = new HttpRequestMessage(httpMethod, url);
+
+        // For methods other than GET, set the content
+        if (method.ToLowerInvariant() != "get")
+            request.Content =
+                new StringContent(string.IsNullOrEmpty(data) ? "" : data, Encoding.UTF8, "application/json");
+        else if (!string.IsNullOrEmpty(data))
+            // Append data as query string for GET requests
+            request.RequestUri = new Uri($"{url}?{data}");
+
+        // Send the request
+        var response = await client.SendAsync(request);
+
         return response;
     }
 

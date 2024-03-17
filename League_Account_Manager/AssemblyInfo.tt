@@ -36,8 +36,8 @@ using System.Resources;
 [assembly: NeutralResourcesLanguageAttribute( "en-US" )]
 
 <#+
-    int major = 1;
+    int major = 2;
     int minor = 1;
-    int revision = 0;
-    int build = 0;
+    int revision = 2;
+    int build = 2;
 #>

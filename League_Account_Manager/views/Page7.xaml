@@ -5,7 +5,7 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       mc:Ignorable="d"
-      d:DesignHeight="450" d:DesignWidth="800"
+      d:DesignHeight="749" d:DesignWidth="1216"
       Title="Page7">
 
     <Grid>
@@ -20,7 +20,11 @@
         <ui:Button Click="Button_Click2" Content="Get Friends" Margin="322,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
         <ui:Button Click="Button_Click_1" Content="Uninstall league" Margin="478,10,0,0"
-            VerticalAlignment="Top" Height="40" Width="151" />
+                   VerticalAlignment="Top" Height="40" Width="151" />
+        <ui:Button Click="Button_Click_2" Content="Disable Riot client autolaunch" Margin="634,10,0,0"
+                   VerticalAlignment="Top" Height="40" Width="213" />
+        <ui:Button Click="Button_Click_3" Content="Get riot hwid" Margin="852,10,0,0"
+                   VerticalAlignment="Top" Height="40" Width="151" />
 
     </Grid>
 </Page>

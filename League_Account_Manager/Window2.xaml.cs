@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 using League_Account_Manager.views;
 
 namespace League_Account_Manager;

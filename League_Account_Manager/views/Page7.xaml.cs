@@ -1,11 +1,8 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using FlaUI.Core.WindowsAPI;
 using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 using NLog;
@@ -65,28 +62,27 @@ public partial class Page7 : Page
         {
             try
             {
-
-
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-                championsbought = championsbought + "Deleted Item: " + path + "\n";
-            }
-            else if (Directory.Exists(path))
-            {
-                Directory.Delete(path, true);
-                championsbought = championsbought + "Deleted Item: " + path + "\n";
-            }
-            else
-            {
-                championsbought = championsbought + "Failed to delete item or item does not exist: " + path + "\n";
-            }
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                    championsbought = championsbought + "Deleted Item: " + path + "\n";
+                }
+                else if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, true);
+                    championsbought = championsbought + "Deleted Item: " + path + "\n";
+                }
+                else
+                {
+                    championsbought = championsbought + "Failed to delete item or item does not exist: " + path + "\n";
+                }
             }
             catch (Exception e)
             {
-                championsbought = championsbought + "Failed to delete item or item does not exist: " + path + " , make sure that LAM is running as admin\n";
-
+                championsbought = championsbought + "Failed to delete item or item does not exist: " + path +
+                                  " , make sure that LAM is running as admin\n";
             }
+
             success.Text = championsbought;
         }
 
@@ -110,7 +106,7 @@ public partial class Page7 : Page
 
             var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var rankedinfo = JArray.Parse(responseBody2);
-            Console.WriteLine(rankedinfo);
+            //Console.Writeline(rankedinfo);
             foreach (var VARIABLE in rankedinfo)
             {
                 resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
@@ -134,7 +130,7 @@ public partial class Page7 : Page
 
         var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         JArray rankedinfo = JArray.Parse(responseBody2);
-        Console.WriteLine(rankedinfo);
+        //Console.Writeline(rankedinfo);
         foreach (var VARIABLE in rankedinfo)
             try
             {
@@ -168,27 +164,35 @@ public partial class Page7 : Page
     private void Button_Click_1(object sender, RoutedEventArgs e)
     {
         Page1.killleaguefunc();
-        string installPath = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live", "UninstallString", null);
-        if (installPath != null) {
+        var installPath = (string)Registry.GetValue(
+            @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
+            "UninstallString", null);
+        if (installPath != null)
             notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
                 NotificationType.Error, "WindowArea", onClick: notif.donothing);
-        }
-        string pattern = "\"(.*?)\"";
-        Match match = Regex.Match(installPath, pattern);
+        var pattern = "\"(.*?)\"";
+        var match = Regex.Match(installPath, pattern);
 
         if (match.Success)
         {
-            string pathInQuotes = match.Groups[1].Value;
+            var pathInQuotes = match.Groups[1].Value;
 
             // Extract arguments after the double quotes
-            string arguments = installPath.Substring(match.Length).Trim();
+            var arguments = installPath.Substring(match.Length).Trim();
             Process.Start(pathInQuotes, arguments);
         }
-        else
-        {
-            Console.WriteLine("No match found.");
-        }
-        
+        //Console.Writeline("No match found.");
     }
 
+    private async void Button_Click_2(object sender, RoutedEventArgs e)
+    {
+        await Connector("riot", "delete", "/startup-config/v1/registry-config", "");
+    }
+
+    private async void Button_Click_3(object sender, RoutedEventArgs e)
+    {
+        var resp = await Connector("riot", "get", "/riotclient/machine-id", "");
+        var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        success.Text = "HWID = " + Game;
+    }
 }
