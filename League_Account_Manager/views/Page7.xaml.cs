@@ -51,14 +51,23 @@ public partial class Page7 : Page
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
-        var championsbought = "Files \n";
+        try
+        {
+            var championsbought = "Files \n";
         Page1.killleaguefunc();
         DeleteFilesAndFolders(list, championsbought);
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     public void DeleteFilesAndFolders(string[] paths, string championsbought)
     {
-        foreach (var path in paths)
+        try
+        {
+            foreach (var path in paths)
         {
             try
             {
@@ -89,9 +98,16 @@ public partial class Page7 : Page
         championsbought = championsbought + "LOGS HAVE BEEN CLEANED!!!";
         success.Text = championsbought;
     }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
+    }
 
     private async void Button_Click1(object sender, RoutedEventArgs e)
     {
+        try
+        {
         new Window3().ShowDialog();
         if (yayornay == 1)
         {
@@ -100,7 +116,7 @@ public partial class Page7 : Page
             if (resp.ToString() == "0")
             {
                 notif.notificationManager.Show("Error", "League of legends client is not running!",
-                    NotificationType.Error, "WindowArea", onClick: notif.donothing);
+                    NotificationType.Notification, "WindowArea", onClick: notif.donothing);
                 return;
             }
 
@@ -116,6 +132,11 @@ public partial class Page7 : Page
             }
         }
     }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
+    }
 
     private async void Button_Click2(object sender, RoutedEventArgs e)
     {
@@ -124,7 +145,7 @@ public partial class Page7 : Page
         if (resp.ToString() == "0")
         {
             notif.notificationManager.Show("Error", "League of legends client is not running!",
-                NotificationType.Error, "WindowArea", onClick: notif.donothing);
+                NotificationType.Notification, "WindowArea", onClick: notif.donothing);
             return;
         }
 
@@ -163,13 +184,15 @@ public partial class Page7 : Page
 
     private void Button_Click_1(object sender, RoutedEventArgs e)
     {
-        Page1.killleaguefunc();
+        try
+        {
+            Page1.killleaguefunc();
         var installPath = (string)Registry.GetValue(
             @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
             "UninstallString", null);
         if (installPath != null)
             notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
-                NotificationType.Error, "WindowArea", onClick: notif.donothing);
+                NotificationType.Notification, "WindowArea", onClick: notif.donothing);
         var pattern = "\"(.*?)\"";
         var match = Regex.Match(installPath, pattern);
 
@@ -183,16 +206,35 @@ public partial class Page7 : Page
         }
         //Console.Writeline("No match found.");
     }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
+    }
 
     private async void Button_Click_2(object sender, RoutedEventArgs e)
     {
-        await Connector("riot", "delete", "/startup-config/v1/registry-config", "");
+        try
+        {
+            await Connector("riot", "delete", "/startup-config/v1/registry-config", "");
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     private async void Button_Click_3(object sender, RoutedEventArgs e)
     {
-        var resp = await Connector("riot", "get", "/riotclient/machine-id", "");
+        try
+        {
+            var resp = await Connector("riot", "get", "/riotclient/machine-id", "");
         var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         success.Text = "HWID = " + Game;
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 }

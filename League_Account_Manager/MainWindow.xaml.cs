@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using NLog;
@@ -25,6 +27,11 @@ public partial class MainWindow : Window
 {
     public MainWindow()
     {
+
+        try
+        {
+
+
         var config = new LoggingConfiguration();
 
         var fileTarget = new FileTarget("logfile") { FileName = "Log.txt" };
@@ -39,18 +46,32 @@ public partial class MainWindow : Window
             LogManager.GetCurrentClassLogger().Fatal(exception, "Unhandled Exception");
         };
         InitializeComponent();
-       // AllocConsole();
+        // AllocConsole();
+         Console.WriteLine(Process.GetCurrentProcess().MainModule.FileName);
+         if (Process.GetCurrentProcess().MainModule.FileName.Contains("temp_update.exe"))
+         {
+             Updates.FinishUpdate();
+
+         }
+
+         version.Content = "Version " + Assembly.GetExecutingAssembly().GetName().Version.ToString();
         Settings.loadsettings();
         installloc.Content = Settings.settingsloaded.riotPath;
-
+        
         if (Settings.settingsloaded.updates) Updates.updatecheck();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+
+        }
     }
 
     public static event EventHandler<string> UpdateLabelText;
 
-    //[DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
+    // [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
     //    CallingConvention = CallingConvention.StdCall)]
-   //private static extern int AllocConsole();
+    // private static extern int AllocConsole();
 
     private void NavigationItem_Click_1(object sender, RoutedEventArgs e)
     {

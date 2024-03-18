@@ -27,9 +27,10 @@
                    Width="168" />
         <ui:Button Content="set Icon" Margin="501,15,0,0" Click="SetIcon" VerticalAlignment="Top" Height="77"
                    Width="250" />
-        <ui:TextBox ClearButtonEnabled="False" AcceptsReturn="True" Margin="185,102,0,220" TextWrapping="Wrap"
+        <ui:TextBox ClearButtonEnabled="False" PlaceholderText="Status message" AcceptsReturn="True"
+                    Margin="185,102,0,220" TextWrapping="Wrap"
                     Name="StatusMessageContainer" FontSize="11"
-                    Text="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" HorizontalAlignment="Left" Width="311" />
+                    Text="" HorizontalAlignment="Left" Width="311" MinWidth="311" />
         <ui:AutoSuggestBox IsEnabled="False" PlaceholderText="Loading!" MaxWidth="250" Margin="504,102,0,0"
                            Name="IconList" VerticalAlignment="Top" Width="245"
                            SuggestionChosen="IconList_OnSuggestionChosen" GotFocus="IconList_OnGotFocus"

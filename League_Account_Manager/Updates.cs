@@ -1,7 +1,11 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Windows.Interop;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
@@ -13,7 +17,13 @@ public class Updates
     public static async void updatecheck()
     {
         var updatecheck = new HttpClient();
-
+        if (File.Exists(Path.Combine(Environment.CurrentDirectory, "temp_update.exe")))
+        {
+            File.Delete(Path.Combine(Environment.CurrentDirectory, "temp_update.exe"));
+            Thread.Sleep(500);
+            notif.notificationManager.Show("Update!", "League Account Manager was updated successfully", NotificationType.Notification);
+            LogManager.GetCurrentClassLogger().Info("File removed");
+        }
         updatecheck.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue
         {
             NoCache = true
@@ -28,8 +38,8 @@ public class Updates
             string msg = "New update " + responseBody2["Version"] +
                          " is available, click here to download the new version!";
             notif.notificationManager.Show("Update!", msg, NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null, () => launchupdate(), "Go to update page",
-                () => notif.donothing(), "Cancel", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, () => UpdateAndRestart(), "Update now!",
+                () => launchupdate(), "Go to github", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             LogManager.GetCurrentClassLogger().Info("Update available");
         }
 
@@ -43,5 +53,68 @@ public class Updates
             FileName = "https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest",
             UseShellExecute = true
         });
+    }
+
+    public static void FinishUpdate()
+    {
+        string currentExePath = Path.Combine(Environment.CurrentDirectory, "temp_update.exe");
+        while(true){
+        try
+        {
+            string processName = "League_Account_Manager.exe";
+
+            // Find the process by name
+            Process[] processes = Process.GetProcessesByName(processName);
+
+            if (processes.Length > 0)
+            {
+                // Terminate the process
+                foreach (Process process in processes)
+                {
+                    process.Kill();
+                }
+            }
+            File.Copy(currentExePath, Path.Combine(Environment.CurrentDirectory, "League_Account_Manager.exe"), true);
+            Process.Start(new ProcessStartInfo()
+            {
+                FileName = Path.Combine(Environment.CurrentDirectory, "League_Account_Manager.exe"),
+                UseShellExecute = true,
+            });
+            break;
+        }
+        catch (Exception ex)
+        {
+            LogManager.GetCurrentClassLogger().Error(ex, "Error loading data");
+
+        }
+        }
+        Environment.Exit(1);
+    }
+    static void UpdateAndRestart()
+    {
+        string downloadUrl = "https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest/download/League_Account_Manager.exe";
+        string downloadPath = Path.Combine(Environment.CurrentDirectory, "temp_update.exe");
+        string currentExePath = Environment.ProcessPath;
+        string backupExePath = currentExePath + ".backup";
+        try
+        {
+
+            using (WebClient client = new WebClient())
+            {
+                client.DownloadFile(downloadUrl, downloadPath);
+            }
+
+            Process ps = Process.Start(new ProcessStartInfo()
+            {
+                FileName = downloadPath,
+                UseShellExecute = true,
+            }); 
+
+            Environment.Exit(1);
+        }
+        catch (Exception ex)
+        {
+            LogManager.GetCurrentClassLogger().Error(ex, "Error loading data");
+        }
     }
 }

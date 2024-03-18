@@ -18,11 +18,12 @@ public partial class Page4 : Page
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
+        try{
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
         if (resp.ToString() == "0")
         {
-            notif.notificationManager.Show("Error", "League of legends client is not running!", NotificationType.Error,
-                "WindowArea", onClick: () => notif.donothing());
+            notif.notificationManager.Show("Error", "League of legends client is not running!", NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             return;
         }
 
@@ -39,6 +40,11 @@ public partial class Page4 : Page
             pullrankedinfo(player["puuid"], i);
             i++;
         }
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     private async void pullrankedinfo(dynamic puuid, int I)
@@ -80,6 +86,7 @@ public partial class Page4 : Page
 
     private Gamestats CalculateGameStats(JToken games)
     {
+        try{
         int wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0;
         var tmp = new Gamestats { Assists = 0, Deaths = 0, Kills = 0, Losses = 0, Wins = 0 };
 
@@ -104,6 +111,13 @@ public partial class Page4 : Page
             }
 
         return tmp;
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+
+        return null;
     }
 
     private void Button_Click_OpenUrl(object sender, RoutedEventArgs e)
@@ -117,8 +131,8 @@ public partial class Page4 : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
-            notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data", NotificationType.Error,
-                "WindowArea", onClick: () => notif.donothing());
+            notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data", NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
     }
 
@@ -136,12 +150,15 @@ public partial class Page4 : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
             notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
-                NotificationType.Error, "WindowArea", onClick: () => notif.donothing());
+                NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
     }
 
     private async void Button_Click_6(object sender, RoutedEventArgs e)
     {
+        
+            try{
+        
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
         region = JObject.Parse(await GetResponseBody(resp));
         resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
@@ -157,9 +174,14 @@ public partial class Page4 : Page
 
         OpenUrl(url);
     }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
+    }
 
     private async void OpenPoroProfessor(object sender, RoutedEventArgs e)
-    {
+    {try{
         var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
         region = JObject.Parse(await GetResponseBody(resp));
         resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
@@ -175,6 +197,11 @@ public partial class Page4 : Page
 
         url = url.Remove(url.Length - 1, 1);
         OpenUrl(url);
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     private void OpenUrl(string url)

@@ -84,7 +84,6 @@ public partial class Page6 : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
-            throw;
         }
     }
 
@@ -110,6 +109,7 @@ public partial class Page6 : Page
 
     private void sendReports(object sender, RoutedEventArgs e)
     {
+        try{
         var totalreport = plaList.Count(item => item.report);
         var currentReports = 0;
         Status.Content = $"{currentReports} / {totalreport} reports created";
@@ -160,6 +160,11 @@ public partial class Page6 : Page
                     Thread.Sleep(1000);
                 }
         });
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     private async Task<bool> RetryOperation(Func<Task<bool>> operation, int maxRetries)

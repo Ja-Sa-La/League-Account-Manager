@@ -126,8 +126,8 @@ public partial class Page1 : Page
             if (leagueclientprocess.Length == 0)
             {
                 notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Error,
-                    "WindowArea", onClick: () => notif.donothing());
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 return;
             }
 
@@ -461,6 +461,7 @@ public partial class Page1 : Page
 
     public static void killleaguefunc()
     {
+        try{
         var source = new[]
         {
             "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
@@ -489,6 +490,11 @@ public partial class Page1 : Page
                 // Wait for a moment before checking again
                 Thread.Sleep(1000); // You can adjust the time interval if needed
         }
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     private void killleague_Click(object sender, RoutedEventArgs e)
@@ -598,8 +604,8 @@ public partial class Page1 : Page
         {
             //Console.Writeline(exception);
             notif.notificationManager.Show("Error", "An error occurred while loading the CSV file",
-                NotificationType.Error,
-                "WindowArea", onClick: () => notif.donothing());
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             {
                 LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
             }
@@ -676,8 +682,8 @@ public partial class Page1 : Page
                 if (responseBody1["error"] == "auth_failure")
                     Dispatcher.Invoke(() =>
                     {
-                        notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Error,
-                            "WindowArea", onClick: () => notif.donothing());
+                        notif.notificationManager.Show("Error", "Account details are invalid", NotificationType.Notification,
+                            "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                     });
                 resp = await lcu.Connector("riot", "post",
                     "/product-launcher/v1/products/league_of_legends/patchlines/live", "");

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using NLog;
 using Notification.Wpf;
 
 namespace League_Account_Manager.views;
@@ -140,6 +141,7 @@ public partial class Page5 : Page
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
+        try{
         var totalcost = 0;
         var count = 1;
         var championsbought = " Bought champions \n";
@@ -154,7 +156,7 @@ public partial class Page5 : Page
             if (val.ToString() == "0")
             {
                 notif.notificationManager.Show("Error", "League of legends client is not running!",
-                    NotificationType.Error, "WindowArea", onClick: () => notif.donothing());
+                    NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 return;
             }
 
@@ -180,6 +182,11 @@ public partial class Page5 : Page
         }
 
         statusmessage.Content = "All champions bought! Total BE used: " + totalcost;
+    }
+    catch (Exception exception)
+    {
+        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+    }
     }
 
     private class champs
