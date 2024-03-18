@@ -24,8 +24,8 @@ public partial class Page2 : Page
     {
         if (string.IsNullOrWhiteSpace(Password.Password) || string.IsNullOrWhiteSpace(Username.Text))
         {
-            notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Error,
-                "WindowArea", onClick: () => notif.donothing());
+            notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             return;
         }
 

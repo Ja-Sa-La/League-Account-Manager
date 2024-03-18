@@ -9,7 +9,6 @@
     mc:Ignorable="d"
     Title="MainWindow" Height="800" Width="1400"
     AllowsTransparency="True"
-
     xmlns:notifications="clr-namespace:Notification.Wpf.Controls;assembly=Notification.Wpf"
     xmlns:Page="clr-namespace:League_Account_Manager.views"
     Background="#FF232323">
@@ -59,13 +58,14 @@
                         <ui:SymbolIcon Symbol="AppGeneric20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Chat" TargetPageType="{x:Type Page:Page8}">
+                <ui:NavigationViewItem Content="Chat" TargetPageType="{x:Type Page:Page8}" >
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Chat20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
+                <Label Height="20" x:Name="version" Content="Version" HorizontalAlignment="Left" Foreground="#80FFFFFF" Padding="15,0,0,4" ></Label>
                 <ui:NavigationViewItem Content="Settings" TargetPageType="{x:Type Page:Page3}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Settings24" />
