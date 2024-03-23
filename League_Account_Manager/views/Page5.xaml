@@ -9,13 +9,28 @@
       Title="Page5">
 
     <Grid>
-        <ui:Button Click="Button_Click" ContentControl.Content="buy 20 champions" FrameworkElement.Margin="10,10,0,0"
+        <ui:Button Click="Button_Click" ContentControl.Content="buy selected champions"
+                   FrameworkElement.Margin="10,10,0,0"
                    FrameworkElement.VerticalAlignment="Top" Height="60" Width="249" />
         <Label Name="statusmessage" Content="Currently buying: " HorizontalAlignment="Left" Margin="264,10,0,0"
-               VerticalAlignment="Top" Height="40" Width="942" FontSize="24" />
-        <TextBlock Name="success" HorizontalAlignment="Left" Margin="10,75,0,0" Text="Bought champions" Width="598"
-                   Foreground="White" FontSize="18" Height="637" VerticalAlignment="Top" />
-        <TextBlock Name="failure" HorizontalAlignment="Left" Margin="613,75,0,10" Text="Failed to Buy" Width="593"
-                   Foreground="White" FontSize="18" />
+               VerticalAlignment="Top" Height="40" Width="692" FontSize="24" />
+        <TextBlock x:Name="success" HorizontalAlignment="Left" Margin="10,75,0,0" Width="598"
+                   Foreground="White" FontSize="18" Height="637" VerticalAlignment="Top">
+            <Run Language="en-gb" Text="Buy log" />
+        </TextBlock>
+        <ListBox Name="buyableChampsList" SelectionMode="Multiple" Margin="613,75,10,0" Height="664" Padding="0"
+                 VerticalAlignment="Top">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="Padding" Value="5" />
+                    <Setter Property="Margin" Value="0" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Height="20" Margin="0" Padding="0" MaxHeight="20" Text="{Binding namelist}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
     </Grid>
 </Page>

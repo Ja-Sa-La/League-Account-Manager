@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -15,33 +14,49 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Page8 : Page
 {
-    private readonly List<IconData> list = new();
-    private readonly List<IconData> listSkins = new();
-    private IconData SelectedIcon = new();
-    private IconData SelectedSkin = new();
+    private readonly List<IconData>? list = new();
+    private readonly List<IconData>? listSkins = new();
+    private IconData? SelectedIcon = new();
+    private IconData? SelectedSkin = new();
 
     public Page8()
     {
         InitializeComponent();
         LoadIcons();
         LoadSkins();
+        loadranks();
+    }
+
+    public List<string>? QueueList { get; set; }
+    public List<string>? RankList { get; set; }
+    public List<string>? TierList { get; set; }
+
+
+    private async Task CheckLeagueClientProcess()
+    {
+        var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
+        if (leagueclientprocess.Length == 0)
+        {
+            notif.notificationManager.Show("Error", "League of Legends client is not running!",
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+            throw new Exception("League of Legends client is not running!");
+        }
+    }
+
+    private async Task<string> ExecuteCommand(string module, string method, string endpoint, string data)
+    {
+        await CheckLeagueClientProcess();
+        var resp = await lcu.Connector(module, method, endpoint, data);
+        return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var resp = await lcu.Connector("riot", "post", "/chat/v1/suspend", "{\"config\":\"disable\"}");
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 = await ExecuteCommand("riot", "post", "/chat/v1/suspend", "{\"config\":\"disable\"}");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -54,17 +69,7 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var resp = await lcu.Connector("riot", "post", "/chat/v1/resume", "");
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 = await ExecuteCommand("riot", "post", "/chat/v1/resume", "");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -77,17 +82,7 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var resp = await lcu.Connector("riot", "get", "/chat/v2/session/state", "");
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 = await ExecuteCommand("riot", "get", "/chat/v2/session/state", "");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -100,24 +95,12 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            HttpResponseMessage resp = await lcu.Connector("league", "put", "/lol-chat/v1/me",
+            var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me",
                 "{\"statusMessage\": \"" +
                 StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ") + "\"}");
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            //Console.Writeline(responseBody2);
-            resp = await lcu.Connector("riot", "patch", "/chat/v1/settings",
+            responseBody2 = await ExecuteCommand("riot", "patch", "/chat/v1/settings",
                 "{\"chat-status-message\": \"" +
                 StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ") + "\"}");
-            responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -130,19 +113,8 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var jsonString = "{\"availability\":\"online\"}";
-
-            var resp = await lcu.Connector("league", "put", "/lol-chat/v1/me", jsonString);
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 =
+                await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"online\"}");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -155,19 +127,8 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var jsonString = "{\"availability\":\"offline\"}";
-
-            var resp = await lcu.Connector("league", "put", "/lol-chat/v1/me", jsonString);
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 =
+                await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"offline\"}");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -180,19 +141,27 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
+            var responseBody2 =
+                await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"mobile\"}");
+            //Console.Writeline(responseBody2);
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+    }
 
-            var jsonString = "{\"availability\":\"mobile\"}";
+    private async void SetRank(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var selectedQueue = Mode.SelectedItem.ToString();
+            var selectedRank = Rank.SelectedItem.ToString();
+            var selectedTier = Division.SelectedItem.ToString();
 
-            var resp = await lcu.Connector("league", "put", "/lol-chat/v1/me", jsonString);
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me",
+                "{\"lol\":{\"rankedLeagueQueue\":\"" + selectedQueue + "\",\"rankedLeagueTier\":\"" + selectedRank +
+                "\",\"rankedLeagueDivision\":\"" + selectedTier + "\"}}");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -205,19 +174,7 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var jsonString = "{\"availability\":\"away\"}";
-
-            var resp = await lcu.Connector("league", "put", "/lol-chat/v1/me", jsonString);
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"away\"}");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
@@ -230,28 +187,48 @@ public partial class Page8 : Page
     {
         try
         {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var jsonString = "{\"profileIconId\": " + SelectedIcon.ID + "}";
-            var resp = await lcu.Connector("league", "put", "/lol-summoner/v1/current-summoner/icon", jsonString);
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody2 = await ExecuteCommand("league", "put", "/lol-summoner/v1/current-summoner/icon",
+                "{\"profileIconId\": " + SelectedIcon.ID + "}");
             //Console.Writeline(responseBody2);
-            jsonString = "{\"icon\": " + SelectedIcon.ID + "}";
-            resp = await lcu.Connector("league", "put", "/lol-chat/v1/me/", jsonString);
-            responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            responseBody2 =
+                await ExecuteCommand("league", "put", "/lol-chat/v1/me/", "{\"icon\": " + SelectedIcon.ID + "}");
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
+    }
+
+    private async void SetSkin(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var responseBody2 = await ExecuteCommand("league", "post",
+                "/lol-summoner/v1/current-summoner/summoner-profile/",
+                "{\"key\": \"backgroundSkinId\",\"value\": " + SelectedSkin.ID + "}");
+            //Console.Writeline(responseBody2);
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+    }
+
+    private async void loadranks()
+    {
+        QueueList = new List<string>
+        {
+            "RANKED_SOLO_5x5", "RANKED_FLEX_SR", "RANKED_FLEX_TT", "RANKED_TFT", "RANKED_TFT_TURBO",
+            "RANKED_TFT_DOUBLE_UP", "CHERRY", ""
+        };
+        RankList = new List<string>
+        {
+            "IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER",
+            ""
+        };
+        TierList = new List<string> { "I", "II", "III", "IV", "" };
+        DataContext = this;
     }
 
     private async void LoadIcons()
@@ -263,7 +240,8 @@ public partial class Page8 : Page
             {
                 notif.notificationManager.Show("Error", "League of Legends client is not running!",
                     NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 return;
             }
 
@@ -294,6 +272,7 @@ public partial class Page8 : Page
         }
     }
 
+
     private async void LoadSkins()
     {
         try
@@ -303,7 +282,8 @@ public partial class Page8 : Page
             {
                 notif.notificationManager.Show("Error", "League of Legends client is not running!",
                     NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 return;
             }
 
@@ -335,30 +315,6 @@ public partial class Page8 : Page
         }
     }
 
-    private async void SetSkin(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            var jsonString = "{\"key\": \"backgroundSkinId\",\"value\": " + SelectedSkin.ID + "}";
-            var resp = await lcu.Connector("league", "post", "/lol-summoner/v1/current-summoner/summoner-profile/",
-                jsonString);
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            //Console.Writeline(responseBody2);
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
 
     private void IconList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
@@ -381,6 +337,7 @@ public partial class Page8 : Page
     {
         SelectedSkin = args.SelectedItem as IconData;
     }
+
 
     public class IconData
     {

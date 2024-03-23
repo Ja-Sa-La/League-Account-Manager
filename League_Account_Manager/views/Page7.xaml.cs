@@ -54,13 +54,13 @@ public partial class Page7 : Page
         try
         {
             var championsbought = "Files \n";
-        Page1.killleaguefunc();
-        DeleteFilesAndFolders(list, championsbought);
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+            Page1.killleaguefunc();
+            DeleteFilesAndFolders(list, championsbought);
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     public void DeleteFilesAndFolders(string[] paths, string championsbought)
@@ -68,74 +68,75 @@ public partial class Page7 : Page
         try
         {
             foreach (var path in paths)
-        {
-            try
             {
-                if (File.Exists(path))
+                try
                 {
-                    File.Delete(path);
-                    championsbought = championsbought + "Deleted Item: " + path + "\n";
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                        championsbought = championsbought + "Deleted Item: " + path + "\n";
+                    }
+                    else if (Directory.Exists(path))
+                    {
+                        Directory.Delete(path, true);
+                        championsbought = championsbought + "Deleted Item: " + path + "\n";
+                    }
+                    else
+                    {
+                        championsbought = championsbought + "Failed to delete item or item does not exist: " + path +
+                                          "\n";
+                    }
                 }
-                else if (Directory.Exists(path))
+                catch (Exception e)
                 {
-                    Directory.Delete(path, true);
-                    championsbought = championsbought + "Deleted Item: " + path + "\n";
+                    championsbought = championsbought + "Failed to delete item or item does not exist: " + path +
+                                      " , make sure that LAM is running as admin\n";
                 }
-                else
-                {
-                    championsbought = championsbought + "Failed to delete item or item does not exist: " + path + "\n";
-                }
-            }
-            catch (Exception e)
-            {
-                championsbought = championsbought + "Failed to delete item or item does not exist: " + path +
-                                  " , make sure that LAM is running as admin\n";
+
+                success.Text = championsbought;
             }
 
+            championsbought = championsbought + "LOGS HAVE BEEN CLEANED!!!";
             success.Text = championsbought;
         }
-
-        championsbought = championsbought + "LOGS HAVE BEEN CLEANED!!!";
-        success.Text = championsbought;
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async void Button_Click1(object sender, RoutedEventArgs e)
     {
         try
         {
-        new Window3().ShowDialog();
-        if (yayornay == 1)
-        {
-            var championsbought = "Friends \n";
-            var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
-            if (resp.ToString() == "0")
+            new Window3().ShowDialog();
+            if (yayornay == 1)
             {
-                notif.notificationManager.Show("Error", "League of legends client is not running!",
-                    NotificationType.Notification, "WindowArea", onClick: notif.donothing);
-                return;
-            }
+                var championsbought = "Friends \n";
+                var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
+                if (resp.ToString() == "0")
+                {
+                    notif.notificationManager.Show("Error", "League of legends client is not running!",
+                        NotificationType.Notification, "WindowArea", onClick: notif.donothing);
+                    return;
+                }
 
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var rankedinfo = JArray.Parse(responseBody2);
-            //Console.Writeline(rankedinfo);
-            foreach (var VARIABLE in rankedinfo)
-            {
-                resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
-                championsbought = championsbought + "Deleted Friend: " + VARIABLE["gameName"] + "\n";
-                success.Text = championsbought;
-                Thread.Sleep(400);
+                var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var rankedinfo = JArray.Parse(responseBody2);
+                //Console.Writeline(rankedinfo);
+                foreach (var VARIABLE in rankedinfo)
+                {
+                    resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
+                    championsbought = championsbought + "Deleted Friend: " + VARIABLE["gameName"] + "\n";
+                    success.Text = championsbought;
+                    Thread.Sleep(400);
+                }
             }
         }
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async void Button_Click2(object sender, RoutedEventArgs e)
@@ -187,29 +188,29 @@ public partial class Page7 : Page
         try
         {
             Page1.killleaguefunc();
-        var installPath = (string)Registry.GetValue(
-            @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
-            "UninstallString", null);
-        if (installPath != null)
-            notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
-                NotificationType.Notification, "WindowArea", onClick: notif.donothing);
-        var pattern = "\"(.*?)\"";
-        var match = Regex.Match(installPath, pattern);
+            var installPath = (string)Registry.GetValue(
+                @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
+                "UninstallString", null);
+            if (installPath != null)
+                notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
+                    NotificationType.Notification, "WindowArea", onClick: notif.donothing);
+            var pattern = "\"(.*?)\"";
+            var match = Regex.Match(installPath, pattern);
 
-        if (match.Success)
-        {
-            var pathInQuotes = match.Groups[1].Value;
+            if (match.Success)
+            {
+                var pathInQuotes = match.Groups[1].Value;
 
-            // Extract arguments after the double quotes
-            var arguments = installPath.Substring(match.Length).Trim();
-            Process.Start(pathInQuotes, arguments);
+                // Extract arguments after the double quotes
+                var arguments = installPath.Substring(match.Length).Trim();
+                Process.Start(pathInQuotes, arguments);
+            }
+            //Console.Writeline("No match found.");
         }
-        //Console.Writeline("No match found.");
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async void Button_Click_2(object sender, RoutedEventArgs e)
@@ -217,11 +218,11 @@ public partial class Page7 : Page
         try
         {
             await Connector("riot", "delete", "/startup-config/v1/registry-config", "");
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async void Button_Click_3(object sender, RoutedEventArgs e)
@@ -229,12 +230,12 @@ public partial class Page7 : Page
         try
         {
             var resp = await Connector("riot", "get", "/riotclient/machine-id", "");
-        var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        success.Text = "HWID = " + Game;
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+            var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            success.Text = "HWID = " + Game;
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 }
