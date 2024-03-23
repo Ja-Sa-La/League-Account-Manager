@@ -109,62 +109,64 @@ public partial class Page6 : Page
 
     private void sendReports(object sender, RoutedEventArgs e)
     {
-        try{
-        var totalreport = plaList.Count(item => item.report);
-        var currentReports = 0;
-        Status.Content = $"{currentReports} / {totalreport} reports created";
-        var tmp = plaList;
-        Task.Run(async () =>
+        try
         {
-            foreach (var item in tmp)
-                if (item.report)
-                {
-                    var success = await RetryOperation(async () =>
+            var totalreport = plaList.Count(item => item.report);
+            var currentReports = 0;
+            Status.Content = $"{currentReports} / {totalreport} reports created";
+            var tmp = plaList;
+            Task.Run(async () =>
+            {
+                foreach (var item in tmp)
+                    if (item.report)
                     {
-                        var reportstring = "{\"gameId\":" + item.gameId +
-                                           ",\"categories\":[\"NEGATIVE_ATTITUDE\",\"VERBAL_ABUSE\",\"HATE_SPEECH\"],\"offenderSummonerId\":" +
-                                           item.summonerId + ",\"offenderPuuid\":\"" +
-                                           item.puuId + "\"}";
-
-                        HttpResponseMessage resp = await Connector("league", "post",
-                            "/lol-player-report-sender/v1/match-history-reports", reportstring);
-
-                        var responseBody3 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        //Console.Writeline(responseBody3);
-
-                        if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+                        var success = await RetryOperation(async () =>
                         {
+                            var reportstring = "{\"gameId\":" + item.gameId +
+                                               ",\"categories\":[\"NEGATIVE_ATTITUDE\",\"VERBAL_ABUSE\",\"HATE_SPEECH\"],\"offenderSummonerId\":" +
+                                               item.summonerId + ",\"offenderPuuid\":\"" +
+                                               item.puuId + "\"}";
+
+                            HttpResponseMessage resp = await Connector("league", "post",
+                                "/lol-player-report-sender/v1/match-history-reports", reportstring);
+
+                            var responseBody3 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            //Console.Writeline(responseBody3);
+
+                            if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+                            {
+                                Dispatcher.Invoke(() =>
+                                {
+                                    Status.Content =
+                                        $"Currently rate limited waiting! {currentReports} / {totalreport} reports created";
+                                });
+                                Thread.Sleep(50000);
+                                return false; // Indicate failure to retry
+                            }
+
+                            return true; // Indicate success
+                        }, 10);
+
+                        if (success)
                             Dispatcher.Invoke(() =>
                             {
-                                Status.Content =
-                                    $"Currently rate limited waiting! {currentReports} / {totalreport} reports created";
+                                plaList.Where(thing =>
+                                        thing.gameId == item.gameId && thing.summonerId == item.summonerId)
+                                    .ToList()
+                                    .ForEach(thing => thing.reported = "yes");
+                                Reportable.ItemsSource = null;
+                                Reportable.ItemsSource = plaList;
+                                Status.Content = $"{++currentReports} / {totalreport} reports created";
                             });
-                            Thread.Sleep(50000);
-                            return false; // Indicate failure to retry
-                        }
 
-                        return true; // Indicate success
-                    }, 10);
-
-                    if (success)
-                        Dispatcher.Invoke(() =>
-                        {
-                            plaList.Where(thing => thing.gameId == item.gameId && thing.summonerId == item.summonerId)
-                                .ToList()
-                                .ForEach(thing => thing.reported = "yes");
-                            Reportable.ItemsSource = null;
-                            Reportable.ItemsSource = plaList;
-                            Status.Content = $"{++currentReports} / {totalreport} reports created";
-                        });
-
-                    Thread.Sleep(1000);
-                }
-        });
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+                        Thread.Sleep(1000);
+                    }
+            });
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async Task<bool> RetryOperation(Func<Task<bool>> operation, int maxRetries)

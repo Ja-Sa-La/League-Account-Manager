@@ -18,14 +18,15 @@ public partial class Page2 : Page
         InitializeComponent();
     }
 
-    public List<Page1.accountlist> AccountLists { get; }
+    public List<Page1.AccountList> AccountLists { get; }
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(Password.Password) || string.IsNullOrWhiteSpace(Username.Text))
         {
             notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             return;
         }
 
@@ -42,11 +43,25 @@ public partial class Page2 : Page
         foreach (var item in BulkAdd) UpdateAccountList(item.Username, item.Password);
     }
 
-    private void UpdateAccountList(string username, string password)
+    private async void UpdateAccountList(string username, string password)
     {
         Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-        Page1.ActualAccountlists.Add(new Page1.accountlist { username = username, password = password });
+        Page1.ActualAccountlists.Add(new Page1.AccountList { username = username, password = password });
         Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+        FileStream? fileStream = null;
+        while (fileStream == null)
+            try
+            {
+                fileStream =
+                    File.Open(Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"),
+                        FileMode.Open, FileAccess.Read, FileShare.None);
+                fileStream.Close();
+            }
+            catch (IOException)
+            {
+                // The file is in use by another process. Wait and try again.
+                await Task.Delay(1000);
+            }
 
         using var writer =
             new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"));

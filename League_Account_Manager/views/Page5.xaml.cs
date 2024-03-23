@@ -1,6 +1,10 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
 
@@ -11,188 +15,116 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Page5 : Page
 {
-    private static readonly List<champs> items = new();
+    private readonly List<Champs> Buyable = new();
 
     public Page5()
     {
         InitializeComponent();
-        items.Clear();
-        items.Add(new champs
-        {
-            Column1 = 350,
-            Column2 = 450,
-            Column3 = "yuumi"
-        });
-        items.Add(new champs
-        {
-            Column1 = 19,
-            Column2 = 450,
-            Column3 = "Warwick"
-        });
-        items.Add(new champs
-        {
-            Column1 = 17,
-            Column2 = 450,
-            Column3 = "Teemo"
-        });
-        items.Add(new champs
-        {
-            Column1 = 16,
-            Column2 = 450,
-            Column3 = "Soraka"
-        });
-        items.Add(new champs
-        {
-            Column1 = 37,
-            Column2 = 450,
-            Column3 = "Sona"
-        });
-        items.Add(new champs
-        {
-            Column1 = 113,
-            Column2 = 450,
-            Column3 = "Sejuani"
-        });
-        items.Add(new champs
-        {
-            Column1 = 15,
-            Column2 = 450,
-            Column3 = "Sivir"
-        });
-        items.Add(new champs
-        {
-            Column1 = 78,
-            Column2 = 450,
-            Column3 = "Poppy"
-        });
-        items.Add(new champs
-        {
-            Column1 = 20,
-            Column2 = 450,
-            Column3 = "Nunu & Willump"
-        });
-        items.Add(new champs
-        {
-            Column1 = 21,
-            Column2 = 450,
-            Column3 = "Miss Fortune"
-        });
-        items.Add(new champs
-        {
-            Column1 = 11,
-            Column2 = 450,
-            Column3 = "Master Yi"
-        });
-        items.Add(new champs
-        {
-            Column1 = 99,
-            Column2 = 450,
-            Column3 = "Lux"
-        });
-        items.Add(new champs
-        {
-            Column1 = 63,
-            Column2 = 450,
-            Column3 = "Brand"
-        });
-        items.Add(new champs
-        {
-            Column1 = 22,
-            Column2 = 450,
-            Column3 = "Ashe"
-        });
-        items.Add(new champs
-        {
-            Column1 = 54,
-            Column2 = 450,
-            Column3 = "Malphite"
-        });
-        items.Add(new champs
-        {
-            Column1 = 89,
-            Column2 = 450,
-            Column3 = "Leona"
-        });
-        items.Add(new champs
-        {
-            Column1 = 32,
-            Column2 = 450,
-            Column3 = "Amumu"
-        });
-        items.Add(new champs
-        {
-            Column1 = 26,
-            Column2 = 1350,
-            Column3 = "Zilean"
-        });
-        items.Add(new champs
-        {
-            Column1 = 44,
-            Column2 = 1350,
-            Column3 = "Taric"
-        });
-        items.Add(new champs
-        {
-            Column1 = 117,
-            Column2 = 4800,
-            Column3 = "Lulu"
-        });
+        LoadBuyableData();
     }
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
-        try{
-        var totalcost = 0;
-        var count = 1;
-        var championsbought = " Bought champions \n";
-        var championsfailed = "Failed to Buy \n";
-
-        foreach (var item in items)
+        try
         {
-            var val = await lcu.Connector("league", "post", "/lol-purchase-widget/v2/purchaseItems",
-                "{\"items\":[{\"itemKey\":{\"inventoryType\":\"CHAMPION\",\"itemId\":" + item.Column1 +
-                "},\"purchaseCurrencyInfo\":{\"currencyType\":\"IP\",\"price\":" + item.Column2 +
-                ",\"purchasable\":true},\"source\":\"cdp\",\"quantity\":1}]}");
-            if (val.ToString() == "0")
+            var totalcost = 0;
+            var count = 1;
+            var championsbought = " Bought champions \n";
+            var championsfailed = "Failed to Buy \n";
+            foreach (Champs champ in buyableChampsList.SelectedItems)
             {
-                notif.notificationManager.Show("Error", "League of legends client is not running!",
-                    NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
+                var id = champ.ID;
+                var price = champ.Price;
+                var val = await lcu.Connector("league", "post", "/lol-purchase-widget/v2/purchaseItems",
+                    "{\"items\":[{\"itemKey\":{\"inventoryType\":\"CHAMPION\",\"itemId\":" + champ.ID +
+                    "},\"purchaseCurrencyInfo\":{\"currencyType\":\"IP\",\"price\":" + champ.Price +
+                    ",\"purchasable\":true},\"source\":\"cdp\",\"quantity\":1}]}");
+                if (val.ToString() == "0")
+                {
+                    notif.notificationManager.Show("Error", "League of legends client is not running!",
+                        NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null,
+                        () => notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                    return;
+                }
+
+                var val2 = JsonArray.Parse(await val.Content.ReadAsStringAsync().ConfigureAwait(false));
+                try
+                {
+                    totalcost += Convert.ToInt32(val2["items"][0]["purchaseCurrencyInfo"]["price"].ToString());
+                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/20 Total BE used: " +
+                                            totalcost;
+                    championsbought = championsbought + champ.Name + "\n";
+                    success.Text = championsbought;
+                }
+                catch (Exception value)
+                {
+                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/20 Total BE used: " +
+                                            totalcost;
+                    championsfailed = championsfailed + champ.Name + " " + val2["message"] + "\n";
+                    success.Text = championsfailed;
+                }
+
+                Thread.Sleep(500);
+                count++;
             }
 
-            var val2 = JsonArray.Parse(await val.Content.ReadAsStringAsync().ConfigureAwait(false));
-            try
-            {
-                totalcost += Convert.ToInt32(val2["items"][0]["purchaseCurrencyInfo"]["price"].ToString());
-                statusmessage.Content = "Bought: " + item.Column3 + "! progress: " + count + "/20 Total BE used: " +
-                                        totalcost;
-                championsbought = championsbought + item.Column3 + "\n";
-                success.Text = championsbought;
-            }
-            catch (Exception value)
-            {
-                statusmessage.Content = "Bought: " + item.Column3 + "! progress: " + count + "/20 Total BE used: " +
-                                        totalcost;
-                championsfailed = championsfailed + item.Column3 + " " + val2["message"] + "\n";
-                failure.Text = championsfailed;
-            }
+            statusmessage.Content = "All champions bought! Total BE used: " + totalcost;
+            LoadBuyableData();
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+    }
 
-            Thread.Sleep(2000);
-            count++;
+    private async void LoadBuyableData()
+    {
+        Buyable.Clear();
+        var responseBody = await lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
+        string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
+        responseBody = await lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "");
+        JObject authtoken = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
+        var handler = new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            MaxConnectionsPerServer = 500
+        };
+        var client = new HttpClient(handler);
+        client.DefaultRequestVersion = HttpVersion.Version20;
+        client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+        client.Timeout = TimeSpan.FromSeconds(15);
+        var returnmessage = "";
+        client.DefaultRequestHeaders.Add("Accept-Encoding", "deflate, gzip");
+        client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+        client.DefaultRequestHeaders.Add("User-Agent",
+            "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) LeagueOfLegendsClient/14.6.568.8373 (CEF 91) Safari/537.36");
+        client.DefaultRequestHeaders.Add("AUTHORIZATION", "Bearer " + authtoken["token"]);
+        responseBody =
+            await client.GetAsync(storeurl.Replace("\"", "") + "/storefront/v3/view/champions?language=en_US");
+        JObject finalresp = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
+        foreach (var champ in finalresp["catalog"])
+        {
+            var champObject = champ as JObject;
+            if (!champObject.ContainsKey("ownedQuantity"))
+                Buyable.Add(new Champs
+                {
+                    ID = Convert.ToInt32(champ["itemId"]),
+                    Price = Convert.ToInt32(champ["ip"]),
+                    Name = champ["name"].ToString(),
+                    namelist = champ["name"] + " " + champ["ip"]
+                });
         }
 
-        statusmessage.Content = "All champions bought! Total BE used: " + totalcost;
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        buyableChampsList.ItemsSource = Buyable;
+        buyableChampsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
     }
 
-    private class champs
+    private class Champs
     {
-        public int Column1 { get; set; }
-        public int Column2 { get; set; }
-        public string Column3 { get; set; }
+        public int ID { get; set; }
+        public int Price { get; set; }
+        public string Name { get; set; }
+        public string namelist { get; set; }
     }
 }

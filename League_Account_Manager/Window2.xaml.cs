@@ -27,11 +27,12 @@ public partial class Window2 : Window
         foreach (var line in lines)
         {
             var credentials = line.Split(":");
-            Page2.BulkAdd.Add(new Page2.UserNameList
-            {
-                Username = credentials[0],
-                Password = credentials[1]
-            });
+            if (credentials.Length >= 2)
+                Page2.BulkAdd.Add(new Page2.UserNameList
+                {
+                    Username = credentials[0],
+                    Password = credentials[1]
+                });
         }
 
         Close();

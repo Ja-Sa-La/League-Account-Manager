@@ -14,7 +14,7 @@
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 1" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox Name="Player1" MinWidth="150" Text="Player Name" Height="41" />
+                <ui:TextBox Name="Player1" MinWidth="150" MaxWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
@@ -30,7 +30,7 @@
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 2" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player2" MinWidth="150" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player2" MaxWidth="150" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
@@ -46,7 +46,7 @@
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 3" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player3" MinWidth="150" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player3" MaxWidth="150" MinWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
@@ -62,7 +62,7 @@
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 4" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player4" MinWidth="150" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player4" MinWidth="150" MaxWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
@@ -78,7 +78,7 @@
             <!-- StackPanel for TextBox and Label -->
             <StackPanel Orientation="Vertical">
                 <Label Content="Player 5" FontSize="36" FontFamily="Bernard MT Condensed" Height="50" />
-                <ui:TextBox x:Name="Player5" MinWidth="150" Text="Player Name" Height="41" />
+                <ui:TextBox x:Name="Player5" MinWidth="150" MaxWidth="150" Text="Player Name" Height="41" />
             </StackPanel>
 
             <!-- StackPanel for Buttons -->
@@ -95,11 +95,11 @@
                 VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
                     <RowDefinition Height="1*" />
                 </Grid.RowDefinitions>
                 <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
@@ -114,11 +114,11 @@
                 VerticalAlignment="Top" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
                     <RowDefinition Height="1*" />
                 </Grid.RowDefinitions>
                 <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
@@ -133,11 +133,11 @@
                 VerticalAlignment="Center" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
                     <RowDefinition Height="1*" />
                 </Grid.RowDefinitions>
                 <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
@@ -152,11 +152,11 @@
                 Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
                     <RowDefinition Height="1*" />
                 </Grid.RowDefinitions>
                 <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />
@@ -171,11 +171,11 @@
                 VerticalAlignment="Center" Width="182" Background="#FF4C4C4C" CornerRadius="8,8,8,8">
             <Grid Margin="9,0,0,0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
                     <RowDefinition Height="1*" />
-                    <RowDefinition Height="1.5*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
+                    <RowDefinition Height="1*" />
                     <RowDefinition Height="1*" />
                 </Grid.RowDefinitions>
                 <Label Content="Peak rank" FontFamily="Segoe UI Semibold" FontSize="22" />

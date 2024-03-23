@@ -18,33 +18,36 @@ public partial class Page4 : Page
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
-        try{
-        var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
-        if (resp.ToString() == "0")
+        try
         {
-            notif.notificationManager.Show("Error", "League of legends client is not running!", NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-            return;
-        }
+            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            if (resp.ToString() == "0")
+            {
+                notif.notificationManager.Show("Error", "League of legends client is not running!",
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                return;
+            }
 
-        region = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
-        var players = JObject.Parse(await GetResponseBody(resp));
-        var i = 0;
-        foreach (var player in players["participants"])
-        {
-            if (!player["cid"].ToString().Contains("champ-select"))
-                continue;
-            var playerText = FindName($"Player{i + 1}") as TextBox;
-            playerText.Text = player["game_name"] + "#" + player["game_tag"];
-            pullrankedinfo(player["puuid"], i);
-            i++;
+            region = JObject.Parse(await GetResponseBody(resp));
+            resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
+            var players = JObject.Parse(await GetResponseBody(resp));
+            var i = 0;
+            foreach (var player in players["participants"])
+            {
+                if (!player["cid"].ToString().Contains("champ-select"))
+                    continue;
+                var playerText = FindName($"Player{i + 1}") as TextBox;
+                playerText.Text = player["game_name"] + "#" + player["game_tag"];
+                pullrankedinfo(player["puuid"], i);
+                i++;
+            }
         }
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async void pullrankedinfo(dynamic puuid, int I)
@@ -86,31 +89,32 @@ public partial class Page4 : Page
 
     private Gamestats CalculateGameStats(JToken games)
     {
-        try{
-        int wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0;
-        var tmp = new Gamestats { Assists = 0, Deaths = 0, Kills = 0, Losses = 0, Wins = 0 };
+        try
+        {
+            int wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0;
+            var tmp = new Gamestats { Assists = 0, Deaths = 0, Kills = 0, Losses = 0, Wins = 0 };
 
-        foreach (var game in games)
-            if (Convert.ToInt32(game["mapId"]) == 11 && game["gameType"].ToString() == "MATCHED_GAME" &&
-                game["queueId"].ToString() == "420")
-            {
-                var win = game["participants"][0]["stats"]["win"];
-                if (Convert.ToBoolean(win)) tmp.Wins++;
-                else if (Convert.ToBoolean(win) == false) tmp.Losses++;
-
-                try
+            foreach (var game in games)
+                if (Convert.ToInt32(game["mapId"]) == 11 && game["gameType"].ToString() == "MATCHED_GAME" &&
+                    game["queueId"].ToString() == "420")
                 {
-                    tmp.Kills += int.Parse(game["participants"][0]["stats"]["kills"].ToString());
-                    tmp.Deaths += int.Parse(game["participants"][0]["stats"]["deaths"].ToString());
-                    tmp.Assists += int.Parse(game["participants"][0]["stats"]["assists"].ToString());
-                }
-                catch (Exception exception)
-                {
-                    LogManager.GetCurrentClassLogger().Error(exception, "Error");
-                }
-            }
+                    var win = game["participants"][0]["stats"]["win"];
+                    if (Convert.ToBoolean(win)) tmp.Wins++;
+                    else if (Convert.ToBoolean(win) == false) tmp.Losses++;
 
-        return tmp;
+                    try
+                    {
+                        tmp.Kills += int.Parse(game["participants"][0]["stats"]["kills"].ToString());
+                        tmp.Deaths += int.Parse(game["participants"][0]["stats"]["deaths"].ToString());
+                        tmp.Assists += int.Parse(game["participants"][0]["stats"]["assists"].ToString());
+                    }
+                    catch (Exception exception)
+                    {
+                        LogManager.GetCurrentClassLogger().Error(exception, "Error");
+                    }
+                }
+
+            return tmp;
         }
         catch (Exception exception)
         {
@@ -131,8 +135,10 @@ public partial class Page4 : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
-            notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data", NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+            notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
     }
 
@@ -150,58 +156,60 @@ public partial class Page4 : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
             notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
-                NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null,null, null, () =>notif.donothing() , "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null,
+                () => notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
     }
 
     private async void Button_Click_6(object sender, RoutedEventArgs e)
     {
-        
-            try{
-        
-        var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
-        region = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
-        var players = JObject.Parse(await GetResponseBody(resp));
-        var url = $"https://www.op.gg/multisearch/{region["region"]}?summoners=";
-
-        foreach (var player in players["participants"])
+        try
         {
-            if (!player["cid"].ToString().Contains("champ-select"))
-                continue;
-            url += $"{player["game_name"]}%23{player["game_tag"]},";
-        }
+            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            region = JObject.Parse(await GetResponseBody(resp));
+            resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
+            var players = JObject.Parse(await GetResponseBody(resp));
+            var url = $"https://www.op.gg/multisearch/{region["region"]}?summoners=";
 
-        OpenUrl(url);
-    }
-    catch (Exception exception)
-    {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+            foreach (var player in players["participants"])
+            {
+                if (!player["cid"].ToString().Contains("champ-select"))
+                    continue;
+                url += $"{player["game_name"]}%23{player["game_tag"]},";
+            }
+
+            OpenUrl(url);
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private async void OpenPoroProfessor(object sender, RoutedEventArgs e)
-    {try{
-        var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
-        region = JObject.Parse(await GetResponseBody(resp));
-        resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
-        var players = JObject.Parse(await GetResponseBody(resp));
-        var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
-
-        foreach (var player in players["participants"])
-        {
-            if (!player["cid"].ToString().Contains("champ-select"))
-                continue;
-            url += $"{player["game_name"]} -{player["game_tag"]},";
-        }
-
-        url = url.Remove(url.Length - 1, 1);
-        OpenUrl(url);
-    }
-    catch (Exception exception)
     {
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
+        try
+        {
+            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            region = JObject.Parse(await GetResponseBody(resp));
+            resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
+            var players = JObject.Parse(await GetResponseBody(resp));
+            var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
+
+            foreach (var player in players["participants"])
+            {
+                if (!player["cid"].ToString().Contains("champ-select"))
+                    continue;
+                url += $"{player["game_name"]} -{player["game_tag"]},";
+            }
+
+            url = url.Remove(url.Length - 1, 1);
+            OpenUrl(url);
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private void OpenUrl(string url)

@@ -41,6 +41,20 @@
                            VerticalAlignment="Top" SuggestionChosen="SkinList_OnSuggestionChosen"
                            GotFocus="IconList_OnGotFocus" DisplayMemberPath="Name" Margin="761,102,0,0"
                            HorizontalAlignment="Left" Width="245" />
+        <ui:Button Content="set Rank" Margin="501,146,0,0" Click="SetRank" VerticalAlignment="Top" Height="77"
+                   Width="250" />
+        <ComboBox Margin="504,252,0,0" ItemsSource="{Binding QueueList}" Name="Mode" VerticalAlignment="Top"
+                  HorizontalAlignment="Left" MinWidth="247" />
+        <ComboBox Margin="504,323,0,0" ItemsSource="{Binding RankList}" Name="Rank" VerticalAlignment="Top"
+                  HorizontalAlignment="Left" MinWidth="247" />
+        <ComboBox Margin="504,389,0,0" ItemsSource="{Binding TierList}" Name="Division" HorizontalAlignment="Left"
+                  MinWidth="247" VerticalAlignment="Top" />
+        <Label Content="Queue" HorizontalAlignment="Left" Margin="504,228,0,0" VerticalAlignment="Top" Height="24"
+               Width="245" />
+        <Label Content="Rank" HorizontalAlignment="Left" Margin="504,294,0,0" VerticalAlignment="Top" Height="24"
+               Width="245" />
+        <Label Content="Division" HorizontalAlignment="Left" Margin="504,365,0,0" VerticalAlignment="Top" Height="24"
+               Width="245" />
 
 
     </Grid>
