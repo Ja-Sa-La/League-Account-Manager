@@ -10,12 +10,14 @@ Was made to test some stuff in lcu and as a coding excersise.
 - Accounts stored locally in a cvs file
 - Save rank/level/champions/skins on your account
 - search accounts by region/loot/champions/skins
-- Allows you to quickly buy 20 champions
+- Allows you to quickly buy champions without store rate limits
 - Allows you to show player names in champion select
 - Remove all log files create by league of legends
 - Remove all friends from the account
-- Report players you have not even played with
+- Mass report players from your match history
 - All done in lcu no autoclicker scripts!
+- Change your riot id without email access
+- Customise your chat profile or disable it
 
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/5f87db91-54ba-48f5-a03f-d91751b79551)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/ca4deff9-d291-4bc7-8b18-49eb28cb955e)
