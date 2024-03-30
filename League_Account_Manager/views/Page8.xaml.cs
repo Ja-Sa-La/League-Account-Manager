@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
 using Wpf.Ui.Controls;
+using MessageBox = System.Windows.MessageBox;
 
 namespace League_Account_Manager.views;
 
@@ -18,13 +19,39 @@ public partial class Page8 : Page
     private readonly List<IconData>? listSkins = new();
     private IconData? SelectedIcon = new();
     private IconData? SelectedSkin = new();
+    private bool loaded = false;
 
     public Page8()
     {
         InitializeComponent();
-        LoadIcons();
-        LoadSkins();
-        loadranks();
+        LoadDataAsync();
+    }
+
+    private async void LoadDataAsync()
+    {
+        while (true)
+        {
+            try
+            {
+                if (!loaded)
+                {
+                    break;
+                }
+                await LoadIcons();
+                await LoadSkins();
+                loadranks();
+                break; // If all methods complete successfully, break the loop
+                
+            }
+            catch (Exception e)
+            {
+                notif.notificationManager.Show("Error", "League of Legends client is not running! waiting 5 seconds to try again",
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                await Task.Delay(5000); // Use Task.Delay instead of Thread.Sleep in async methods
+            }
+        }
     }
 
     public List<string>? QueueList { get; set; }
@@ -231,18 +258,15 @@ public partial class Page8 : Page
         DataContext = this;
     }
 
-    private async void LoadIcons()
+    private async Task LoadIcons()
     {
         try
         {
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0)
             {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
-                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
+                
+                throw new Exception();
             }
 
             Task.Run(async () =>
@@ -269,22 +293,19 @@ public partial class Page8 : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            
         }
     }
 
 
-    private async void LoadSkins()
+    private async Task LoadSkins()
     {
         try
         {
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0)
             {
-                notif.notificationManager.Show("Error", "League of Legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
-                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
+                throw new Exception();
             }
 
             Task.Run(async () =>
@@ -312,6 +333,7 @@ public partial class Page8 : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            throw new Exception("aa");
         }
     }
 
@@ -344,4 +366,17 @@ public partial class Page8 : Page
         public string Name { get; set; }
         public string ID { get; set; }
     }
+
+
+    private void Page8_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        loaded = true;
+        LoadDataAsync();
+    }
+
+    private void Page8_OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        loaded = false;
+    }
+
 }

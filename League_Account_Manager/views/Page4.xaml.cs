@@ -15,7 +15,7 @@ public partial class Page4 : Page
     {
         InitializeComponent();
     }
-
+    private List<string> processedPlayers = new List<string>();
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -36,12 +36,16 @@ public partial class Page4 : Page
             var i = 0;
             foreach (var player in players["participants"])
             {
-                if (!player["cid"].ToString().Contains("champ-select"))
+
+                var playerCid = player["cid"].ToString();
+                var playerPid = player["pid"].ToString();
+                if (!playerCid.Contains("champ-select") || processedPlayers.Contains(playerPid))
                     continue;
                 var playerText = FindName($"Player{i + 1}") as TextBox;
                 playerText.Text = player["game_name"] + "#" + player["game_tag"];
                 pullrankedinfo(player["puuid"], i);
                 i++;
+                processedPlayers.Add(playerPid);
             }
         }
         catch (Exception exception)

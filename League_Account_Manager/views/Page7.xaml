@@ -11,7 +11,7 @@
     <Grid>
         <ui:Button Click="Button_Click" ContentControl.Content="Nuke logs" FrameworkElement.Margin="10,10,0,0"
                    FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
-        <ScrollViewer Margin="0,75,0,0">
+        <ScrollViewer Margin="0,75,0,0" Height="674" VerticalAlignment="Top">
             <TextBox Name="success" Margin="0,0,0,0" Text="Deleted files/friends"
                      Foreground="White" FontSize="18" IsReadOnly="True" TextWrapping="WrapWithOverflow" />
         </ScrollViewer>

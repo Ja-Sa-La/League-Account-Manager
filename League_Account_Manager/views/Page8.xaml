@@ -6,7 +6,7 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       mc:Ignorable="d"
       d:DesignHeight="749" d:DesignWidth="1216"
-      Title="Page8">
+      Title="Page8"  Loaded="Page8_OnLoaded" Unloaded="Page8_OnUnloaded" >
 
     <Grid>
         <ui:Button Content="Disable Chat" Margin="10,15,0,0" Click="Button_Click" VerticalAlignment="Top" Height="77"

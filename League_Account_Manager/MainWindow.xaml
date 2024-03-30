@@ -65,6 +65,12 @@
                         <ui:SymbolIcon Symbol="Chat20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="Loot"
+                                       TargetPageType="{x:Type Page:Page9}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="ShoppingBag20" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
                 <Label Height="20" x:Name="version" Content="Version" HorizontalAlignment="Left" Foreground="#80FFFFFF"

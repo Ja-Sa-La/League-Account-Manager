@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using NLog;
 using NLog.Config;
@@ -25,10 +26,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+      //  AllocConsole();
         InitializeLogging();
         InitializeUI();
     }
-
+    //[DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
+    //    CallingConvention = CallingConvention.StdCall)]
+    // private static extern int AllocConsole();
     private void InitializeLogging()
     {
         var config = new LoggingConfiguration();

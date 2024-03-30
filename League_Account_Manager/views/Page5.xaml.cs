@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json.Nodes;
@@ -79,6 +80,10 @@ public partial class Page5 : Page
 
     private async void LoadBuyableData()
     {
+        try
+        {
+
+
         Buyable.Clear();
         var responseBody = await lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
         string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -118,6 +123,11 @@ public partial class Page5 : Page
 
         buyableChampsList.ItemsSource = Buyable;
         buyableChampsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private class Champs
