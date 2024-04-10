@@ -120,9 +120,9 @@ public partial class Page5 : Page
                     namelist = champ["name"] + " " + champ["ip"]
                 });
         }
-
-        buyableChampsList.ItemsSource = Buyable;
+            buyableChampsList.ItemsSource = Buyable;
         buyableChampsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
+        client.Dispose();
         }
         catch (Exception exception)
         {

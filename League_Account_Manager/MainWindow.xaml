@@ -22,9 +22,12 @@
         </Grid.RowDefinitions>
 
 
-        <Label Content="" Grid.Column="1" Name="installloc" HorizontalAlignment="Left" Margin="450,8,0,0"
+        <Label Content="" Name="installloc" HorizontalAlignment="Left" Margin="450,3,0,0"
                VerticalAlignment="Top"
-               Width="575" />
+               Width="575" Height="22" />
+        <Label Content="" Name="installloclea" HorizontalAlignment="Left" Margin="450,25,0,0"
+               VerticalAlignment="Top"
+               Width="575" Height="22" />
         <ui:NavigationView Grid.Row="1" OpenPaneLength="175" IsBackButtonVisible="Collapsed" MinWidth="50"
                            x:Name="RootNavigation" Grid.Column="0" Loaded="RootNavigation_OnLoaded">
             <ui:NavigationView.MenuItems>

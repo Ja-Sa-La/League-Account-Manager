@@ -1,8 +1,11 @@
-﻿using System.IO;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using Microsoft.Win32;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace League_Account_Manager;
@@ -11,7 +14,9 @@ public class Settings
 {
     public static settings1 settingsloaded;
 
-    public static void loadsettings()
+    public async static 
+    Task
+loadsettings()
     {
         if (File.Exists(Directory.GetCurrentDirectory() + "/Settings.json"))
         {
@@ -25,12 +30,20 @@ public class Settings
                 var json = JsonSerializer.Serialize(settingsloaded);
                 File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
             }
+
+            if (settingsloaded.riotPath != null && settingsloaded.LeaguePath == null)
+            {
+                settingsloaded.LeaguePath = await findleague();
+                var json = JsonSerializer.Serialize(settingsloaded);
+                File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+            }
         }
         else
         {
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
             settingsloaded.riotPath = findriot();
+            settingsloaded.LeaguePath = await findleague();
             var json = JsonSerializer.Serialize(settingsloaded);
             File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
         }
@@ -98,8 +111,61 @@ public class Settings
             }
     }
 
+    private async static Task<string> findleague()
+    {
+        Process riotclient = null;
+        int startedclient = 0;
+        if (Process.GetProcessesByName("Riot Client").Length == 0 && Process.GetProcessesByName("RiotClientUx").Length == 0){
+            riotclient= Process.Start(Settings.settingsloaded.riotPath, "--launch-product=league_of_legends --launch-patchline=live");
+            startedclient = 1;
+        }
+
+        int num = 0;
+        while (true)
+        {
+            if (Process.GetProcessesByName("Riot Client").Length != 0 || Process.GetProcessesByName("RiotClientUx").Length != 0)
+            {
+                break;
+            }
+            Thread.Sleep(2000);
+            num++;
+            if (num == 5) break;
+        }
+        var resp = await lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
+        JObject responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+        if (startedclient == 1 && riotclient != null)
+        {
+            riotclient.Kill();
+        }
+
+        if(responseBody.ContainsKey("path"))
+            return responseBody["path"].ToString().Replace("/", "\\") + "\\LeagueClient.exe";
+
+            var openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*";
+            openFileDialog.FileName = "LeagueClient.exe";
+            while (true)
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    if (Path.GetFileName(openFileDialog.FileName) != "LeagueClient.exe")
+                    {
+                        MessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        continue;
+                    }
+
+                    return openFileDialog.FileName;
+                }
+                else
+                {
+                    Environment.Exit(0);
+                }
+
+    }
+
     public struct settings1
     {
+        public string LeaguePath { get; set; }
         public string riotPath { get; set; }
         public string filename { get; set; }
         public bool updates { get; set; }

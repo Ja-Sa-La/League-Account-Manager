@@ -137,7 +137,7 @@ internal class lcu
 
         // Send the request
         var response = await client.SendAsync(request);
-
+        client.Dispose();
         return response;
     }
 
