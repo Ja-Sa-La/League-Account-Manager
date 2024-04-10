@@ -26,11 +26,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-      //  AllocConsole();
+       // AllocConsole();
         InitializeLogging();
         InitializeUI();
     }
-    //[DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
+   // [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
     //    CallingConvention = CallingConvention.StdCall)]
     // private static extern int AllocConsole();
     private void InitializeLogging()
@@ -47,7 +47,7 @@ public partial class MainWindow : Window
         };
     }
 
-    private void InitializeUI()
+    private async void InitializeUI()
     {
         try
         {
@@ -56,14 +56,16 @@ public partial class MainWindow : Window
                 Updates.FinishUpdate();
 
             // Load settings
-            Settings.loadsettings();
-            installloc.Content = Settings.settingsloaded.riotPath;
+            await Settings.loadsettings();
 
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)
                 Updates.updatecheck();
-            installloc.Content = Settings.settingsloaded.riotPath;
+            
+            Console.WriteLine(Settings.settingsloaded.LeaguePath);
             version.Content = "Version " + Assembly.GetExecutingAssembly().GetName().Version;
+            installloc.Content = Settings.settingsloaded.riotPath;
+            installloclea.Content = Settings.settingsloaded.LeaguePath;
         }
         catch (Exception e)
         {

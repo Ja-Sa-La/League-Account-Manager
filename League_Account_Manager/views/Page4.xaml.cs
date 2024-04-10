@@ -20,6 +20,7 @@ public partial class Page4 : Page
     {
         try
         {
+            processedPlayers.Clear();
             var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             if (resp.ToString() == "0")
             {

@@ -34,8 +34,8 @@
             </DataGrid.Resources>
 
         </DataGrid>
-        <Grid HorizontalAlignment="Left"
-              VerticalAlignment="Top" Margin="10,4,0,0" Grid.ColumnSpan="2" Width="1380">
+        <Grid HorizontalAlignment="Center"
+              VerticalAlignment="Top" Margin="0,4,0,0" Width="1176">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />
@@ -68,7 +68,10 @@
             <ui:Button Grid.Column="6" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
                        VerticalAlignment="Stretch" x:Name="openleague1_Copy" Content="Name Change" FontSize="12"
                        Click="openleague1_Copy_Click" />
-            <ui:TextBox Grid.Column="7" Grid.ColumnSpan="3" Name="champfilter"
+            <ui:Button Grid.Column="7" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="SecondaryClient" Content="Second client" FontSize="10"
+                       Click="SecondaryClient_OnClick" />
+            <ui:TextBox Grid.Column="8" Grid.ColumnSpan="2" Name="champfilter"
                         PlaceholderText="Champion, skin, loot or server name"
                         TextWrapping="NoWrap" VerticalAlignment="Center" Padding="6,1" FontSize="10"
                         TextChanged="TextBox_TextChanged" Margin="10,0,10,0" />

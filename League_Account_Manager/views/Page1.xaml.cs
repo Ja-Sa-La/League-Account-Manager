@@ -290,7 +290,7 @@ public partial class Page1 : Page
             catch (Exception ex)
             {
                 var jotain = JToken.Parse(responseBody);
-                if (jotain["errorCode"] != "RPC_ERROR")
+                if (jotain["errorCode"].ToString() != "RPC_ERROR")
                     Environment.Exit(1);
                 else
                     await Task.Delay(2000);
@@ -317,8 +317,8 @@ public partial class Page1 : Page
         var resp = await lcu.Connector("league", "get",
             "/lol-inventory/v1/wallet?currencyTypes=[%22RP%22,%22lol_blue_essence%22]", "");
         var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        var be = JToken.Parse(responseBody)["lol_blue_essence"];
-        var rp = JToken.Parse(responseBody)["RP"];
+        var be = Convert.ToInt32(JToken.Parse(responseBody)["lol_blue_essence"]);
+        var rp = Convert.ToInt32(JToken.Parse(responseBody)["RP"]);
 
         return new Wallet { be = be, rp = rp };
     }
@@ -796,7 +796,11 @@ public partial class Page1 : Page
         var namechanger = new Window5();
         namechanger.Show();
     }
-
+    private async void Open_second_client(object sender, RoutedEventArgs e)
+    {
+        var namechanger = new Window5();
+        namechanger.Show();
+    }
     private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
     {
         e.Column.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
@@ -824,5 +828,10 @@ public partial class Page1 : Page
     {
         public int? be { get; set; }
         public int? rp { get; set; }
+    }
+
+    private async void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
+    {
+        Process.Start(Settings.settingsloaded.LeaguePath, "--allow-multiple-clients");
     }
 }
