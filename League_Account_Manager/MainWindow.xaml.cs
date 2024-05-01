@@ -26,13 +26,15 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-       // AllocConsole();
+      //  AllocConsole();
         InitializeLogging();
         InitializeUI();
     }
-   // [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
+
+    //[DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
     //    CallingConvention = CallingConvention.StdCall)]
-    // private static extern int AllocConsole();
+   // private static extern int AllocConsole();
+
     private void InitializeLogging()
     {
         var config = new LoggingConfiguration();
@@ -61,7 +63,7 @@ public partial class MainWindow : Window
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)
                 Updates.updatecheck();
-            
+
             Console.WriteLine(Settings.settingsloaded.LeaguePath);
             version.Content = "Version " + Assembly.GetExecutingAssembly().GetName().Version;
             installloc.Content = Settings.settingsloaded.riotPath;

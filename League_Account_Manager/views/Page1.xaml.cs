@@ -25,8 +25,8 @@ public partial class Page1 : Page
     public static string? SelectedUsername;
     public static string? SelectedPassword;
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
-    private bool Executing;
     private readonly FileSystemWatcher? fileWatcher;
+    private bool Executing;
     private double running;
 
     public Page1()
@@ -50,6 +50,10 @@ public partial class Page1 : Page
     private async void OnChanged(object source, FileSystemEventArgs e)
     {
         await loaddata();
+        Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+        Championlist.Columns[12].Visibility = Visibility.Collapsed;
+        Championlist.Columns[8].Visibility = Visibility.Collapsed;
+        Championlist.Columns[9].Visibility = Visibility.Collapsed;
     }
 
 
@@ -81,9 +85,6 @@ public partial class Page1 : Page
                 Championlist.ItemsSource = null;
                 Championlist.ItemsSource = ActualAccountlists;
                 Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-                Championlist.Columns[12].Visibility = Visibility.Collapsed;
-                Championlist.Columns[8].Visibility = Visibility.Collapsed;
-                Championlist.Columns[9].Visibility = Visibility.Collapsed;
             });
         }
         catch (Exception exception)
@@ -427,7 +428,7 @@ public partial class Page1 : Page
                                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
                             break;
                         }
-                        
+
                         Thread.Sleep(1000);
                     }
                 }
@@ -796,14 +797,21 @@ public partial class Page1 : Page
         var namechanger = new Window5();
         namechanger.Show();
     }
+
     private async void Open_second_client(object sender, RoutedEventArgs e)
     {
         var namechanger = new Window5();
         namechanger.Show();
     }
+
     private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
     {
         e.Column.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
+    }
+
+    private async void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
+    {
+        Process.Start(Settings.settingsloaded.LeaguePath, "--allow-multiple-clients");
     }
 
     public class AccountList
@@ -828,10 +836,5 @@ public partial class Page1 : Page
     {
         public int? be { get; set; }
         public int? rp { get; set; }
-    }
-
-    private async void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
-    {
-        Process.Start(Settings.settingsloaded.LeaguePath, "--allow-multiple-clients");
     }
 }

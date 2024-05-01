@@ -13,9 +13,10 @@
         <DataGrid x:Name="Championlist" SelectionUnit="FullRow" Loaded="Championlist_Loaded"
                   MouseLeftButtonDown="Championlist_MouseLeftButtonDown"
                   IsReadOnly="True"
-                  HorizontalContentAlignment="Stretch" 
+                  HorizontalContentAlignment="Stretch"
                   ColumnWidth="auto" SelectionMode="Single" Margin="0,36,0,0"
-                  AutoGeneratingColumn="DataGrid_AutoGeneratingColumn" HorizontalScrollBarVisibility="Disabled" Height="713" VerticalAlignment="Top">
+                  AutoGeneratingColumn="DataGrid_AutoGeneratingColumn" HorizontalScrollBarVisibility="Disabled"
+                  Height="713" VerticalAlignment="Top">
 
             <DataGrid.Resources>
                 <Style TargetType="{x:Type DataGridCell}">

@@ -1,5 +1,5 @@
-﻿using System;
-using System.ComponentModel;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json.Nodes;
@@ -82,47 +82,48 @@ public partial class Page5 : Page
     {
         try
         {
+            var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
+            if (leagueclientprocess.Length == 0) return;
+            Buyable.Clear();
+            var responseBody = await lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
+            string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
+            responseBody = await lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "");
+            JObject authtoken = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
+            var handler = new SocketsHttpHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                MaxConnectionsPerServer = 500
+            };
+            var client = new HttpClient(handler);
+            client.DefaultRequestVersion = HttpVersion.Version20;
+            client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+            client.Timeout = TimeSpan.FromSeconds(15);
+            var returnmessage = "";
+            client.DefaultRequestHeaders.Add("Accept-Encoding", "deflate, gzip");
+            client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) LeagueOfLegendsClient/14.6.568.8373 (CEF 91) Safari/537.36");
+            client.DefaultRequestHeaders.Add("AUTHORIZATION", "Bearer " + authtoken["token"]);
+            responseBody =
+                await client.GetAsync(storeurl.Replace("\"", "") + "/storefront/v3/view/champions?language=en_US");
+            JObject finalresp = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
+            foreach (var champ in finalresp["catalog"])
+            {
+                var champObject = champ as JObject;
+                if (!champObject.ContainsKey("ownedQuantity"))
+                    Buyable.Add(new Champs
+                    {
+                        ID = Convert.ToInt32(champ["itemId"]),
+                        Price = Convert.ToInt32(champ["ip"]),
+                        Name = champ["name"].ToString(),
+                        namelist = champ["name"] + " " + champ["ip"]
+                    });
+            }
 
-
-        Buyable.Clear();
-        var responseBody = await lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
-        string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
-        responseBody = await lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "");
-        JObject authtoken = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
-        var handler = new SocketsHttpHandler
-        {
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-            MaxConnectionsPerServer = 500
-        };
-        var client = new HttpClient(handler);
-        client.DefaultRequestVersion = HttpVersion.Version20;
-        client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
-        client.Timeout = TimeSpan.FromSeconds(15);
-        var returnmessage = "";
-        client.DefaultRequestHeaders.Add("Accept-Encoding", "deflate, gzip");
-        client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
-        client.DefaultRequestHeaders.Add("Accept", "application/json");
-        client.DefaultRequestHeaders.Add("User-Agent",
-            "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) LeagueOfLegendsClient/14.6.568.8373 (CEF 91) Safari/537.36");
-        client.DefaultRequestHeaders.Add("AUTHORIZATION", "Bearer " + authtoken["token"]);
-        responseBody =
-            await client.GetAsync(storeurl.Replace("\"", "") + "/storefront/v3/view/champions?language=en_US");
-        JObject finalresp = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
-        foreach (var champ in finalresp["catalog"])
-        {
-            var champObject = champ as JObject;
-            if (!champObject.ContainsKey("ownedQuantity"))
-                Buyable.Add(new Champs
-                {
-                    ID = Convert.ToInt32(champ["itemId"]),
-                    Price = Convert.ToInt32(champ["ip"]),
-                    Name = champ["name"].ToString(),
-                    namelist = champ["name"] + " " + champ["ip"]
-                });
-        }
             buyableChampsList.ItemsSource = Buyable;
-        buyableChampsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
-        client.Dispose();
+            buyableChampsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
+            client.Dispose();
         }
         catch (Exception exception)
         {

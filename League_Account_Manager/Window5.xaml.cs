@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using System.Diagnostics;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
 using Newtonsoft.Json.Linq;
@@ -29,10 +30,11 @@ public partial class Window5 : Window
 
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
-        var name = Name.Text;
+        var name = Nameholder.Text;
         var tag = Tagline.Text;
         HttpResponseMessage resp = null;
         JObject body = null;
+        Process.Start(Settings.settingsloaded.riotPath);
         if (tag == null)
         {
             resp = await lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",

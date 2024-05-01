@@ -6,7 +6,6 @@ using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
 using Wpf.Ui.Controls;
-using MessageBox = System.Windows.MessageBox;
 
 namespace League_Account_Manager.views;
 
@@ -17,9 +16,9 @@ public partial class Page8 : Page
 {
     private readonly List<IconData>? list = new();
     private readonly List<IconData>? listSkins = new();
+    private bool loaded;
     private IconData? SelectedIcon = new();
     private IconData? SelectedSkin = new();
-    private bool loaded = false;
 
     public Page8()
     {
@@ -27,39 +26,34 @@ public partial class Page8 : Page
         LoadDataAsync();
     }
 
+    public List<string>? QueueList { get; set; }
+    public List<string>? RankList { get; set; }
+    public List<string>? TierList { get; set; }
+
     private async void LoadDataAsync()
     {
         while (true)
-        {
             try
             {
-                if (!loaded)
-                {
-                    break;
-                }
+                if (!loaded) break;
                 await LoadIcons();
                 await LoadSkins();
                 loadranks();
                 break; // If all methods complete successfully, break the loop
-                
             }
             catch (Exception e)
             {
-                notif.notificationManager.Show("Error", "League of Legends client is not running! waiting 5 seconds to try again",
+                notif.notificationManager.Show("Error",
+                    "League of Legends client is not running! waiting 5 seconds to try again",
                     NotificationType.Notification,
                     "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 await Task.Delay(5000); // Use Task.Delay instead of Thread.Sleep in async methods
             }
-        }
     }
 
-    public List<string>? QueueList { get; set; }
-    public List<string>? RankList { get; set; }
-    public List<string>? TierList { get; set; }
 
-
-    private async Task CheckLeagueClientProcess()
+    private async Task<bool> CheckLeagueClientProcess()
     {
         var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
         if (leagueclientprocess.Length == 0)
@@ -68,13 +62,16 @@ public partial class Page8 : Page
                 NotificationType.Notification,
                 "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-            throw new Exception("League of Legends client is not running!");
+            return false;
         }
+
+        return true;
     }
 
     private async Task<string> ExecuteCommand(string module, string method, string endpoint, string data)
     {
-        await CheckLeagueClientProcess();
+        if (!await CheckLeagueClientProcess())
+            return "";
         var resp = await lcu.Connector(module, method, endpoint, data);
         return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
@@ -84,10 +81,12 @@ public partial class Page8 : Page
         try
         {
             var responseBody2 = await ExecuteCommand("riot", "post", "/chat/v1/suspend", "{\"config\":\"disable\"}");
+            Console.WriteLine(responseBody2);
             //Console.Writeline(responseBody2);
         }
         catch (Exception exception)
         {
+            Console.WriteLine(exception);
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
@@ -263,11 +262,7 @@ public partial class Page8 : Page
         try
         {
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                
-                throw new Exception();
-            }
+            if (leagueclientprocess.Length == 0) return;
 
             Task.Run(async () =>
             {
@@ -293,7 +288,6 @@ public partial class Page8 : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-            
         }
     }
 
@@ -303,10 +297,7 @@ public partial class Page8 : Page
         try
         {
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueclientprocess.Length == 0)
-            {
-                throw new Exception();
-            }
+            if (leagueclientprocess.Length == 0) return;
 
             Task.Run(async () =>
             {
@@ -349,6 +340,8 @@ public partial class Page8 : Page
         SkinList.Text = "";
         IconList.Text = "";
         SendKeys.SendWait(" ");
+        SkinList.Text = "";
+        IconList.Text = "";
     }
 
     private void SetBackground(object sender, RoutedEventArgs e)
@@ -358,13 +351,6 @@ public partial class Page8 : Page
     private void SkinList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
         SelectedSkin = args.SelectedItem as IconData;
-    }
-
-
-    public class IconData
-    {
-        public string Name { get; set; }
-        public string ID { get; set; }
     }
 
 
@@ -379,4 +365,10 @@ public partial class Page8 : Page
         loaded = false;
     }
 
+
+    public class IconData
+    {
+        public string Name { get; set; }
+        public string ID { get; set; }
+    }
 }

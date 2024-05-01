@@ -33,7 +33,9 @@ public partial class Page6 : Page
             {
                 var resp = await Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Console.WriteLine(responseBody2);
                 var summonerinfo = JObject.Parse(responseBody2);
+
                 var resp2 = await Connector("league", "get",
                     "/lol-match-history/v1/products/lol/" + summonerinfo["puuid"].ToString() +
                     "/matches?begIndex=0&endIndex=19", "");

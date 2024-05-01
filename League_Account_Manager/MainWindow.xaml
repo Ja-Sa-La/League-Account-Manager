@@ -47,6 +47,11 @@
                         <ui:SymbolIcon Symbol="Group20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="Auto Champ select" NavigationCacheMode="Required" TargetPageType="{x:Type Page:Page10}" >
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="Group20" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
                 <ui:NavigationViewItem Content="Buy champions" TargetPageType="{x:Type Page:Page5}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Money20" />
