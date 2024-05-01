@@ -186,16 +186,16 @@
                 <Label Grid.Row="5" Name="player3wr" Content="" FontFamily="Segoe UI Semibold" FontSize="14" />
             </Grid>
         </Border>
-        <TextBlock HorizontalAlignment="Left" Margin="574,52,0,0" TextWrapping="Wrap" VerticalAlignment="Top"
-                   Height="127" Width="227" FontSize="24" Text="Ranked winrate and kda are from Players last 40 games!"
+        <TextBlock HorizontalAlignment="Left" Margin="515,71,0,0" TextWrapping="Wrap" VerticalAlignment="Top"
+                   Height="127" Width="218" FontSize="24" Text="Ranked winrate and kda are from Players last 40 games!"
                    Foreground="#FFB5B5B5" FontFamily="Segoe UI Black" />
-        <Button Content="DODGE" Margin="826,131,0,0" VerticalAlignment="Top" Click="DODGE" Height="68"
+        <Button Content="DODGE" Margin="727,138,0,0" VerticalAlignment="Top" Click="DODGE" Height="68"
                 Width="114" />
-        <Button Content="Open PoroProfessor" Margin="945,131,0,0" VerticalAlignment="Top" Click="OpenPoroProfessor"
+        <Button Content="Open PoroProfessor" Margin="846,138,0,0" VerticalAlignment="Top" Click="OpenPoroProfessor"
                 Height="68" Width="158" />
-        <Button Content="Pull info" Click="Button_Click" Height="68" Width="98" Margin="826,58,0,0"
+        <Button Content="Pull info" Click="Button_Click" Height="68" Width="98" Margin="727,65,0,0"
                 VerticalAlignment="Top" />
-        <Button Content="Open multi.op.gg" Click="Button_Click_6" Height="68" Width="174" Margin="929,58,0,0"
+        <Button Content="Open multi.op.gg" Click="Button_Click_6" Height="68" Width="174" Margin="830,65,0,0"
                 VerticalAlignment="Top" RenderTransformOrigin="0.5,0.5">
             <Button.RenderTransform>
                 <TransformGroup>

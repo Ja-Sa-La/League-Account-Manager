@@ -9,13 +9,15 @@ namespace League_Account_Manager.views;
 
 public partial class Page4 : Page
 {
+    private readonly List<string> processedPlayers = new();
     private JObject region;
+
 
     public Page4()
     {
         InitializeComponent();
     }
-    private List<string> processedPlayers = new List<string>();
+
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -37,7 +39,6 @@ public partial class Page4 : Page
             var i = 0;
             foreach (var player in players["participants"])
             {
-
                 var playerCid = player["cid"].ToString();
                 var playerPid = player["pid"].ToString();
                 if (!playerCid.Contains("champ-select") || processedPlayers.Contains(playerPid))

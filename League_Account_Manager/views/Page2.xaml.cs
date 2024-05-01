@@ -31,6 +31,8 @@ public partial class Page2 : Page
         }
 
         UpdateAccountList(Username.Text, Password.Password);
+        Username.Text = "";
+        Password.Password = "";
     }
 
     private void Button_Click_1(object sender, RoutedEventArgs e)

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -14,9 +13,9 @@ public class Settings
 {
     public static settings1 settingsloaded;
 
-    public async static 
-    Task
-loadsettings()
+    public static async
+        Task
+        loadsettings()
     {
         if (File.Exists(Directory.GetCurrentDirectory() + "/Settings.json"))
         {
@@ -111,56 +110,54 @@ loadsettings()
             }
     }
 
-    private async static Task<string> findleague()
+    private static async Task<string> findleague()
     {
         Process riotclient = null;
-        int startedclient = 0;
-        if (Process.GetProcessesByName("Riot Client").Length == 0 && Process.GetProcessesByName("RiotClientUx").Length == 0){
-            riotclient= Process.Start(Settings.settingsloaded.riotPath, "--launch-product=league_of_legends --launch-patchline=live");
+        var startedclient = 0;
+        if (Process.GetProcessesByName("Riot Client").Length == 0 &&
+            Process.GetProcessesByName("RiotClientUx").Length == 0)
+        {
+            riotclient = Process.Start(settingsloaded.riotPath,
+                "--launch-product=league_of_legends --launch-patchline=live");
             startedclient = 1;
         }
 
-        int num = 0;
+        var num = 0;
         while (true)
         {
-            if (Process.GetProcessesByName("Riot Client").Length != 0 || Process.GetProcessesByName("RiotClientUx").Length != 0)
-            {
-                break;
-            }
+            if (Process.GetProcessesByName("Riot Client").Length != 0 ||
+                Process.GetProcessesByName("RiotClientUx").Length != 0) break;
             Thread.Sleep(2000);
             num++;
             if (num == 5) break;
         }
+
         var resp = await lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
         JObject responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        if (startedclient == 1 && riotclient != null)
-        {
-            riotclient.Kill();
-        }
+        if (startedclient == 1 && riotclient != null) riotclient.Kill();
 
-        if(responseBody.ContainsKey("path"))
+        if (responseBody.ContainsKey("path"))
             return responseBody["path"].ToString().Replace("/", "\\") + "\\LeagueClient.exe";
 
-            var openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*";
-            openFileDialog.FileName = "LeagueClient.exe";
-            while (true)
-                if (openFileDialog.ShowDialog() == true)
+        var openFileDialog = new OpenFileDialog();
+        openFileDialog.Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*";
+        openFileDialog.FileName = "LeagueClient.exe";
+        while (true)
+            if (openFileDialog.ShowDialog() == true)
+            {
+                if (Path.GetFileName(openFileDialog.FileName) != "LeagueClient.exe")
                 {
-                    if (Path.GetFileName(openFileDialog.FileName) != "LeagueClient.exe")
-                    {
-                        MessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-                        continue;
-                    }
-
-                    return openFileDialog.FileName;
-                }
-                else
-                {
-                    Environment.Exit(0);
+                    MessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    continue;
                 }
 
+                return openFileDialog.FileName;
+            }
+            else
+            {
+                Environment.Exit(0);
+            }
     }
 
     public struct settings1

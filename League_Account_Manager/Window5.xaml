@@ -4,8 +4,7 @@
         Width="402" WindowStyle="None" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="#FF252525" MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated">
     <Grid>
-        <ui:TextBox Margin="10,90,10,0" PlaceholderText="Name" Name="Name" TextWrapping="Wrap" Text="" Height="34"
-                    VerticalAlignment="Top" />
+        <ui:TextBox Margin="10,90,10,0" PlaceholderText="Name" Name="Nameholder" TextWrapping="Wrap" Height="34" VerticalAlignment="Top" />
         <ui:TextBox Margin="10,132,224,0" PlaceholderText="Tagline" Name="Tagline" Text="" Height="39"
                     VerticalAlignment="Top" />
         <ui:Button Content="Change Name" Click="Button_Click" Margin="0,136,10,0" VerticalAlignment="Top"

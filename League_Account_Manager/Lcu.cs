@@ -8,8 +8,8 @@ namespace League_Account_Manager;
 
 internal class lcu
 {
-    public static Vals Riot;
-    public static Vals League;
+    public static Vals Riot = new Vals { path = "", port = "", token = "", Value = "", version = null }; 
+    public static Vals League = new Vals();
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern nint FindWindow(string strClassName, string strWindowName);
@@ -22,21 +22,29 @@ internal class lcu
         };
         var client = new HttpClient(clientHandler);
 
-        string[] portSplit, tokenSplit;
+        string[] portSplit = { "1", "2" }, tokenSplit;
         byte[] token;
-
         if (target == "riot")
         {
-            var riotProcess = Process.GetProcessesByName("Riot Client").FirstOrDefault();
-            if (riotProcess == null)
-                riotProcess = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
+            var riotProcess = Process.GetProcessesByName("Riot Client");
+            if (riotProcess.Length == 0)
+                riotProcess = Process.GetProcessesByName("RiotClientUx");
+
             var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
 
-            if (riotProcess != null)
+            if (riotProcess.Length > 0)
             {
-                ProcessCommandLine.Retrieve(riotProcess, out var value);
-                Console.Write(value);
-                SetRiotValues(riotProcess, value);
+                foreach (var ritoprocess in riotProcess)
+                    try
+                    {
+                        ProcessCommandLine.Retrieve(ritoprocess, out var value);
+                        SetRiotValues(ritoprocess, value);
+                        if (Riot.port[1].ToString() != "2")
+                            break;
+                    }
+                    catch (Exception)
+                    {
+                    }
             }
             else if (leagueClientProcess != null)
             {
@@ -55,16 +63,21 @@ internal class lcu
         }
         else
         {
-            var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
+            var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueClientProcess == null) return 0;
-
-            ProcessCommandLine.Retrieve(leagueClientProcess, out var value);
-            SetLeagueValues(leagueClientProcess, value);
-
-            portSplit = League.port.Split("=");
-            tokenSplit = League.token.Split("=");
-            token = Encoding.UTF8.GetBytes("riot:" + tokenSplit[1]);
-            SetClientHeaders(client, portSplit[1], token, League.version.FileVersion);
+            foreach (var leagueprocess in leagueClientProcess)
+                try
+                {
+                    ProcessCommandLine.Retrieve(leagueprocess, out var value);
+                    SetLeagueValues(leagueprocess, value);
+                    portSplit = League.port.Split("=");
+                    tokenSplit = League.token.Split("=");
+                    token = Encoding.UTF8.GetBytes("riot:" + tokenSplit[1]);
+                    SetClientHeaders(client, portSplit[1], token, League.version.FileVersion);
+                }
+                catch (Exception)
+                {
+                }
         }
 
         return await SendRequest(client, mode, endpoint, data, portSplit[1]);
@@ -143,9 +156,18 @@ internal class lcu
 
     private static string showMatch(string text, string expr)
     {
-        var mc = Regex.Matches(text, expr);
+        dynamic mc;
+        try
+        {
+            mc = Regex.Matches(text, expr);
 
-        foreach (Match m in mc) return m.ToString();
+            foreach (Match m in mc) return m.ToString();
+        }
+        catch (Exception)
+        {
+            return "error";
+        }
+
         return "error";
     }
 

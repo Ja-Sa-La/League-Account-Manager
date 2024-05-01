@@ -19,10 +19,11 @@
             <Run Language="en-gb" Text="Buy log" />
         </TextBlock>
 
-        <ListBox Name="buyableChampsList" SelectionMode="Multiple" Margin="613,75,10,0"  MaxHeight="650" MinHeight="100" Padding="0" ScrollViewer.VerticalScrollBarVisibility="Visible"  VerticalAlignment="Top">
+        <ListBox Name="buyableChampsList" SelectionMode="Multiple" Margin="613,75,10,0" MaxHeight="650" MinHeight="100"
+                 Padding="0" ScrollViewer.VerticalScrollBarVisibility="Visible" VerticalAlignment="Top">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <UniformGrid  Columns="3" Margin="0" />
+                    <UniformGrid Columns="3" Margin="0" />
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle>
@@ -34,14 +35,15 @@
                         <Setter.Value>
                             <ControlTemplate TargetType="ListBoxItem">
                                 <Border Name="Bd" BorderBrush="WhiteSmoke" BorderThickness="1">
-                                    <TextBlock Height="30" TextAlignment="Center" FontSize="20" Margin="0" Padding="0" MaxHeight="30" Text="{Binding namelist}" />
+                                    <TextBlock Height="30" TextAlignment="Center" FontSize="20" Margin="0" Padding="0"
+                                               MaxHeight="30" Text="{Binding namelist}" />
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#65000000"/>
+                                        <Setter TargetName="Bd" Property="Background" Value="#65000000" />
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Bd" Property="Background" Value="#65000000"/>
+                                        <Setter TargetName="Bd" Property="Background" Value="#65000000" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -52,7 +54,8 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Border BorderBrush="WhiteSmoke" BorderThickness="1">
-                        <TextBlock Height="30" FontSize="20" Margin="0" Padding="0" MaxHeight="30" Text="{Binding namelist}" />
+                        <TextBlock Height="30" FontSize="20" Margin="0" Padding="0" MaxHeight="30"
+                                   Text="{Binding namelist}" />
                     </Border>
                 </DataTemplate>
             </ListBox.ItemTemplate>
