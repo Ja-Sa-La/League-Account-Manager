@@ -70,6 +70,5 @@
         <Label Content="Ban 3" HorizontalAlignment="Left" Margin="614,262,0,0" VerticalAlignment="Top" Width="290" Height="30"
        x:Name="ban3Label"/>
 
-
     </Grid>
 </Page>

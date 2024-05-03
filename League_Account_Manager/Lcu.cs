@@ -14,6 +14,69 @@ internal class lcu
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern nint FindWindow(string strClassName, string strWindowName);
 
+    public static async Task<(string RiotPort, string RiotToken, string LeaguePort, string LeagueToken)> GetClientInfo()
+    {
+        string[] portSplit = { "1", "2" }, tokenSplit;
+        byte[] token;
+        string riotPort = "", riotToken = "", leaguePort = "", leagueToken = "";
+
+        var riotProcess = Process.GetProcessesByName("Riot Client");
+        if (riotProcess.Length == 0)
+            riotProcess = Process.GetProcessesByName("RiotClientUx");
+
+        var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
+
+        if (riotProcess.Length > 0)
+        {
+            foreach (var ritoprocess in riotProcess)
+                try
+                {
+                    ProcessCommandLine.Retrieve(ritoprocess, out var value);
+                    SetRiotValues(ritoprocess, value);
+                    if (Riot.port[1].ToString() != "2")
+                    {
+                        portSplit = Riot.port.Split("=");
+                        tokenSplit = Riot.token.Split("=");
+                        riotPort = portSplit[1];
+                        riotToken = tokenSplit[1];
+                        break;
+                    }
+                }
+                catch (Exception)
+                {
+                }
+        }
+        else if (leagueClientProcess != null)
+        {
+            ProcessCommandLine.Retrieve(leagueClientProcess, out var value);
+            SetRiotValues(leagueClientProcess, value, true);
+            portSplit = Riot.port.Split("=");
+            tokenSplit = Riot.token.Split("=");
+            riotPort = portSplit[1];
+            riotToken = tokenSplit[1];
+        }
+
+        var leagueClientProcess2 = Process.GetProcessesByName("LeagueClientUx");
+        if (leagueClientProcess2 != null)
+        {
+            foreach (var leagueprocess in leagueClientProcess2)
+                try
+                {
+                    ProcessCommandLine.Retrieve(leagueprocess, out var value);
+                    SetLeagueValues(leagueprocess, value);
+                    portSplit = League.port.Split("=");
+                    tokenSplit = League.token.Split("=");
+                    leaguePort = portSplit[1];
+                    leagueToken = tokenSplit[1];
+                }
+                catch (Exception)
+                {
+                }
+        }
+
+        return (riotPort, riotToken, leaguePort, leagueToken);
+    }
+
     public static async Task<dynamic> Connector(string target, string mode, string endpoint, string data)
     {
         var clientHandler = new HttpClientHandler

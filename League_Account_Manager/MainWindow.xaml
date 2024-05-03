@@ -24,10 +24,28 @@
 
         <Label Content="" Name="installloc" HorizontalAlignment="Left" Margin="450,3,0,0"
                VerticalAlignment="Top"
-               Width="575" Height="22" />
+               Width="489" Height="22" />
         <Label Content="" Name="installloclea" HorizontalAlignment="Left" Margin="450,25,0,0"
                VerticalAlignment="Top"
-               Width="575" Height="22" />
+               Width="489" Height="22" />
+        <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,3,0,0" Name="leaguedata" VerticalAlignment="Top" Width="380" Background="Transparent" Foreground="White">
+            <TextBox.Style>
+                <Style TargetType="TextBox">
+                    <Setter Property="IsReadOnly" Value="True" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                </Style>
+            </TextBox.Style>
+        </TextBox>
+        <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,25,0,0"  Name="riotdata"  VerticalAlignment="Top" Width="380" Foreground="White" Background="Transparent">
+            <TextBox.Style>
+                <Style TargetType="TextBox">
+                    <Setter Property="IsReadOnly" Value="True" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                </Style>
+            </TextBox.Style>
+        </TextBox>
         <ui:NavigationView Grid.Row="1" OpenPaneLength="175" IsBackButtonVisible="Collapsed" MinWidth="50"
                            x:Name="RootNavigation" Grid.Column="0" Loaded="RootNavigation_OnLoaded">
             <ui:NavigationView.MenuItems>
@@ -99,5 +117,6 @@
                                         x:Name="WindowArea" Position="TopRight" MaxItems="1" Grid.ColumnSpan="2"
                                         Grid.RowSpan="2"
                                         Margin="0,-10,0,0" />
+
     </Grid>
 </Window>
