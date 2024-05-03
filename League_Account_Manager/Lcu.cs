@@ -16,6 +16,9 @@ internal class lcu
 
     public static async Task<(string RiotPort, string RiotToken, string LeaguePort, string LeagueToken)> GetClientInfo()
     {
+        var ingame = Process.GetProcessesByName("League of Legends");
+        if (ingame.Length != 0)
+            return ("0", "0", "0", "0");
         string[] portSplit = { "1", "2" }, tokenSplit;
         byte[] token;
         string riotPort = "", riotToken = "", leaguePort = "", leagueToken = "";
@@ -79,12 +82,15 @@ internal class lcu
 
     public static async Task<dynamic> Connector(string target, string mode, string endpoint, string data)
     {
-        var clientHandler = new HttpClientHandler
+        var ingame = Process.GetProcessesByName("League of Legends");
+        if (ingame.Length != 0)
+            return "";
+            var clientHandler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
         };
         var client = new HttpClient(clientHandler);
-
+        
         string[] portSplit = { "1", "2" }, tokenSplit;
         byte[] token;
         if (target == "riot")
