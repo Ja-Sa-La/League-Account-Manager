@@ -26,14 +26,35 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-      //  AllocConsole();
+        AllocConsole();
         InitializeLogging();
         InitializeUI();
+        Task.Run(async () =>
+        {
+            while (true)
+            {
+                try
+                {
+                    dynamic data = await lcu.GetClientInfo();
+                    Dispatcher.Invoke(() =>
+                    {
+                        leaguedata.Text = $"League port: {data.Item3} password: {data.Item4}";
+                        riotdata.Text = $"Riot port: {data.Item1} password: {data.Item2}";
+                    });
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+
+                Thread.Sleep(30000);
+            }
+        });
     }
 
-    //[DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
-    //    CallingConvention = CallingConvention.StdCall)]
-   // private static extern int AllocConsole();
+    [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
+        CallingConvention = CallingConvention.StdCall)]
+    private static extern int AllocConsole();
 
     private void InitializeLogging()
     {
