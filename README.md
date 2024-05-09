@@ -26,9 +26,10 @@ Was made to test some stuff in lcu and as a coding excersise.
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/cd199dc7-2f59-4cf6-aa08-0a5d2624dd12)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/e51377d1-7c8c-48c8-b51e-5b1e7bf3bc54)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/1c28ac75-9474-4365-9f1a-bd3e8e697c0d)
-![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/71365f9a-a66b-4585-b84d-8f2a6d08a1fa)
-![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/c3c31265-846d-42fb-9bcf-eb51c5b52d02)
-![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/6438e397-ab11-4bcc-9c4b-89e5f9d54713)
+![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/73d84fd7-9627-49f4-bac5-bc883248d41f)
+![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/a8b0d2b0-3246-416a-bbb5-8ba266a40d14)
+![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/3db5e79f-621d-41bb-8e16-75462f59f482)
+
 
 
 
