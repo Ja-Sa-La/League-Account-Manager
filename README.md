@@ -18,12 +18,17 @@ Was made to test some stuff in lcu and as a coding excersise.
 - All done in lcu no autoclicker scripts!
 - Change your riot id without email access
 - Customise your chat profile or disable it
+- Manage your loot
+- Automate champ select
 
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/5f87db91-54ba-48f5-a03f-d91751b79551)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/ca4deff9-d291-4bc7-8b18-49eb28cb955e)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/cd199dc7-2f59-4cf6-aa08-0a5d2624dd12)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/e51377d1-7c8c-48c8-b51e-5b1e7bf3bc54)
 ![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/1c28ac75-9474-4365-9f1a-bd3e8e697c0d)
+![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/71365f9a-a66b-4585-b84d-8f2a6d08a1fa)
+![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/c3c31265-846d-42fb-9bcf-eb51c5b52d02)
+![image](https://github.com/Ja-Sa-La/League-Account-Manager/assets/133235384/6438e397-ab11-4bcc-9c4b-89e5f9d54713)
 
 
 
