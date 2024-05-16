@@ -279,7 +279,9 @@ public static class ProcessCommandLine
 
     public static int Retrieve(Process process, out string commandLine)
     {
-        var rc = 0;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var rc = 0;
         commandLine = null;
         var hProcess = Win32Native.OpenProcess(
             Win32Native.OpenProcessDesiredAccessFlags.PROCESS_QUERY_INFORMATION |
@@ -364,6 +366,28 @@ public static class ProcessCommandLine
             rc = -1;
 
         return rc;
+    }
+    else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/bash",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            Arguments = $"-c \"ps -p {process.Id} -o command=\""
+        };
+
+        using var cmdProcess = Process.Start(startInfo);
+        cmdProcess.WaitForExit();
+        commandLine = cmdProcess.StandardOutput.ReadToEnd().Trim();
+        return cmdProcess.ExitCode;
+    }
+else
+{
+    throw new PlatformNotSupportedException();
+}
     }
 
     public static class Win32Native
