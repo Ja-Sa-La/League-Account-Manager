@@ -764,7 +764,7 @@ public partial class Page1 : Page
                             case "Loots":
                                 secondWindow = new Window4(selectedrow.Loot);
                                 break;
-                            default:  //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
+                            case "riotID":  //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
                                 var url = $"https:/www.op.gg/summoners/{RegionHelperUtil.RegionParser(selectedrow.server)}/{selectedrow.riotID.Replace("#", "-")}";
                                 OpenUrl(url);
                                 break;
