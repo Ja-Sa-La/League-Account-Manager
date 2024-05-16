@@ -49,11 +49,15 @@ public partial class Page1 : Page
 
     private async void OnChanged(object source, FileSystemEventArgs e)
     {
-        await loaddata();
-        Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+
+            await loaddata();
+            Dispatcher.Invoke(() =>
+            {
+            Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
         Championlist.Columns[12].Visibility = Visibility.Collapsed;
         Championlist.Columns[8].Visibility = Visibility.Collapsed;
         Championlist.Columns[9].Visibility = Visibility.Collapsed;
+        });
     }
 
 
