@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
@@ -174,8 +174,26 @@ public partial class Page4 : Page
             var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
             resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
+
+            string region_parsed = region["region"].ToString().ToLower(); // Extract region and convert to lowercase
+
+            switch (region_parsed) // op.gg returns a 442 error otherwise
+            {
+                case "euw1": region_parsed = "euw"; break;
+                case "na1": region_parsed = "na"; break;
+                case "kr1": region_parsed = "kr"; break;
+                case "oc1": region_parsed = "oce"; break;
+                case "eun1": region_parsed = "eune"; break;
+                case "la1": region_parsed = "lan"; break;
+                case "la2": region_parsed = "las"; break;
+                case "ru1": region_parsed = "ru"; break;
+                case "tr1": region_parsed = "tr"; break;
+                case "jp1": region_parsed = "jp"; break;
+                    // If none of the cases match, leave region_parsed unchanged
+            }
+
             var players = JObject.Parse(await GetResponseBody(resp));
-            var url = $"https://www.op.gg/multisearch/{region["region"]}?summoners=";
+            var url = $"https://www.op.gg/multisearch/{region_parsed}?summoners=";
 
             foreach (var player in players["participants"])
             {
