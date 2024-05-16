@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -14,6 +14,7 @@ using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
 using Application = FlaUI.Core.Application;
+
 
 namespace League_Account_Manager.views;
 
@@ -763,6 +764,11 @@ public partial class Page1 : Page
                             case "Loots":
                                 secondWindow = new Window4(selectedrow.Loot);
                                 break;
+                            default:  //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
+                                var url = $"https:/www.op.gg/summoners/{RegionHelperUtil.RegionParser(selectedrow.server)}/{selectedrow.riotID.Replace("#", "-")}";
+                                OpenUrl(url);
+                                break;
+                                    
                         }
 
                         if (secondWindow != null)
@@ -812,6 +818,11 @@ public partial class Page1 : Page
     private async void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
     {
         Process.Start(Settings.settingsloaded.LeaguePath, "--allow-multiple-clients");
+    }
+
+    private void OpenUrl(string url)
+    {
+        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
     }
 
     public class AccountList
