@@ -2,7 +2,7 @@
 # League Account Manager
 
 Allows you to store your league of legends smurf accounts in a one place n login to them with a click of a button.
-Was made to test some stuff in lcu and as a coding excersise.
+Was made to test some stuff in lcu and as a coding excersise. Does not do exploits.
 
 
 ## Features
@@ -11,7 +11,7 @@ Was made to test some stuff in lcu and as a coding excersise.
 - Save rank/level/champions/skins on your account
 - search accounts by region/loot/champions/skins
 - Allows you to quickly buy champions without store rate limits
-- Allows you to show player names in champion select
+- Display player stats in champion select, DOES NOT WORK ON SOLOQ since riot started banning for it
 - Remove all log files create by league of legends
 - Remove all friends from the account
 - Mass report players from your match history
