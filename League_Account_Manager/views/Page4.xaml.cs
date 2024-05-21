@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using FlaUI.Core.Input;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
@@ -9,7 +10,6 @@ namespace League_Account_Manager.views;
 
 public partial class Page4 : Page
 {
-    private readonly List<string> processedPlayers = new();
     private JObject region;
 
 
@@ -18,45 +18,30 @@ public partial class Page4 : Page
         InitializeComponent();
     }
 
+    
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            processedPlayers.Clear();
-            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
-            if (resp.ToString() == "0")
-            {
-                notif.notificationManager.Show("Error", "League of legends client is not running!",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
-                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
-            }
-
-            region = JObject.Parse(await GetResponseBody(resp));
-            resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
+            dynamic resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
+            Console.WriteLine(players);
             var i = 0;
-            foreach (var player in players["participants"])
+            foreach (var player in players["myTeam"])
             {
-                var playerCid = player["cid"].ToString();
-                var playerPid = player["pid"].ToString();
-                if (!playerCid.Contains("champ-select") || processedPlayers.Contains(playerPid))
-                    continue;
                 var playerText = FindName($"Player{i + 1}") as TextBox;
-                playerText.Text = player["game_name"] + "#" + player["game_tag"];
-                pullrankedinfo(player["puuid"], i);
+                playerText.Text = await pullrankedinfo(player["puuid"], i);
                 i++;
-                processedPlayers.Add(playerPid);
             }
         }
         catch (Exception exception)
         {
+            Console.WriteLine(exception);
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
-
-    private async void pullrankedinfo(dynamic puuid, int I)
+    
+        private async Task<string> pullrankedinfo(dynamic puuid, int I)
     {
         try
         {
@@ -79,11 +64,16 @@ public partial class Page4 : Page
             playerRank.Content =
                 $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
             playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+             resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
+             dynamic playerinfo = JObject.Parse(await GetResponseBody(resp));
+             return playerinfo["gameName"] + "#" + playerinfo["tagLine"];
         }
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
+
+        return "Error loading data";
     }
 
 
