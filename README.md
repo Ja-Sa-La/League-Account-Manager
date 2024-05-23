@@ -19,7 +19,7 @@ Was made to test some stuff in lcu and as a coding excersise. Does not do client
 - Change your riot id easily
 - Customise your chat profile or disable it
 - Manage your loot
-- auto matically accept queue pops if you are away
+- automatically accept queue pops if you are away
 
 
 
