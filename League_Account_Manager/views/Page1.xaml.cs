@@ -55,10 +55,7 @@ public partial class Page1 : Page
             Dispatcher.Invoke(() =>
             {
             Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-        Championlist.Columns[12].Visibility = Visibility.Collapsed;
-        Championlist.Columns[8].Visibility = Visibility.Collapsed;
-        Championlist.Columns[9].Visibility = Visibility.Collapsed;
-        });
+            });
     }
 
 
@@ -98,13 +95,7 @@ public partial class Page1 : Page
         }
     }
 
-    private void Championlist_Loaded(object sender, RoutedEventArgs e)
-    {
-        Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-        Championlist.Columns[12].Visibility = Visibility.Collapsed;
-        Championlist.Columns[8].Visibility = Visibility.Collapsed;
-        Championlist.Columns[9].Visibility = Visibility.Collapsed;
-    }
+
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
@@ -182,9 +173,12 @@ public partial class Page1 : Page
             var champcount = 0;
             var Lootlist = "";
             var Lootcount = 0;
-            var Rank = " Rank: " + rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"] + " With: " +
-                       rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["wins"] + " Wins and " +
+            var Rank = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"].ToString()) ? "Unranked" : rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"] + " " + rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["division"] + ", " +
+                       rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["wins"] + " Wins, " +
                        rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["losses"] + " Losses";
+            var Rank2 = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"].ToString()) ? "Unranked" : rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"] + " " +  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["division"]  + ", " +
+                       rankedInfo["queueMap"]["RANKED_FLEX_SR"]["wins"] + " Wins, " +
+                       rankedInfo["queueMap"]["RANKED_FLEX_SR"]["losses"] + " Losses";
 
             foreach (var item in skinInfo)
                 if ((bool)item["owned"])
@@ -244,7 +238,8 @@ public partial class Page1 : Page
                 skins = skinlist,
                 Skins = Convert.ToInt32(skincount),
                 Loot = Lootlist,
-                Loots = Convert.ToInt32(Lootcount)
+                Loots = Convert.ToInt32(Lootcount),
+                rank2 = Rank2
             });
             ring();
             using (var writer =
@@ -315,6 +310,7 @@ public partial class Page1 : Page
     {
         var resp = await lcu.Connector("league", "get", "/lol-ranked/v1/current-ranked-stats", "");
         var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Console.WriteLine(JToken.Parse(responseBody));
         return JToken.Parse(responseBody);
     }
 
@@ -566,9 +562,6 @@ public partial class Page1 : Page
             Championlist.ItemsSource = ActualAccountlists;
         }
 
-        Championlist.Columns[12].Visibility = Visibility.Hidden;
-        Championlist.Columns[8].Visibility = Visibility.Hidden;
-        Championlist.Columns[9].Visibility = Visibility.Hidden;
         Championlist.UpdateLayout();
         Championlist.Items.Refresh();
     }
@@ -624,7 +617,8 @@ public partial class Page1 : Page
                         rp = values.Length > 6 && !string.IsNullOrEmpty(values[6])
                             ? Convert.ToInt32(values[6].Replace("\"", "").Replace("\'", ""))
                             : 0,
-                        rank = values.Length > 7 ? values[7] : "",
+                         rank= values.Length > 7 ? values[7] : "",
+                         rank2 = values.Length > 14 ? values[14] : "",
                         champions = values.Length > 8 ? values[8] : "",
                         skins = values.Length > 9 ? values[9] : "",
                         Champions = values.Length > 10 && !string.IsNullOrEmpty(values[10])
@@ -668,6 +662,7 @@ public partial class Page1 : Page
             account.champions = RemoveDoubleQuotes(account.champions);
             account.skins = RemoveDoubleQuotes(account.skins);
             account.Loot = RemoveDoubleQuotes(account.Loot);
+            account.rank2 = RemoveDoubleQuotes(account.rank2);
         }
     }
 
@@ -765,10 +760,10 @@ public partial class Page1 : Page
                             case "Skins":
                                 secondWindow = new Window4(selectedrow.skins);
                                 break;
-                            case "Loots":
+                            case "Loot":
                                 secondWindow = new Window4(selectedrow.Loot);
                                 break;
-                            case "riotID":  //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
+                            case "RiotID":  //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
                                 var url = $"https:/www.op.gg/summoners/{RegionHelperUtil.RegionParser(selectedrow.server)}/{selectedrow.riotID.Replace("#", "-")}";
                                 OpenUrl(url);
                                 break;
@@ -814,10 +809,6 @@ public partial class Page1 : Page
         namechanger.Show();
     }
 
-    private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
-    {
-        e.Column.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
-    }
 
     private async void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
     {
@@ -845,6 +836,7 @@ public partial class Page1 : Page
         public int Skins { get; set; }
         public string? Loot { get; set; }
         public int Loots { get; set; }
+        public string? rank2 { get; set; }
     }
 
     public class Wallet

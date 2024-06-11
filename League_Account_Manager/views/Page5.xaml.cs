@@ -52,14 +52,14 @@ public partial class Page5 : Page
                 try
                 {
                     totalcost += Convert.ToInt32(val2["items"][0]["purchaseCurrencyInfo"]["price"].ToString());
-                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/20 Total BE used: " +
+                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/" + buyableChampsList.SelectedItems.Count + " Total BE used: " +
                                             totalcost;
                     championsbought = championsbought + champ.Name + "\n";
                     success.Text = championsbought;
                 }
                 catch (Exception value)
                 {
-                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/20 Total BE used: " +
+                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/" + buyableChampsList.SelectedItems.Count + " Total BE used: " +
                                             totalcost;
                     championsfailed = championsfailed + champ.Name + " " + val2["message"] + "\n";
                     success.Text = championsfailed;
