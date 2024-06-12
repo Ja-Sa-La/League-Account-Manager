@@ -1,7 +1,9 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using Newtonsoft.Json.Linq;
+using NLog;
 using Button = System.Windows.Controls.Button;
 
 
@@ -25,39 +27,51 @@ public partial class Page10 : Page
     public Page10()
     {
         InitializeComponent();
-        Task.Run(() => BackgroundDataFunction1());
-        Task.Run(() => BackgroundDataFunction2());
-        Task.Run(() => LoadBuyableData());
+   
+        {
+            Task.Run(() => BackgroundDataFunction1());
+            Task.Run(() => BackgroundDataFunction2());
+            Task.Run(() => LoadBuyableData());
+    
+   
+        }
+
     }
 
     private async void LoadBuyableData()
-    {
-        var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
-        var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        JObject summonerdata = JObject.Parse(responseBody);
-        resp = await lcu.Connector("league", "get",
-            $"/lol-champions/v1/inventories/{(string)summonerdata["summonerId"]}/champions-minimal", "");
-        responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        var champList = JArray.Parse(responseBody);
 
-        foreach (var champ in champList)
-            listChamps.Add(new IconData
-            {
-                Name = champ["name"].ToString(),
-                ID = champ["id"].ToString()
-            });
-        Dispatcher.Invoke(() =>
+    {
+        try
         {
-            blindPickChampion.OriginalItemsSource = listChamps;
-            topPickChampion.OriginalItemsSource = listChamps;
-            junglePickChampion.OriginalItemsSource = listChamps;
-            midPickChampion.OriginalItemsSource = listChamps;
-            botPickChampion.OriginalItemsSource = listChamps;
-            supportPickChampion.OriginalItemsSource = listChamps;
-            ban1Champion.OriginalItemsSource = listChamps;
-            ban2Champion.OriginalItemsSource = listChamps;
-            ban3Champion.OriginalItemsSource = listChamps;
-        });
+            var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
+            var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            JObject summonerdata = JObject.Parse(responseBody);
+            resp = await lcu.Connector("league", "get",
+                $"/lol-champions/v1/inventories/{(string)summonerdata["summonerId"]}/champions-minimal", "");
+            responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var champList = JArray.Parse(responseBody);
+
+            foreach (var champ in champList)
+                listChamps.Add(new IconData
+                {
+                    Name = champ["name"].ToString(),
+                    ID = champ["id"].ToString()
+                });
+            Dispatcher.Invoke(() =>
+            {
+                blindPickChampion.OriginalItemsSource = listChamps;
+                topPickChampion.OriginalItemsSource = listChamps;
+                junglePickChampion.OriginalItemsSource = listChamps;
+                midPickChampion.OriginalItemsSource = listChamps;
+                botPickChampion.OriginalItemsSource = listChamps;
+                supportPickChampion.OriginalItemsSource = listChamps;
+                ban1Champion.OriginalItemsSource = listChamps;
+                ban2Champion.OriginalItemsSource = listChamps;
+                ban3Champion.OriginalItemsSource = listChamps;
+            });
+        } catch (Exception ex) {
+            LogManager.GetCurrentClassLogger().Error(ex, "Error loading data");
+        }
     }
 
     private void ToggleTask(string taskName, Func<CancellationToken, Task> taskFunc, object sender, RoutedEventArgs e)
@@ -151,16 +165,22 @@ public partial class Page10 : Page
 
     private async Task BackgroundDataFunction2()
     {
-        while (true)
+        try
         {
-            if (toggles.Any(t => t.Value.Item1))
+            while (true)
             {
-                var resp = await lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
-                queueJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-            }
+                if (toggles.Any(t => t.Value.Item1))
+                {
+                    var resp = await lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
+                    queueJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+                }
 
-            await Task.Delay(1000);
-        }
+                await Task.Delay(1000);
+            }
+        }catch (Exception e) {
+            LogManager.GetCurrentClassLogger().Error(e, "Error loading data");
+        }        
+
     }
 
 
