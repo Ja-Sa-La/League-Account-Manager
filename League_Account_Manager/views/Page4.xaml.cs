@@ -75,6 +75,40 @@ public partial class Page4 : Page
 
         return "Error loading data";
     }
+    private async Task<dynamic> pullrankedinfo2(dynamic puuid, int I)
+    {
+        try
+        {
+            var resp = await lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
+            var rankedinfo = JObject.Parse(await GetResponseBody(resp));
+            resp = await lcu.Connector("league", "get",
+                $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
+            var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
+
+            Gamestats gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
+            var wr = (double)(gameStats.Wins / (gameStats.Wins + gameStats.Losses));
+            var kda = (double)((gameStats.Kills + gameStats.Assists) / gameStats.Deaths);
+
+            var playerPeak = FindName($"player{I + 1}peak") as ContentControl;
+            var playerRank = FindName($"player{I + 1}rank") as ContentControl;
+            var playerWr = FindName($"player{I + 1}wr") as ContentControl;
+
+            playerPeak.Content =
+                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestTier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestDivision"]}";
+            playerRank.Content =
+                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
+            playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+            resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
+            dynamic playerinfo = JObject.Parse(await GetResponseBody(resp));
+            return playerinfo;
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+
+        return "Error loading data";
+    }
 
 
     private async Task<string> GetResponseBody(dynamic resp)
@@ -161,20 +195,22 @@ public partial class Page4 : Page
     {
         try
         {
-            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            dynamic resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            var players = JObject.Parse(await GetResponseBody(resp));
+            Console.WriteLine(players);
+            var i = 0;
+            resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
-            resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
 
             string region_parsed = RegionHelperUtil.RegionParser(region["region"].ToString());
 
-            var players = JObject.Parse(await GetResponseBody(resp));
             var url = $"https://www.op.gg/multisearch/{region_parsed}?summoners=";
 
-            foreach (var player in players["participants"])
+            foreach (var player in players["myTeam"])
             {
-                if (!player["cid"].ToString().Contains("champ-select"))
-                    continue;
-                url += $"{player["game_name"]}%23{player["game_tag"]},";
+                dynamic playerTex = await pullrankedinfo2(player["puuid"], i);
+                i++;
+                url += $"{playerTex["gameName"]}%23{playerTex["tagLine"]},";
             }
 
             OpenUrl(url);
@@ -189,17 +225,19 @@ public partial class Page4 : Page
     {
         try
         {
-            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            dynamic resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
-            resp = await lcu.Connector("riot", "get", "/chat/v5/participants", "");
+             resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
+            Console.WriteLine(players);
+            var i = 0;
             var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
 
-            foreach (var player in players["participants"])
+            foreach (var player in players["myTeam"])
             {
-                if (!player["cid"].ToString().Contains("champ-select"))
-                    continue;
-                url += $"{player["game_name"]} -{player["game_tag"]},";
+                dynamic playerText = await pullrankedinfo2(player["puuid"], i);
+                i++;
+                url += $"{playerText["gameName"]} -{playerText["tagLine"]},";
             }
 
             url = url.Remove(url.Length - 1, 1);
