@@ -170,13 +170,13 @@ public partial class Page1 : Page
             var skinlist = "";
             var skincount = 0;
             var champlist = "";
-            var champcount = 0;
+            var champcount = 0; 
             var Lootlist = "";
             var Lootcount = 0;
-            var Rank = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"].ToString()) ? "Unranked" : rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"] + " " + rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["division"] + ", " +
+            var Rank = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"].ToString()) ? "Unranked" : rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"] + " " + rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["division"] + " " + rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["leaguePoints"] + " LP, " +
                        rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["wins"] + " Wins, " +
                        rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["losses"] + " Losses";
-            var Rank2 = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"].ToString()) ? "Unranked" : rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"] + " " +  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["division"]  + ", " +
+            var Rank2 = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"].ToString()) ? "Unranked" : rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"] + " " +  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["division"] + " " + rankedInfo["queueMap"]["RANKED_FLEX_SR"]["leaguePoints"] + " LP, " +
                        rankedInfo["queueMap"]["RANKED_FLEX_SR"]["wins"] + " Wins, " +
                        rankedInfo["queueMap"]["RANKED_FLEX_SR"]["losses"] + " Losses";
 

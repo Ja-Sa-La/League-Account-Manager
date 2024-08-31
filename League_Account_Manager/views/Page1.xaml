@@ -17,18 +17,18 @@
                    SelectionMode="Single" Margin="0,36,0,0" HorizontalScrollBarVisibility="Disabled"
                   Height="713" VerticalAlignment="Top">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Username" Width="*" Binding="{Binding username}"/>
-                <DataGridTextColumn Header="Password" Width="*" Binding="{Binding password}"/>
-                <DataGridTextColumn Header="RiotID" Width="*" Binding="{Binding riotID}"/>
-                <DataGridTextColumn Header="Level" Binding="{Binding level}"/>
-                <DataGridTextColumn Header="Server" Binding="{Binding server}"/>
-                <DataGridTextColumn Header="BE" Binding="{Binding be}"/>
-                <DataGridTextColumn Header="RP" Binding="{Binding rp}"/>
-                <DataGridTextColumn Header="SoloQ" Binding="{Binding rank}"/>
-                <DataGridTextColumn Header="FlexQ" Binding="{Binding rank2}"/>
-                <DataGridTextColumn Header="Champions" Binding="{Binding Champions}"/>
-                <DataGridTextColumn Header="Skins" Binding="{Binding Skins}"/>
-                <DataGridTextColumn Header="Loot" Binding="{Binding Loots}"/>
+                <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}"/>
+                <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}"/>
+                <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}"/>
+                <DataGridTextColumn MinWidth="50" Header="Level" Binding="{Binding level}"/>
+                <DataGridTextColumn MinWidth="50" Header="Server" Binding="{Binding server}"/>
+                <DataGridTextColumn MinWidth="50" Header="BE" Binding="{Binding be}"/>
+                <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}"/>
+                <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}"/>
+                <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}"/>
+                <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}"/>
+                <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}"/>
+                <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}"/>
             </DataGrid.Columns>
 
             <DataGrid.Resources>
