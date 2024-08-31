@@ -221,6 +221,7 @@ public partial class Page1 : Page
                 }
 
             ring();
+            AccountList note = ActualAccountlists.FindLast(x => x.username == SelectedUsername);
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
             ring();
             ActualAccountlists.Add(new AccountList
@@ -239,7 +240,8 @@ public partial class Page1 : Page
                 Skins = Convert.ToInt32(skincount),
                 Loot = Lootlist,
                 Loots = Convert.ToInt32(Lootcount),
-                rank2 = Rank2
+                rank2 = Rank2,
+                note = note.note
             });
             ring();
             using (var writer =
@@ -630,7 +632,8 @@ public partial class Page1 : Page
                         Loot = values.Length > 12 ? values[12] : "",
                         Loots = values.Length > 13 && !string.IsNullOrEmpty(values[13])
                             ? Convert.ToInt32(values[13].Replace("\"", "").Replace("\'", ""))
-                            : 0
+                            : 0,
+                        note = values.Length > 15 ? values[15] : "",
                     };
 
                     records.Add(record);
@@ -663,6 +666,7 @@ public partial class Page1 : Page
             account.skins = RemoveDoubleQuotes(account.skins);
             account.Loot = RemoveDoubleQuotes(account.Loot);
             account.rank2 = RemoveDoubleQuotes(account.rank2);
+            account.note = RemoveDoubleQuotes(account.note);
         }
     }
 
@@ -751,6 +755,7 @@ public partial class Page1 : Page
                         if (selectedrow == null) return;
                         if (header == null) return;
                         Window4? secondWindow = null;
+                        Window6? noteWindow = null;
 
                         switch (header)
                         {
@@ -759,6 +764,9 @@ public partial class Page1 : Page
                                 break;
                             case "Skins":
                                 secondWindow = new Window4(selectedrow.skins);
+                                break;
+                            case "Notes":
+                                noteWindow = new Window6(selectedrow);
                                 break;
                             case "Loot":
                                 secondWindow = new Window4(selectedrow.Loot);
@@ -775,6 +783,12 @@ public partial class Page1 : Page
                             await secondWindow.Dispatcher.InvokeAsync(() => { secondWindow.Show(); });
 
                             while (secondWindow.IsLoaded) await Task.Delay(100);
+                        }
+                        else
+                        {
+                            await noteWindow.Dispatcher.InvokeAsync(() => { noteWindow.Show(); });
+
+                            while (noteWindow.IsLoaded) await Task.Delay(100);
                         }
                     }
 
@@ -837,6 +851,7 @@ public partial class Page1 : Page
         public string? Loot { get; set; }
         public int Loots { get; set; }
         public string? rank2 { get; set; }
+        public string? note { get; set; }
     }
 
     public class Wallet

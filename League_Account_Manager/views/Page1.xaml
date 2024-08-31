@@ -29,6 +29,13 @@
                 <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}"/>
                 <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}"/>
                 <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}"/>
+                <DataGridTextColumn MinWidth="50" Header="Notes">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="Open" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
             </DataGrid.Columns>
 
             <DataGrid.Resources>
