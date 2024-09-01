@@ -2,13 +2,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" Height="439"
         Width="400" WindowStyle="None" WindowStartupLocation="CenterScreen" Background="#FF252525"
-        MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated">
+        MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated" ResizeMode="NoResize">
     <Grid Background="#FF252525" Margin="0,0,0,0">
-        <ui:TextBox MouseDown="Window_MouseDownDatadisplay"
-                    Name="Datathing" Margin="10,10,10,10"
-                    TextWrapping="WrapWithOverflow" Text=""
-                    IsEnabled="True" IsReadOnly="false" VerticalScrollBarVisibility="Visible"
-                    IsReadOnlyCaretVisible="True" IsManipulationEnabled="True" IsTextSelectionEnabled="True"
-                    IsInactiveSelectionHighlightEnabled="True" />
+        <TextBox MouseDown="Window_MouseDownDatadisplay"
+                 Name="Datathing" Margin="10,10,10,10"
+                 TextWrapping="Wrap" Text=""
+                 IsEnabled="True" IsReadOnly="False" VerticalScrollBarVisibility="Visible"
+                 IsManipulationEnabled="True" 
+                 IsInactiveSelectionHighlightEnabled="True"
+                 AcceptsReturn="True" />
     </Grid>
 </Window>
