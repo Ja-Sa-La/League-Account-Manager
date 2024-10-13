@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Xml.Linq;
 using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 using NLog;
