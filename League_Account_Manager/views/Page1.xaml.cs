@@ -826,7 +826,7 @@ public partial class Page1 : Page
 
     private async void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
     {
-        Process.Start(Settings.settingsloaded.LeaguePath, "--allow-multiple-clients");
+        Process.Start(Settings.settingsloaded.riotPath, "--launch-product=league_of_legends --launch-patchline=live --allow-multiple-clients");
     }
 
     private void OpenUrl(string url)
