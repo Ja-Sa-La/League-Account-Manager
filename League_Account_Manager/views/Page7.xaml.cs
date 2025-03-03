@@ -55,7 +55,7 @@ public partial class Page7 : Page
         try
         {
             var championsbought = "Files \n";
-            Page1.killleaguefunc();
+            Utils.killleaguefunc();
             DeleteFilesAndFolders(list, championsbought);
         }
         catch (Exception exception)
@@ -188,7 +188,7 @@ public partial class Page7 : Page
     {
         try
         {
-            Page1.killleaguefunc();
+            Utils.killleaguefunc();
             var installPath = (string)Registry.GetValue(
                 @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
                 "UninstallString", null);
@@ -233,6 +233,20 @@ public partial class Page7 : Page
             var resp = await Connector("riot", "get", "/riotclient/machine-id", "");
             var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             success.Text = "HWID = " + Game;
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+    }
+
+    private async void Button_Click_4(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var resp = await Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+            var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            success.Text = "response = " + Game;
         }
         catch (Exception exception)
         {

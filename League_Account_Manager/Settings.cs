@@ -22,6 +22,7 @@ public class Settings
             var settingstemp = File.ReadAllText(Directory.GetCurrentDirectory() + "/Settings.json");
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
+            settingsloaded.DisplayPasswords = false;
             settingsloaded = JsonConvert.DeserializeObject<settings1>(settingstemp);
             if (settingsloaded.riotPath == null)
             {
@@ -41,6 +42,7 @@ public class Settings
         {
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
+            settingsloaded.DisplayPasswords = false;
             settingsloaded.riotPath = findriot();
             settingsloaded.LeaguePath = await findleague();
             var json = JsonSerializer.Serialize(settingsloaded);
@@ -134,7 +136,7 @@ public class Settings
 
         var resp = await lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
         JObject responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        if (startedclient == 1 && riotclient != null) riotclient.Kill();
+        if (startedclient == 1) Utils.killleaguefunc();
 
         if (responseBody.ContainsKey("path"))
             return responseBody["path"].ToString().Replace("/", "\\") + "\\LeagueClient.exe";
@@ -166,5 +168,6 @@ public class Settings
         public string riotPath { get; set; }
         public string filename { get; set; }
         public bool updates { get; set; }
+        public bool DisplayPasswords { get; set; }
     }
 }

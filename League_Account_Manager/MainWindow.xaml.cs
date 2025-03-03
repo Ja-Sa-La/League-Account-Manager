@@ -26,7 +26,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        //AllocConsole();
+       // AllocConsole();
         InitializeLogging();
         InitializeUI();
         Task.Run(async () =>
