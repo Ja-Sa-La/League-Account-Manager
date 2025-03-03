@@ -16,10 +16,10 @@ namespace League_Account_Manager;
 /// </summary>
 public partial class Window6 : Window
 {
-    private AccountList dataholder;
+    private Utils.AccountList dataholder;
     private readonly CsvConfiguration _config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
 
-    public Window6(AccountList Data)
+    public Window6(Utils.AccountList Data)
     {
         InitializeComponent();
         Datathing.Clear();
@@ -41,7 +41,7 @@ public partial class Window6 : Window
             dataholder.note = Datathing.Text;
             Page1.ActualAccountlists.RemoveAll(r => r.username == dataholder.username && r.password == dataholder.password);
             Page1.ActualAccountlists.Add(dataholder);
-            Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+            Utils.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
             FileStream? fileStream = null;
             while (fileStream == null)
                 try

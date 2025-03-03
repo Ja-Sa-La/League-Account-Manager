@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -21,6 +22,23 @@ namespace League_Account_Manager.views;
 /// <summary>
 ///     Interaction logic for Page1.xaml
 /// </summary>
+/// 
+public class PasswordMaskConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string password)
+        {
+            return Settings.settingsloaded.DisplayPasswords ? password : new string('*', password.Length);
+        }
+        return string.Empty;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value; // No need to convert back
+    }
+}
 public partial class Page1 : Page
 {
     public static string? SelectedUsername;
@@ -46,7 +64,7 @@ public partial class Page1 : Page
         fileWatcher.EnableRaisingEvents = true;
     }
 
-    public static List<AccountList>? ActualAccountlists { get; set; }
+    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
 
     private async void OnChanged(object source, FileSystemEventArgs e)
     {
@@ -57,6 +75,7 @@ public partial class Page1 : Page
             Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
             });
     }
+
 
 
     public async Task loaddata()
@@ -74,11 +93,11 @@ public partial class Page1 : Page
                 else
                 {
                     File.Create(filePath).Dispose();
-                    ActualAccountlists = new List<AccountList>();
+                    ActualAccountlists = new List<Utils.AccountList>();
                 }
 
                 ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-                RemoveDoubleQuotesFromList(ActualAccountlists);
+                Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
             });
 
             // Update UI on the UI thread
@@ -101,7 +120,7 @@ public partial class Page1 : Page
     {
         try
         {
-            var selectedrow = Championlist.SelectedItem as AccountList;
+            var selectedrow = Championlist.SelectedItem as Utils.AccountList;
             if (selectedrow != null)
             {
                 var itemToRemove = ActualAccountlists.SingleOrDefault(r =>
@@ -221,10 +240,10 @@ public partial class Page1 : Page
                 }
 
             ring();
-            AccountList note = ActualAccountlists.FindLast(x => x.username == SelectedUsername);
+            Utils.AccountList note = ActualAccountlists.FindLast(x => x.username == SelectedUsername);
             ActualAccountlists.RemoveAll(x => x.username == SelectedUsername);
             ring();
-            ActualAccountlists.Add(new AccountList
+            ActualAccountlists.Add(new Utils.AccountList
             {
                 username = SelectedUsername,
                 password = SelectedPassword,
@@ -316,7 +335,7 @@ public partial class Page1 : Page
         return JToken.Parse(responseBody);
     }
 
-    private async Task<Wallet> GetWalletAsync()
+    private async Task<Utils.Wallet> GetWalletAsync()
     {
         var resp = await lcu.Connector("league", "get",
             "/lol-inventory/v1/wallet?currencyTypes=[%22RP%22,%22lol_blue_essence%22]", "");
@@ -324,7 +343,7 @@ public partial class Page1 : Page
         var be = Convert.ToInt32(JToken.Parse(responseBody)["lol_blue_essence"]);
         var rp = Convert.ToInt32(JToken.Parse(responseBody)["RP"]);
 
-        return new Wallet { be = be, rp = rp };
+        return new Utils.Wallet { be = be, rp = rp };
     }
 
     private async Task<JToken> GetRegionAsync()
@@ -350,7 +369,7 @@ public partial class Page1 : Page
             }
 
 
-            killleaguefunc();
+            Utils.killleaguefunc();
             Process[] leagueProcess;
             var num = 0;
             var RiotClient = Process.Start(Settings.settingsloaded.riotPath,
@@ -426,7 +445,21 @@ public partial class Page1 : Page
                         {
                             while (!signInElement.IsEnabled) Thread.Sleep(200);
                             signInElement.Invoke();
-                            Thread.Sleep(1000);
+                            while (true) { 
+                            var resp = await lcu.
+                                Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+                            string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                                Console.WriteLine(status);
+                                if (status == "\"Accepted\"") break;
+                                else if (status == "\"AcceptanceRequired\"")
+                                {
+                                    await lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
+                                    Thread.Sleep(200);
+                                }
+                                else {
+                                    Thread.Sleep(500);
+                                } 
+                            }
                             await lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
                             break;
@@ -451,7 +484,7 @@ public partial class Page1 : Page
     {
         if (e.Key == Key.Delete)
         {
-            var selectedrow = Championlist.SelectedItem as AccountList;
+            var selectedrow = Championlist.SelectedItem as Utils.AccountList;
             if (selectedrow != null)
             {
                 var itemToRemove = ActualAccountlists.FindAll(r =>
@@ -479,48 +512,11 @@ public partial class Page1 : Page
         return false;
     }
 
-    public static void killleaguefunc()
-    {
-        try
-        {
-            var source = new[]
-            {
-                "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
-                "LeagueCrashHandler",
-                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
-            };
 
-            var allProcessesKilled = false;
-
-            while (!allProcessesKilled)
-            {
-                allProcessesKilled = true;
-
-                foreach (var processName in source)
-                {
-                    var processes = Process.GetProcessesByName(processName);
-
-                    foreach (var process in processes)
-                    {
-                        process.Kill();
-                        allProcessesKilled = false;
-                    }
-                }
-
-                if (!allProcessesKilled)
-                    // Wait for a moment before checking again
-                    Thread.Sleep(1000); // You can adjust the time interval if needed
-            }
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
 
     private void killleague_Click(object sender, RoutedEventArgs e)
     {
-        killleaguefunc();
+        Utils.killleaguefunc();
     }
 
     private async void openleague1_Click(object sender, RoutedEventArgs e)
@@ -529,7 +525,7 @@ public partial class Page1 : Page
         {
             var processesByName = Process.GetProcessesByName("Riot Client");
             var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
-            killleaguefunc();
+            Utils.killleaguefunc();
             if (!await CheckLeague()) throw new Exception("League not installed");
 
             openleague();
@@ -568,9 +564,9 @@ public partial class Page1 : Page
         Championlist.Items.Refresh();
     }
 
-    public async Task<List<AccountList>> LoadCSV(string filePath)
+    public async Task<List<Utils.AccountList>> LoadCSV(string filePath)
     {
-        var records = new List<AccountList>();
+        var records = new List<Utils.AccountList>();
 
         try
         {
@@ -604,7 +600,7 @@ public partial class Page1 : Page
 
                     var values = line.Split(';');
 
-                    var record = new AccountList
+                    var record = new Utils.AccountList
                     {
                         username = values.Length > 0 ? values[0] : "",
                         password = values.Length > 1 ? values[1] : "",
@@ -653,86 +649,13 @@ public partial class Page1 : Page
         return records;
     }
 
-    public static void RemoveDoubleQuotesFromList(List<AccountList> accountList)
-    {
-        foreach (var account in accountList)
-        {
-            account.username = RemoveDoubleQuotes(account.username);
-            account.password = RemoveDoubleQuotes(account.password);
-            account.riotID = RemoveDoubleQuotes(account.riotID);
-            account.server = RemoveDoubleQuotes(account.server);
-            account.rank = RemoveDoubleQuotes(account.rank);
-            account.champions = RemoveDoubleQuotes(account.champions);
-            account.skins = RemoveDoubleQuotes(account.skins);
-            account.Loot = RemoveDoubleQuotes(account.Loot);
-            account.rank2 = RemoveDoubleQuotes(account.rank2);
-            account.note = RemoveDoubleQuotes(account.note);
-        }
-    }
+
 
     public static string? RemoveDoubleQuotes(string? input)
     {
         if (string.IsNullOrEmpty(input)) return input;
 
         return input.Replace("\"", "");
-    }
-
-    private async void Login_Copy_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var i = 0;
-            DataGridCellInfo cellinfo;
-            foreach (var row in Championlist.SelectedCells)
-            {
-                if (i == 0)
-                    SelectedUsername = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
-                else if (i == 1) SelectedPassword = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
-                i++;
-            }
-
-            await Task.Run(async () =>
-            {
-                killleaguefunc();
-                Process[] leagueProcess;
-                var num = 0;
-                var RiotClient = Process.Start(Settings.settingsloaded.riotPath,
-                    "--launch-product=league_of_legends --launch-patchline=live");
-
-                while (true)
-                {
-                    if (Process.GetProcessesByName("Riot Client").Length != 0 ||
-                        Process.GetProcessesByName("RiotClientUx").Length != 0)
-                        break;
-                    Thread.Sleep(2000);
-                    num++;
-                    if (num == 5) return;
-                }
-
-                var resp = await lcu.Connector("riot", "post", "/rso-auth/v2/authorizations",
-                    "{\"clientId\":\"riot-client\",\"trustLevels\":[\"always_trusted\"]}");
-                var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                resp = await lcu.Connector("riot", "put", "/rso-auth/v1/session/credentials",
-                    "{\"username\":\"" + SelectedUsername + "\",\"password\":\"" + SelectedPassword +
-                    "\", \"persistLogin\":\"false\"}");
-                var responseBody1 = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-                if (responseBody1["error"] == "auth_failure")
-                    Dispatcher.Invoke(() =>
-                    {
-                        notif.notificationManager.Show("Error", "Account details are invalid",
-                            NotificationType.Notification,
-                            "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(),
-                            "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                    });
-                resp = await lcu.Connector("riot", "post",
-                    "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-                responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            });
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error logging in");
-        }
     }
 
 
@@ -751,7 +674,7 @@ public partial class Page1 : Page
                     if (selectedColumn != null)
                     {
                         var header = selectedColumn.Header?.ToString();
-                        var selectedrow = Championlist.SelectedItem as AccountList;
+                        var selectedrow = Championlist.SelectedItem as Utils.AccountList;
                         if (selectedrow == null) return;
                         if (header == null) return;
                         Window4? secondWindow = null;
@@ -834,29 +757,5 @@ public partial class Page1 : Page
         Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
     }
 
-    public class AccountList
-    {
-        public string? username { get; set; }
-        public string? password { get; set; }
-        public string? riotID { get; set; }
-        public int? level { get; set; }
-        public string? server { get; set; }
-        public int? be { get; set; }
-        public int? rp { get; set; }
-        public string? rank { get; set; }
-        public string? champions { get; set; }
-        public string? skins { get; set; }
-        public int Champions { get; set; }
-        public int Skins { get; set; }
-        public string? Loot { get; set; }
-        public int Loots { get; set; }
-        public string? rank2 { get; set; }
-        public string? note { get; set; }
-    }
 
-    public class Wallet
-    {
-        public int? be { get; set; }
-        public int? rp { get; set; }
-    }
 }

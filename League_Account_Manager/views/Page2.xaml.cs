@@ -18,7 +18,7 @@ public partial class Page2 : Page
         InitializeComponent();
     }
 
-    public List<Page1.AccountList> AccountLists { get; }
+    public List<Utils.AccountList> AccountLists { get; }
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
@@ -48,8 +48,8 @@ public partial class Page2 : Page
     private async void UpdateAccountList(string username, string password)
     {
         Page1.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-        Page1.ActualAccountlists.Add(new Page1.AccountList { username = username, password = password });
-        Page1.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+        Page1.ActualAccountlists.Add(new Utils.AccountList { username = username, password = password });
+        Utils.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
         FileStream? fileStream = null;
         while (fileStream == null)
             try
