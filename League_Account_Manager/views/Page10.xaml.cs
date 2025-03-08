@@ -1,11 +1,8 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Interop;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Button = System.Windows.Controls.Button;
-
 
 
 namespace League_Account_Manager.views;
@@ -17,25 +14,22 @@ public partial class Page10 : Page
 {
     private readonly List<IconData>? listChamps = new();
     private readonly Dictionary<string, (bool, Task, CancellationTokenSource)> toggles = new();
+    private Chat champSelect;
     private JObject champselectaction;
     private JObject champselectJObject;
     private JObject ChampselectTeamJObject;
     private JObject queueJObject;
-    private Chat champSelect;
-    private bool sentmsg = false;
+    private bool sentmsg;
 
     public Page10()
     {
         InitializeComponent();
-   
+
         {
             Task.Run(() => BackgroundDataFunction1());
             Task.Run(() => BackgroundDataFunction2());
             Task.Run(() => LoadBuyableData());
-    
-   
         }
-
     }
 
     private async void LoadBuyableData()
@@ -69,7 +63,9 @@ public partial class Page10 : Page
                 ban2Champion.OriginalItemsSource = listChamps;
                 ban3Champion.OriginalItemsSource = listChamps;
             });
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             LogManager.GetCurrentClassLogger().Error(ex, "Error loading data");
         }
     }
@@ -134,7 +130,7 @@ public partial class Page10 : Page
                             champselectaction = null;
                         }
 
-                        
+
                         foreach (JObject teamArray in (JArray)champselectJObject["myTeam"])
                             if (teamArray["cellId"].ToString() == champselectJObject["localPlayerCellId"].ToString())
                             {
@@ -177,12 +173,12 @@ public partial class Page10 : Page
 
                 await Task.Delay(1000);
             }
-        }catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             LogManager.GetCurrentClassLogger().Error(e, "Error loading data");
-        }        
-
+        }
     }
-
 
 
     private void ToggleAutoAccept(object sender, RoutedEventArgs e)
@@ -218,24 +214,17 @@ public partial class Page10 : Page
 
     private async Task StartAutoPickTask(CancellationToken ct)
     {
-        try
+        while (!ct.IsCancellationRequested && toggles["AutoAcceptPick"].Item1)
         {
-            while (!ct.IsCancellationRequested && toggles["AutoAcceptPick"].Item1)
+            if (champselectaction != null && champselectaction.ContainsKey("type") &&
+                champselectaction["type"].ToString() == "pick")
             {
-                if (champselectaction != null && champselectaction.ContainsKey("type") &&
-                    champselectaction["type"].ToString() == "pick")
-                {
-                    var resp = await lcu.Connector("league", "patch",
-                        "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
-                        "{\"completed\":true,\"championId\":" + await getpickchampid() + "}");
-                }
-
-                await Task.Delay(300, ct); // Delay for 1 second before checking again
+                var resp = await lcu.Connector("league", "patch",
+                    "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
+                    "{\"completed\":true,\"championId\":" + await getpickchampid() + "}");
             }
-        }
-        catch (Exception e)
-        {
-            throw;
+
+            await Task.Delay(300, ct); // Delay for 1 second before checking again
         }
     }
 
@@ -247,7 +236,7 @@ public partial class Page10 : Page
         {
             var position = ChampselectTeamJObject["assignedPosition"].ToString().ToUpper();
             var positions = new List<string> { position, "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY" };
-            string id = "1";
+            var id = "1";
             foreach (var pos in positions)
             {
                 var champName = "";
@@ -280,13 +269,10 @@ public partial class Page10 : Page
                     id = listChamps.First(c => c.Name == champName).ID;
                     // If the selected champion ID is in the Pickable list
                     foreach (string jToken in Pickable)
-                    {
-                        if (id != jToken && !champselectJObject["bans"]["myTeamBans"].Values<int>().Contains(int.Parse(id)) &&
+                        if (id != jToken &&
+                            !champselectJObject["bans"]["myTeamBans"].Values<int>().Contains(int.Parse(id)) &&
                             !champselectJObject["bans"]["theirTeamBans"].Values<int>().Contains(int.Parse(id)))
-                        {
                             return id;
-                        }
-                    }
                 }
             }
 
@@ -305,12 +291,10 @@ public partial class Page10 : Page
             var result = "1"; // Default value is "1"
 
             foreach (var champion in banChampions)
-            {
                 if (!string.IsNullOrEmpty(champion))
                 {
                     var champId = listChamps.FirstOrDefault(c => c.Name == champion)?.ID;
                     if (banable.ToString().Contains(result))
-                    {
                         // Check if the JObject contains the champion ID in the myTeamBans or theirTeamBans array
                         if (!champselectJObject["bans"]["myTeamBans"].Values<int>().Contains(int.Parse(champId)) &&
                             !champselectJObject["bans"]["theirTeamBans"].Values<int>().Contains(int.Parse(champId)))
@@ -318,9 +302,7 @@ public partial class Page10 : Page
                             result = champId;
                             break;
                         }
-                    }
                 }
-            }
 
             return result;
         });
@@ -328,6 +310,7 @@ public partial class Page10 : Page
         // If none of the champions are in the banable array, return an empty string or handle it appropriately
         return returnval;
     }
+
     private async Task StartAutoBanTask(CancellationToken ct)
     {
         try
@@ -348,35 +331,27 @@ public partial class Page10 : Page
         }
         catch (Exception e)
         {
-
         }
     }
 
 
     private async Task sendmsg(string msg)
     {
-        try
-        {
-            var response = await lcu.Connector("league", "get", "/lol-chat/v1/conversations", "");
-            var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            List<Chat> chats = JArray.Parse(responseContent).ToObject<List<Chat>>();
-            champSelect = chats.FirstOrDefault(chat => chat.type == "championSelect");
-            if (champSelect == null)
-                return;
-            var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
-            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var summonerinfo = JObject.Parse(responseBody2);
-            string postdata = "{\"type\":\"chat\",\"fromId\":\"" + champSelect.id +
-                              "\",\"fromSummonerId\":" + summonerinfo["accountId"] +
-                              ",\"isHistorical\":false,\"timestamp\":\"" +
-                              DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") + "\",\"body\":\"" + msg + "\"}";
-            resp = await lcu.Connector("league", "post", "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
-                postdata);
-        }
-        catch (Exception e)
-        {
-            throw;
-        }
+        var response = await lcu.Connector("league", "get", "/lol-chat/v1/conversations", "");
+        var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        List<Chat> chats = JArray.Parse(responseContent).ToObject<List<Chat>>();
+        champSelect = chats.FirstOrDefault(chat => chat.type == "championSelect");
+        if (champSelect == null)
+            return;
+        var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
+        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var summonerinfo = JObject.Parse(responseBody2);
+        string postdata = "{\"type\":\"chat\",\"fromId\":\"" + champSelect.id +
+                          "\",\"fromSummonerId\":" + summonerinfo["accountId"] +
+                          ",\"isHistorical\":false,\"timestamp\":\"" +
+                          DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") + "\",\"body\":\"" + msg + "\"}";
+        resp = await lcu.Connector("league", "post", "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
+            postdata);
     }
 
 
@@ -387,22 +362,21 @@ public partial class Page10 : Page
             if (champselectaction != null && champselectaction.ContainsKey("type") && !sentmsg)
             {
                 Thread.Sleep(1000);
-                string msg = "";
-                Dispatcher.Invoke(() =>
-                {
-                    msg = MessageContainer.Text;
-                });
+                var msg = "";
+                Dispatcher.Invoke(() => { msg = MessageContainer.Text; });
                 if (!string.IsNullOrEmpty(msg))
                 {
                     await sendmsg(msg);
                     sentmsg = true;
                 }
             }
-            else if (queueJObject == null ||( queueJObject.ContainsKey("phase") && queueJObject["phase"].ToString() != "ChampSelect"))
+            else if (queueJObject == null ||
+                     (queueJObject.ContainsKey("phase") && queueJObject["phase"].ToString() != "ChampSelect"))
             {
                 sentmsg = false;
             }
-            await Task.Delay(1000, ct); 
+
+            await Task.Delay(1000, ct);
         }
     }
 
@@ -412,6 +386,7 @@ public partial class Page10 : Page
         public string? Name { get; set; }
         public string? ID { get; set; }
     }
+
     public class Chat
     {
         public string? gameName { get; set; }
@@ -428,6 +403,7 @@ public partial class Page10 : Page
         public string? type { get; set; }
         public long unreadMessageCount { get; set; }
     }
+
     public class Mucjwtdto
     {
         public string channelClaim { get; set; }
@@ -435,6 +411,7 @@ public partial class Page10 : Page
         public string jwt { get; set; }
         public string targetRegion { get; set; }
     }
+
     public class Lastmessage
     {
         public string body { get; set; }
@@ -447,5 +424,4 @@ public partial class Page10 : Page
         public DateTime timestamp { get; set; }
         public string type { get; set; }
     }
-
 }

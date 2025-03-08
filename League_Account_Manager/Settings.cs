@@ -6,6 +6,8 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using JsonSerializer = System.Text.Json.JsonSerializer;
+using MessageBox = System.Windows.MessageBox;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace League_Account_Manager;
 
@@ -24,6 +26,7 @@ public class Settings
             settingsloaded.updates = true;
             settingsloaded.DisplayPasswords = false;
             settingsloaded = JsonConvert.DeserializeObject<settings1>(settingstemp);
+            Console.WriteLine(JsonSerializer.Serialize(settingsloaded));
             if (settingsloaded.riotPath == null)
             {
                 settingsloaded.riotPath = findriot();
@@ -31,9 +34,17 @@ public class Settings
                 File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
             }
 
-            if (settingsloaded.riotPath != null && settingsloaded.LeaguePath == null)
+            if (settingsloaded.riotPath != null &&
+                (settingsloaded.LeaguePath == null || settingsloaded.LeaguePath == ""))
             {
                 settingsloaded.LeaguePath = await findleague();
+                var json = JsonSerializer.Serialize(settingsloaded);
+                File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+            }
+
+            if (settingsloaded.settingsLocation == null)
+            {
+                settingsloaded.settingsLocation = await findSettings();
                 var json = JsonSerializer.Serialize(settingsloaded);
                 File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
             }
@@ -45,6 +56,7 @@ public class Settings
             settingsloaded.DisplayPasswords = false;
             settingsloaded.riotPath = findriot();
             settingsloaded.LeaguePath = await findleague();
+            settingsloaded.settingsLocation = await findSettings();
             var json = JsonSerializer.Serialize(settingsloaded);
             File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
         }
@@ -70,14 +82,14 @@ public class Settings
             "(Default)"
         };
 
-        string installPath = null;
+        string? installPath = null;
 
         for (var i = 0; i < registryEntries.Length; i += 2)
         {
             var key = registryEntries[i];
             var valueName = registryEntries[i + 1];
 
-            installPath = (string)Registry.GetValue(key, valueName, null);
+            installPath = (string?)Registry.GetValue(key, valueName, null);
 
             if (installPath != null)
             {
@@ -112,9 +124,33 @@ public class Settings
             }
     }
 
+    private static async Task<string> findSettings()
+    {
+        Console.WriteLine(Path.GetDirectoryName(settingsloaded.LeaguePath) + "//Config//game.cfg");
+        if (File.Exists(Path.GetDirectoryName(settingsloaded.LeaguePath) + "//Config//game.cfg"))
+            return Path.GetDirectoryName(settingsloaded.LeaguePath) + "//Config//game.cfg";
+        var openFileDialog = new OpenFileDialog();
+        while (true)
+            if (openFileDialog.ShowDialog() == true)
+            {
+                if (Path.GetFileName(openFileDialog.FileName) != "game.cfg")
+                {
+                    MessageBox.Show("Please select a file with the name game.cfg", "Invalid Filename",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    continue;
+                }
+
+                return openFileDialog.FileName;
+            }
+            else
+            {
+                Environment.Exit(0);
+            }
+    }
+
     private static async Task<string> findleague()
     {
-        Process riotclient = null;
+        Process? riotclient = null;
         var startedclient = 0;
         if (Process.GetProcessesByName("Riot Client").Length == 0 &&
             Process.GetProcessesByName("RiotClientUx").Length == 0)
@@ -138,7 +174,7 @@ public class Settings
         JObject responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
         if (startedclient == 1) Utils.killleaguefunc();
 
-        if (responseBody.ContainsKey("path"))
+        if (responseBody != null && responseBody.ContainsKey("path"))
             return responseBody["path"].ToString().Replace("/", "\\") + "\\LeagueClient.exe";
 
         var openFileDialog = new OpenFileDialog();
@@ -169,5 +205,6 @@ public class Settings
         public string filename { get; set; }
         public bool updates { get; set; }
         public bool DisplayPasswords { get; set; }
+        public string settingsLocation { get; set; }
     }
 }

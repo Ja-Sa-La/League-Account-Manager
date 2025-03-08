@@ -1,10 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net.Http;
-using System.Numerics;
-using System.Security.Principal;
 using System.Windows;
 using System.Windows.Input;
-using CsvHelper;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
@@ -79,44 +76,45 @@ public partial class Window5 : Window
 
     private async void Button_Click_2(object sender, RoutedEventArgs e)
     {
-       try{
-        var name = Nameholder.Text;
-        var tag = Tagline.Text;
-        HttpResponseMessage resp = null;
-        JObject body = null;
-        Process.Start(Settings.settingsloaded.riotPath);
-        if (tag == null)
+        try
         {
-            resp = await lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
-                "{\"gameName\":\"" + name + "\",\"tagLine\":\"\"}");
-            body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        }
-        else
-        {
-            resp = await lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
-                "{\"gameName\":\"" + name + "\",\"tagLine\":\"" + tag + "\"}");
-            body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        }
+            var name = Nameholder.Text;
+            var tag = Tagline.Text;
+            HttpResponseMessage resp = null;
+            JObject body = null;
+            Process.Start(Settings.settingsloaded.riotPath);
+            if (tag == null)
+            {
+                resp = await lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
+                    "{\"gameName\":\"" + name + "\",\"tagLine\":\"\"}");
+                body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            }
+            else
+            {
+                resp = await lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
+                    "{\"gameName\":\"" + name + "\",\"tagLine\":\"" + tag + "\"}");
+                body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            }
 
-        if ((bool)body["isValid"])
-        {
-            errormessage.Content = "Namechange name is valid";
-            errormessage.Visibility = Visibility.Visible;
+            if ((bool)body["isValid"])
+            {
+                errormessage.Content = "Namechange name is valid";
+                errormessage.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                errormessage.Content = $"{body["invalidReason"]}";
+                errormessage.Visibility = Visibility.Visible;
+            }
         }
-        else
+        catch (Exception exception)
         {
-            errormessage.Content = $"{body["invalidReason"]}";
-            errormessage.Visibility = Visibility.Visible;
+            if (OperatingSystem.IsWindowsVersionAtLeast(7))
+                notif.notificationManager.Show("Error", "Riot Client not running",
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-    }
-    catch (Exception exception)
-    {
-        if (OperatingSystem.IsWindowsVersionAtLeast(7))
-            notif.notificationManager.Show("Error", "Riot Client not running",
-                NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
-                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-        LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-    }
     }
 }

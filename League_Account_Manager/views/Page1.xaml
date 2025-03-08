@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:local="clr-namespace:League_Account_Manager.views" x:Class="League_Account_Manager.views.Page1"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Page1"
     mc:Ignorable="d"
     d:DesignHeight="749" d:DesignWidth="1216"
     Title="Page1" KeyUp="Championlist_OnKeyDown" KeyDown="Championlist_OnKeyDown">
@@ -14,21 +14,21 @@
                   MouseLeftButtonDown="Championlist_MouseLeftButtonDown"
                   IsReadOnly="True"
                   HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
-                   SelectionMode="Single" Margin="0,36,0,0" HorizontalScrollBarVisibility="Disabled"
+                  SelectionMode="Single" Margin="0,36,0,0" HorizontalScrollBarVisibility="Disabled"
                   Height="713" VerticalAlignment="Top">
             <DataGrid.Columns>
-                <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}"/>
-                <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}"/>
-                <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}"/>
-                <DataGridTextColumn MinWidth="50" Header="Level" Binding="{Binding level}"/>
-                <DataGridTextColumn MinWidth="50" Header="Server" Binding="{Binding server}"/>
-                <DataGridTextColumn MinWidth="50" Header="BE" Binding="{Binding be}"/>
-                <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}"/>
-                <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}"/>
-                <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}"/>
-                <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}"/>
-                <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}"/>
-                <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}"/>
+                <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
+                <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />
+                <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}" />
+                <DataGridTextColumn MinWidth="50" Header="Level" Binding="{Binding level}" />
+                <DataGridTextColumn MinWidth="50" Header="Server" Binding="{Binding server}" />
+                <DataGridTextColumn MinWidth="50" Header="BE" Binding="{Binding be}" />
+                <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}" />
+                <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}" />
+                <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}" />
+                <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}" />
+                <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}" />
+                <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}" />
                 <DataGridTextColumn MinWidth="50" Header="Notes">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">

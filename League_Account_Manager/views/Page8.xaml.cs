@@ -44,6 +44,7 @@ public partial class Page8 : Page
                     await Task.Delay(5000);
                     continue;
                 }
+
                 break; // If all methods complete successfully, break the loop
             }
             catch (Exception e)

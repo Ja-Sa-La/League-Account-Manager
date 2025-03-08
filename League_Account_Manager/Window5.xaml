@@ -4,7 +4,8 @@
         Width="402" WindowStyle="None" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="#FF252525" MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated">
     <Grid>
-        <ui:TextBox Margin="10,90,10,0" PlaceholderText="Name" Name="Nameholder" TextWrapping="Wrap" Height="34" VerticalAlignment="Top" />
+        <ui:TextBox Margin="10,90,10,0" PlaceholderText="Name" Name="Nameholder" TextWrapping="Wrap" Height="34"
+                    VerticalAlignment="Top" />
         <ui:TextBox Margin="10,132,224,0" PlaceholderText="Tagline" Name="Tagline" Text="" Height="39"
                     VerticalAlignment="Top" />
         <ui:Button Content="Change Name" Click="Button_Click" Margin="0,176,0,0" VerticalAlignment="Top"
@@ -14,8 +15,10 @@
         <TextBlock HorizontalAlignment="Center" Margin="0,7,0,0" TextWrapping="Wrap"
                    Text="Allows you to change RiotID without needing to login to riots website. Requires you to have free namechange available tho."
                    Width="382" FontSize="13" Foreground="#FFC8C8C8" Height="47" VerticalAlignment="Top" />
-        <ui:Button Content="Check if available" Click="Button_Click_2" Margin="183,132,0,0" VerticalAlignment="Top" Width="209" Height="36" />
-        <ui:HyperlinkButton Content="Check available characters for RiotID" Margin="0,50,0,0" VerticalAlignment="Top" NavigateUri="https://riotidsymbols.com/" HorizontalAlignment="Center" Width="381"/>
+        <ui:Button Content="Check if available" Click="Button_Click_2" Margin="183,132,0,0" VerticalAlignment="Top"
+                   Width="209" Height="36" />
+        <ui:HyperlinkButton Content="Check available characters for RiotID" Margin="0,50,0,0" VerticalAlignment="Top"
+                            NavigateUri="https://riotidsymbols.com/" HorizontalAlignment="Center" Width="381" />
 
     </Grid>
 </Window>

@@ -8,8 +8,8 @@ namespace League_Account_Manager;
 
 internal class lcu
 {
-    public static Vals Riot = new Vals { path = "", port = "", token = "", Value = "", version = null }; 
-    public static Vals League = new Vals();
+    public static Vals Riot = new() { path = "", port = "", token = "", Value = "", version = null };
+    public static Vals League;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern nint FindWindow(string strClassName, string strWindowName);
@@ -61,7 +61,6 @@ internal class lcu
 
         var leagueClientProcess2 = Process.GetProcessesByName("LeagueClientUx");
         if (leagueClientProcess2 != null)
-        {
             foreach (var leagueprocess in leagueClientProcess2)
                 try
                 {
@@ -75,7 +74,6 @@ internal class lcu
                 catch (Exception)
                 {
                 }
-        }
 
         return (riotPort, riotToken, leaguePort, leagueToken);
     }
@@ -85,12 +83,12 @@ internal class lcu
         var ingame = Process.GetProcessesByName("League of Legends");
         if (ingame.Length != 0)
             return "";
-            var clientHandler = new HttpClientHandler
+        var clientHandler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
         };
         var client = new HttpClient(clientHandler);
-        
+
         string[] portSplit = { "1", "2" }, tokenSplit;
         byte[] token;
         if (target == "riot")
@@ -282,112 +280,111 @@ public static class ProcessCommandLine
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var rc = 0;
-        commandLine = null;
-        var hProcess = Win32Native.OpenProcess(
-            Win32Native.OpenProcessDesiredAccessFlags.PROCESS_QUERY_INFORMATION |
-            Win32Native.OpenProcessDesiredAccessFlags.PROCESS_VM_READ, false, (uint)process.Id);
-        if (hProcess != nint.Zero)
-            try
-            {
-                var sizePBI = Marshal.SizeOf<Win32Native.ProcessBasicInformation>();
-                var memPBI = Marshal.AllocHGlobal(sizePBI);
+            commandLine = null;
+            var hProcess = Win32Native.OpenProcess(
+                Win32Native.OpenProcessDesiredAccessFlags.PROCESS_QUERY_INFORMATION |
+                Win32Native.OpenProcessDesiredAccessFlags.PROCESS_VM_READ, false, (uint)process.Id);
+            if (hProcess != nint.Zero)
                 try
                 {
-                    var ret = Win32Native.NtQueryInformationProcess(
-                        hProcess, Win32Native.PROCESS_BASIC_INFORMATION, memPBI,
-                        (uint)sizePBI, out var len);
-                    if (0 == ret)
+                    var sizePBI = Marshal.SizeOf<Win32Native.ProcessBasicInformation>();
+                    var memPBI = Marshal.AllocHGlobal(sizePBI);
+                    try
                     {
-                        var pbiInfo = Marshal.PtrToStructure<Win32Native.ProcessBasicInformation>(memPBI);
-                        if (pbiInfo.PebBaseAddress != nint.Zero)
+                        var ret = Win32Native.NtQueryInformationProcess(
+                            hProcess, Win32Native.PROCESS_BASIC_INFORMATION, memPBI,
+                            (uint)sizePBI, out var len);
+                        if (0 == ret)
                         {
-                            if (ReadStructFromProcessMemory<Win32Native.PEB>(hProcess,
-                                    pbiInfo.PebBaseAddress, out var pebInfo))
+                            var pbiInfo = Marshal.PtrToStructure<Win32Native.ProcessBasicInformation>(memPBI);
+                            if (pbiInfo.PebBaseAddress != nint.Zero)
                             {
-                                if (ReadStructFromProcessMemory<Win32Native.RtlUserProcessParameters>(
-                                        hProcess, pebInfo.ProcessParameters, out var ruppInfo))
+                                if (ReadStructFromProcessMemory<Win32Native.PEB>(hProcess,
+                                        pbiInfo.PebBaseAddress, out var pebInfo))
                                 {
-                                    var clLen = ruppInfo.CommandLine.MaximumLength;
-                                    var memCL = Marshal.AllocHGlobal(clLen);
-                                    try
+                                    if (ReadStructFromProcessMemory<Win32Native.RtlUserProcessParameters>(
+                                            hProcess, pebInfo.ProcessParameters, out var ruppInfo))
                                     {
-                                        if (Win32Native.ReadProcessMemory(hProcess,
-                                                ruppInfo.CommandLine.Buffer, memCL, clLen, out len))
+                                        var clLen = ruppInfo.CommandLine.MaximumLength;
+                                        var memCL = Marshal.AllocHGlobal(clLen);
+                                        try
                                         {
-                                            commandLine = Marshal.PtrToStringUni(memCL);
-                                            rc = 0;
+                                            if (Win32Native.ReadProcessMemory(hProcess,
+                                                    ruppInfo.CommandLine.Buffer, memCL, clLen, out len))
+                                            {
+                                                commandLine = Marshal.PtrToStringUni(memCL);
+                                                rc = 0;
+                                            }
+                                            else
+                                            {
+                                                // couldn't read command line buffer
+                                                rc = -6;
+                                            }
                                         }
-                                        else
+                                        finally
                                         {
-                                            // couldn't read command line buffer
-                                            rc = -6;
+                                            Marshal.FreeHGlobal(memCL);
                                         }
                                     }
-                                    finally
+                                    else
                                     {
-                                        Marshal.FreeHGlobal(memCL);
+                                        // couldn't read ProcessParameters
+                                        rc = -5;
                                     }
                                 }
                                 else
                                 {
-                                    // couldn't read ProcessParameters
-                                    rc = -5;
+                                    // couldn't read PEB information
+                                    rc = -4;
                                 }
                             }
                             else
                             {
-                                // couldn't read PEB information
-                                rc = -4;
+                                // PebBaseAddress is null
+                                rc = -3;
                             }
                         }
                         else
                         {
-                            // PebBaseAddress is null
-                            rc = -3;
+                            // NtQueryInformationProcess failed
+                            rc = -2;
                         }
                     }
-                    else
+                    finally
                     {
-                        // NtQueryInformationProcess failed
-                        rc = -2;
+                        Marshal.FreeHGlobal(memPBI);
                     }
                 }
                 finally
                 {
-                    Marshal.FreeHGlobal(memPBI);
+                    Win32Native.CloseHandle(hProcess);
                 }
-            }
-            finally
-            {
-                Win32Native.CloseHandle(hProcess);
-            }
-        else
-            // couldn't open process for VM read
-            rc = -1;
+            else
+                // couldn't open process for VM read
+                rc = -1;
 
-        return rc;
-    }
-    else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-    {
-        var startInfo = new ProcessStartInfo
+            return rc;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            FileName = "/bin/bash",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            Arguments = $"-c \"ps -p {process.Id} -o command=\""
-        };
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "/bin/bash",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                Arguments = $"-c \"ps -p {process.Id} -o command=\""
+            };
 
-        using var cmdProcess = Process.Start(startInfo);
-        cmdProcess.WaitForExit();
-        commandLine = cmdProcess.StandardOutput.ReadToEnd().Trim();
-        return cmdProcess.ExitCode;
-    }
-else
-{
-    throw new PlatformNotSupportedException();
-}
+            using var cmdProcess = Process.Start(startInfo);
+            cmdProcess.WaitForExit();
+            commandLine = cmdProcess.StandardOutput.ReadToEnd().Trim();
+            return cmdProcess.ExitCode;
+        }
+
+        throw new PlatformNotSupportedException();
     }
 
     public static class Win32Native

@@ -26,7 +26,7 @@
         <ui:Button Click="Button_Click_3" Content="Get riot hwid" Margin="852,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
         <ui:Button Click="Button_Click_4" Content="Cool test button" Margin="1008,10,0,0"
-            VerticalAlignment="Top" Height="40" Width="151" />
+                   VerticalAlignment="Top" Height="40" Width="151" />
 
     </Grid>
 </Page>

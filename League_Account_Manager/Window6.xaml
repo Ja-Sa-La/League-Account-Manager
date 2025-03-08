@@ -1,6 +1,6 @@
 ﻿<Window x:Class="League_Account_Manager.Window6" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" Height="439"
+        Height="439"
         Width="400" WindowStyle="None" WindowStartupLocation="CenterScreen" Background="#FF252525"
         MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated" ResizeMode="NoResize">
     <Grid Background="#FF252525" Margin="0,0,0,0">
@@ -8,7 +8,7 @@
                  Name="Datathing" Margin="10,10,10,10"
                  TextWrapping="Wrap" Text=""
                  IsEnabled="True" IsReadOnly="False" VerticalScrollBarVisibility="Visible"
-                 IsManipulationEnabled="True" 
+                 IsManipulationEnabled="True"
                  IsInactiveSelectionHighlightEnabled="True"
                  AcceptsReturn="True" />
     </Grid>
