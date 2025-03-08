@@ -1,13 +1,10 @@
-﻿    using System.IO;
-    using System.Windows;
-using System.Windows.Controls;
+﻿using System.Globalization;
+using System.IO;
+using System.Windows;
 using System.Windows.Input;
 using CsvHelper;
-using League_Account_Manager.views;
-using static League_Account_Manager.views.Page1;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using CsvHelper.Configuration;
-using System.Globalization;
+using static League_Account_Manager.views.Page1;
 
 namespace League_Account_Manager;
 
@@ -16,8 +13,8 @@ namespace League_Account_Manager;
 /// </summary>
 public partial class Window6 : Window
 {
-    private Utils.AccountList dataholder;
     private readonly CsvConfiguration _config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
+    private readonly Utils.AccountList dataholder;
 
     public Window6(Utils.AccountList Data)
     {
@@ -39,15 +36,16 @@ public partial class Window6 : Window
         if (Datathing.Text != dataholder.note)
         {
             dataholder.note = Datathing.Text;
-            Page1.ActualAccountlists.RemoveAll(r => r.username == dataholder.username && r.password == dataholder.password);
-            Page1.ActualAccountlists.Add(dataholder);
-            Utils.RemoveDoubleQuotesFromList(Page1.ActualAccountlists);
+            ActualAccountlists.RemoveAll(r => r.username == dataholder.username && r.password == dataholder.password);
+            ActualAccountlists.Add(dataholder);
+            Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
             FileStream? fileStream = null;
             while (fileStream == null)
                 try
                 {
                     fileStream =
-                        File.Open(Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"),
+                        File.Open(
+                            Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"),
                             FileMode.Open, FileAccess.Read, FileShare.None);
                     fileStream.Close();
                 }
@@ -58,12 +56,12 @@ public partial class Window6 : Window
                 }
 
             using var writer =
-                new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"));
+                new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                    $"{Settings.settingsloaded.filename}.csv"));
             using var csvWriter = new CsvWriter(writer, _config);
-            csvWriter.WriteRecords(Page1.ActualAccountlists);
-
+            csvWriter.WriteRecords(ActualAccountlists);
         }
+
         Close();
     }
-
 }

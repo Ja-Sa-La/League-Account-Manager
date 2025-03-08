@@ -1,8 +1,6 @@
-﻿
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+﻿using System.Reflection;
 using System.Resources;
+using System.Runtime.Versioning;
 
 // General Information
 [assembly: AssemblyTitle("League account manager")]
@@ -11,9 +9,9 @@ using System.Resources;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCopyright("2025 @j.s.l")]
 [assembly: AssemblyCulture("")]
+[assembly: SupportedOSPlatform("windows")]
 
 // Version informationr(
-[assembly: AssemblyVersion("2.1.0.7")]
-[assembly: AssemblyFileVersion("2.1.0.7")]
-[assembly: NeutralResourcesLanguageAttribute( "en-US" )]
-
+[assembly: AssemblyVersion("2.2.0.0")]
+[assembly: AssemblyFileVersion("2.2.0.0")]
+[assembly: NeutralResourcesLanguageAttribute("en-US")]

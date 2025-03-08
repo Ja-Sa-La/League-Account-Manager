@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using FlaUI.Core.Input;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
@@ -18,12 +17,12 @@ public partial class Page4 : Page
         InitializeComponent();
     }
 
-    
+
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            dynamic resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
             Console.WriteLine(players);
             var i = 0;
@@ -40,8 +39,8 @@ public partial class Page4 : Page
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
-    
-        private async Task<string> pullrankedinfo(dynamic puuid, int I)
+
+    private async Task<string> pullrankedinfo(dynamic puuid, int I)
     {
         try
         {
@@ -64,9 +63,9 @@ public partial class Page4 : Page
             playerRank.Content =
                 $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
             playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
-             resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
-             dynamic playerinfo = JObject.Parse(await GetResponseBody(resp));
-             return playerinfo["gameName"] + "#" + playerinfo["tagLine"];
+            resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
+            var playerinfo = JObject.Parse(await GetResponseBody(resp));
+            return playerinfo["gameName"] + "#" + playerinfo["tagLine"];
         }
         catch (Exception exception)
         {
@@ -75,6 +74,7 @@ public partial class Page4 : Page
 
         return "Error loading data";
     }
+
     private async Task<dynamic> pullrankedinfo2(dynamic puuid, int I)
     {
         try
@@ -99,7 +99,7 @@ public partial class Page4 : Page
                 $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
             playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
             resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
-            dynamic playerinfo = JObject.Parse(await GetResponseBody(resp));
+            var playerinfo = JObject.Parse(await GetResponseBody(resp));
             return playerinfo;
         }
         catch (Exception exception)
@@ -195,20 +195,20 @@ public partial class Page4 : Page
     {
         try
         {
-            dynamic resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
             Console.WriteLine(players);
             var i = 0;
             resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
 
-            string region_parsed = RegionHelperUtil.RegionParser(region["region"].ToString());
+            var region_parsed = RegionHelperUtil.RegionParser(region["region"].ToString());
 
             var url = $"https://www.op.gg/multisearch/{region_parsed}?summoners=";
 
             foreach (var player in players["myTeam"])
             {
-                dynamic playerTex = await pullrankedinfo2(player["puuid"], i);
+                var playerTex = await pullrankedinfo2(player["puuid"], i);
                 i++;
                 url += $"{playerTex["gameName"]}%23{playerTex["tagLine"]},";
             }
@@ -225,9 +225,9 @@ public partial class Page4 : Page
     {
         try
         {
-            dynamic resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
-             resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
             Console.WriteLine(players);
             var i = 0;
@@ -235,7 +235,7 @@ public partial class Page4 : Page
 
             foreach (var player in players["myTeam"])
             {
-                dynamic playerText = await pullrankedinfo2(player["puuid"], i);
+                var playerText = await pullrankedinfo2(player["puuid"], i);
                 i++;
                 url += $"{playerText["gameName"]} -{playerText["tagLine"]},";
             }
@@ -285,7 +285,7 @@ public static class RegionHelperUtil
         return region_parsed;
     }
 }
-    
+
 public class Gamestats
 {
     public double? Wins { get; set; }

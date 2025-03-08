@@ -28,7 +28,8 @@
         <Label Content="" Name="installloclea" HorizontalAlignment="Left" Margin="450,25,0,0"
                VerticalAlignment="Top"
                Width="489" Height="22" />
-        <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,3,0,0" Name="leaguedata" VerticalAlignment="Top" Width="380" Background="Transparent" Foreground="White">
+        <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,3,0,0" Name="leaguedata"
+                 VerticalAlignment="Top" Width="380" Background="Transparent" Foreground="White">
             <TextBox.Style>
                 <Style TargetType="TextBox">
                     <Setter Property="IsReadOnly" Value="True" />
@@ -37,7 +38,8 @@
                 </Style>
             </TextBox.Style>
         </TextBox>
-        <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,25,0,0"  Name="riotdata"  VerticalAlignment="Top" Width="380" Foreground="White" Background="Transparent">
+        <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,25,0,0" Name="riotdata"
+                 VerticalAlignment="Top" Width="380" Foreground="White" Background="Transparent">
             <TextBox.Style>
                 <Style TargetType="TextBox">
                     <Setter Property="IsReadOnly" Value="True" />
@@ -65,7 +67,8 @@
                         <ui:SymbolIcon Symbol="Group20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Auto Champ select" NavigationCacheMode="Required" TargetPageType="{x:Type Page:Page10}" >
+                <ui:NavigationViewItem Content="Auto Champ select" NavigationCacheMode="Required"
+                                       TargetPageType="{x:Type Page:Page10}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Group20" />
                     </ui:NavigationViewItem.Icon>
@@ -95,6 +98,12 @@
                                        TargetPageType="{x:Type Page:Page9}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="ShoppingBag20" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="Ingame settings"
+                                       TargetPageType="{x:Type Page:Page11}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="EditSettings20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
