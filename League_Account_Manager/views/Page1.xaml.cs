@@ -754,7 +754,7 @@ public partial class Page1 : Page
 
                             while (secondWindow.IsLoaded) await Task.Delay(100);
                         }
-                        else
+                        else if(noteWindow != null)
                         {
                             await noteWindow.Dispatcher.InvokeAsync(() => { noteWindow.Show(); });
 
