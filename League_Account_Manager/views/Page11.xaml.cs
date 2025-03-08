@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -262,21 +263,44 @@ public partial class Page11 : Page
         ImportSettings();
     }
 
-    private void ApplyButton_Click(object sender, RoutedEventArgs e)
+    private async void ApplyButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var settFile = new FileInfo(Settings.settingsloaded.settingsLocation);
-            if (settFile.IsReadOnly)
-            {
                 settFile.IsReadOnly = false;
                 SaveSettings(settings, Settings.settingsloaded.settingsLocation);
                 settFile.IsReadOnly = true;
-            }
-            else
-            {
-                SaveSettings(settings, Settings.settingsloaded.settingsLocation);
-            }
+                Process.Start(Settings.settingsloaded.riotPath,
+                    "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
+            Thread.Sleep(1000);
+                killleaguefunc2();
+                await lcu.Connector("riot", "post",
+                    "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+
+    }
+    private async void ApplyButton2_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+                string payload = JsonSerializer.Serialize(settings);
+                string payload2 = JsonSerializer.Serialize(settings);
+                string payload3 = JsonSerializer.Serialize(settings);
+
+                dynamic resp = await lcu.Connector("league", "PATCH", "/lol-game-settings/v1/game-settings", payload);
+                resp = await lcu.Connector("league", "PATCH", "/lol-settings/v1/account/game-settings", payload2);
+                resp = await lcu.Connector("league", "PATCH", "/lol-settings/v2/account/GamePreferences/game-settings", payload3);
+                Process.Start(Settings.settingsloaded.riotPath,
+                    "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
+                Thread.Sleep(1000);
+                killleaguefunc2();
+                await lcu.Connector("riot", "post",
+                    "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
         }
         catch (Exception exception)
         {

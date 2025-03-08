@@ -67,6 +67,42 @@ public class Utils
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
+    public static void killleaguefunc2()
+    {
+        try
+        {
+            var source = new[]
+            {
+                "LeagueClient"
+            };
+
+            var allProcessesKilled = false;
+
+            while (!allProcessesKilled)
+            {
+                allProcessesKilled = true;
+
+                foreach (var processName in source)
+                {
+                    var processes = Process.GetProcessesByName(processName);
+
+                    foreach (var process in processes)
+                    {
+                        process.Kill();
+                        allProcessesKilled = false;
+                    }
+                }
+
+                if (!allProcessesKilled)
+                    // Wait for a moment before checking again
+                    Thread.Sleep(1000); // You can adjust the time interval if needed
+            }
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+    }
 
     public class AccountList
     {

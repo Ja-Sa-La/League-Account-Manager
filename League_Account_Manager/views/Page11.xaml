@@ -574,6 +574,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <Grid.ColumnDefinitions>
@@ -586,12 +587,14 @@
                             Margin="0,0,0,10" Grid.Row="1" />
                     <Button Content="Import Settings" Click="ImportButton_Click" HorizontalAlignment="Left"
                             Margin="0,0,0,10" Grid.Row="2" />
-                    <Button Content="Apply Settings" Click="ApplyButton_Click" HorizontalAlignment="Left"
+                    <Button Content="Apply Settings to client" Click="ApplyButton_Click" HorizontalAlignment="Left"
                             Margin="0,0,0,10" Grid.Row="3" />
-                    <Button Content="Lock Settings" Click="LockButton_Click" HorizontalAlignment="Left"
+                    <Button Content="Apply Settings to account" Click="ApplyButton2_Click" HorizontalAlignment="Left"
                             Margin="0,0,0,10" Grid.Row="4" />
-                    <Button Content="Unlock Settings" Click="UnlockButton_Click" HorizontalAlignment="Left"
+                    <Button Content="Lock Settings" Click="LockButton_Click" HorizontalAlignment="Left"
                             Margin="0,0,0,10" Grid.Row="5" />
+                    <Button Content="Unlock Settings" Click="UnlockButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="6" />
                 </Grid>
             </TabItem>
         </TabControl>
