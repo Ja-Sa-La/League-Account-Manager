@@ -9,7 +9,7 @@ using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
-using static League_Account_Manager.Misc.lcu;
+using static League_Account_Manager.Misc.Lcu;
 
 namespace League_Account_Manager.views;
 
@@ -118,8 +118,8 @@ public partial class MiscTools : Page
                 var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
                 if (resp.ToString() == "0")
                 {
-                    notif.notificationManager.Show("Error", "League of legends client is not running!",
-                        NotificationType.Notification, "WindowArea", onClick: notif.donothing);
+                    Notif.notificationManager.Show("Error", "League of legends client is not running!",
+                        NotificationType.Notification, "WindowArea", onClick: Notif.donothing);
                     return;
                 }
 
@@ -147,8 +147,8 @@ public partial class MiscTools : Page
         var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
         if (resp.ToString() == "0")
         {
-            notif.notificationManager.Show("Error", "League of legends client is not running!",
-                NotificationType.Notification, "WindowArea", onClick: notif.donothing);
+            Notif.notificationManager.Show("Error", "League of legends client is not running!",
+                NotificationType.Notification, "WindowArea", onClick: Notif.donothing);
             return;
         }
 
@@ -194,8 +194,8 @@ public partial class MiscTools : Page
                 @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
                 "UninstallString", null);
             if (installPath != null)
-                notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
-                    NotificationType.Notification, "WindowArea", onClick: notif.donothing);
+                Notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
+                    NotificationType.Notification, "WindowArea", onClick: Notif.donothing);
             var pattern = "\"(.*?)\"";
             var match = Regex.Match(installPath, pattern);
 

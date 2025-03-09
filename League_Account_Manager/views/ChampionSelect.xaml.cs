@@ -23,7 +23,7 @@ public partial class ChampionSelect : Page
     {
         try
         {
-            var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
             Console.WriteLine(players);
             var i = 0;
@@ -45,9 +45,9 @@ public partial class ChampionSelect : Page
     {
         try
         {
-            var resp = await lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
+            var resp = await Lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
             var rankedinfo = JObject.Parse(await GetResponseBody(resp));
-            resp = await lcu.Connector("league", "get",
+            resp = await Lcu.Connector("league", "get",
                 $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
             var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
 
@@ -64,7 +64,7 @@ public partial class ChampionSelect : Page
             playerRank.Content =
                 $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
             playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
-            resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
+            resp = await Lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
             var playerinfo = JObject.Parse(await GetResponseBody(resp));
             return playerinfo["gameName"] + "#" + playerinfo["tagLine"];
         }
@@ -80,9 +80,9 @@ public partial class ChampionSelect : Page
     {
         try
         {
-            var resp = await lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
+            var resp = await Lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
             var rankedinfo = JObject.Parse(await GetResponseBody(resp));
-            resp = await lcu.Connector("league", "get",
+            resp = await Lcu.Connector("league", "get",
                 $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
             var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
 
@@ -99,7 +99,7 @@ public partial class ChampionSelect : Page
             playerRank.Content =
                 $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
             playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
-            resp = await lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
+            resp = await Lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
             var playerinfo = JObject.Parse(await GetResponseBody(resp));
             return playerinfo;
         }
@@ -166,9 +166,9 @@ public partial class ChampionSelect : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
-            notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
+            Notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
                 NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
     }
@@ -186,9 +186,9 @@ public partial class ChampionSelect : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error");
-            notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
+            Notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
                 NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null,
-                () => notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                () => Notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
     }
 
@@ -196,11 +196,11 @@ public partial class ChampionSelect : Page
     {
         try
         {
-            var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
             Console.WriteLine(players);
             var i = 0;
-            resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            resp = await Lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
 
             var region_parsed = RegionHelperUtil.RegionParser(region["region"].ToString());
@@ -226,9 +226,9 @@ public partial class ChampionSelect : Page
     {
         try
         {
-            var resp = await lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+            var resp = await Lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
-            resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+            resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
             Console.WriteLine(players);
             var i = 0;
@@ -257,7 +257,7 @@ public partial class ChampionSelect : Page
 
     private async void DODGE(object sender, RoutedEventArgs e)
     {
-        var resp = await lcu.Connector("league", "post",
+        var resp = await Lcu.Connector("league", "post",
             "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",
             "");
     }

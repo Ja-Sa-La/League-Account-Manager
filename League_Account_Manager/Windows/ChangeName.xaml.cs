@@ -42,13 +42,13 @@ public partial class ChangeName : Window
             Process.Start(Settings.settingsloaded.riotPath);
             if (tag == null)
             {
-                resp = await lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",
+                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",
                     "{\"gameName\":\"" + name + "\",\"tagLine\":\"\"}");
                 body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
             else
             {
-                resp = await lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",
+                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",
                     "{\"gameName\":\"" + name + "\",\"tagLine\":\"" + tag + "\"}");
                 body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
@@ -67,9 +67,9 @@ public partial class ChangeName : Window
         catch (Exception exception)
         {
             if (OperatingSystem.IsWindowsVersionAtLeast(7))
-                notif.notificationManager.Show("Error", "Riot Client not running",
+                Notif.notificationManager.Show("Error", "Riot Client not running",
                     NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
@@ -86,13 +86,13 @@ public partial class ChangeName : Window
             Process.Start(Settings.settingsloaded.riotPath);
             if (tag == null)
             {
-                resp = await lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
+                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
                     "{\"gameName\":\"" + name + "\",\"tagLine\":\"\"}");
                 body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
             else
             {
-                resp = await lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
+                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
                     "{\"gameName\":\"" + name + "\",\"tagLine\":\"" + tag + "\"}");
                 body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
             }
@@ -111,9 +111,9 @@ public partial class ChangeName : Window
         catch (Exception exception)
         {
             if (OperatingSystem.IsWindowsVersionAtLeast(7))
-                notif.notificationManager.Show("Error", "Riot Client not running",
+                Notif.notificationManager.Show("Error", "Riot Client not running",
                     NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }

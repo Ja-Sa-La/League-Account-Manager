@@ -32,7 +32,6 @@ public partial class SettingsEditor : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
     public SettingsIngame settings { get; set; }
@@ -52,7 +51,6 @@ public partial class SettingsEditor : Page
         }
 
         return new SettingsIngame();
-
     }
 
     public static SettingsIngame LoadSettings(string iniFilePath)
@@ -100,10 +98,9 @@ public partial class SettingsEditor : Page
         }
 
         return new SettingsIngame();
-
     }
 
-    public  void SaveSettings(SettingsIngame settings, string iniFilePath, string PersistedSettings)
+    public void SaveSettings(SettingsIngame settings, string iniFilePath, string PersistedSettings)
     {
         try
         {
@@ -165,7 +162,6 @@ public partial class SettingsEditor : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
 
@@ -182,7 +178,6 @@ public partial class SettingsEditor : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
     // Export settings to a JSON file
@@ -213,7 +208,6 @@ public partial class SettingsEditor : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
     // Import settings from a JSON file
@@ -247,7 +241,6 @@ public partial class SettingsEditor : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
     // Event handlers (you can bind them to buttons, for example)
@@ -271,54 +264,51 @@ public partial class SettingsEditor : Page
         try
 
         {
-            
-            
             var settFile = new FileInfo(Misc.Settings.settingsloaded.settingsLocation);
-                settFile.IsReadOnly = false;
-                var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) + "//PersistedSettings.json");
-                settFile2.IsReadOnly = false;
-            SaveSettings(settings, Misc.Settings.settingsloaded.settingsLocation, Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) + "//PersistedSettings.json");
+            settFile.IsReadOnly = false;
+            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) +
+                                         "//PersistedSettings.json");
+            settFile2.IsReadOnly = false;
+            SaveSettings(settings, Misc.Settings.settingsloaded.settingsLocation,
+                Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) + "//PersistedSettings.json");
             settFile.IsReadOnly = true;
             settFile2.IsReadOnly = true;
-            Process.Start(Misc.Settings.settingsloaded.riotPath,
-                    "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
-            Thread.Sleep(1000);
-                killleaguefunc2();
-                await lcu.Connector("riot", "post",
-                    "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-            
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-
-    }
-
-    private async void ApplyButton2_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            string payload = JsonSerializer.Serialize(settings);
-            string payload2 = JsonSerializer.Serialize(settings);
-            string payload3 = JsonSerializer.Serialize(settings);
-
-            dynamic resp = await lcu.Connector("league", "PATCH", "/lol-game-settings/v1/game-settings", payload);
-            resp = await lcu.Connector("league", "PATCH", "/lol-settings/v1/account/game-settings", payload2);
-            resp = await lcu.Connector("league", "PATCH", "/lol-settings/v2/account/GamePreferences/game-settings",
-                payload3);
             Process.Start(Misc.Settings.settingsloaded.riotPath,
                 "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
             Thread.Sleep(1000);
             killleaguefunc2();
-            await lcu.Connector("riot", "post",
+            await Lcu.Connector("riot", "post",
                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
         }
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
+    }
 
+    private async void ApplyButton2_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var payload = JsonSerializer.Serialize(settings);
+            var payload2 = JsonSerializer.Serialize(settings);
+            var payload3 = JsonSerializer.Serialize(settings);
+
+            var resp = await Lcu.Connector("league", "PATCH", "/lol-game-settings/v1/game-settings", payload);
+            resp = await Lcu.Connector("league", "PATCH", "/lol-settings/v1/account/game-settings", payload2);
+            resp = await Lcu.Connector("league", "PATCH", "/lol-settings/v2/account/GamePreferences/game-settings",
+                payload3);
+            Process.Start(Misc.Settings.settingsloaded.riotPath,
+                "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
+            Thread.Sleep(1000);
+            killleaguefunc2();
+            await Lcu.Connector("riot", "post",
+                "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
     }
 
     private void LockButton_Click(object sender, RoutedEventArgs e)
@@ -327,14 +317,14 @@ public partial class SettingsEditor : Page
         {
             var settFile = new FileInfo(Misc.Settings.settingsloaded.settingsLocation);
             if (!settFile.IsReadOnly) settFile.IsReadOnly = true;
-            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) + "//PersistedSettings.json");
+            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) +
+                                         "//PersistedSettings.json");
             if (!settFile2.IsReadOnly) settFile2.IsReadOnly = true;
         }
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
     private void UnlockButton_Click(object sender, RoutedEventArgs e)
@@ -343,17 +333,17 @@ public partial class SettingsEditor : Page
         {
             var settFile = new FileInfo(Misc.Settings.settingsloaded.settingsLocation);
             if (settFile.IsReadOnly) settFile.IsReadOnly = false;
-            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) + "//PersistedSettings.json");
+            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) +
+                                         "//PersistedSettings.json");
             if (settFile2.IsReadOnly) settFile2.IsReadOnly = false;
         }
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
-
     }
 
-     void UpdateSettings(string filePath, string newSettingsJson)
+    private void UpdateSettings(string filePath, string newSettingsJson)
     {
         if (!File.Exists(filePath))
         {
@@ -362,16 +352,13 @@ public partial class SettingsEditor : Page
         }
 
         // Load existing JSON
-        string existingJson = File.ReadAllText(filePath);
-        JObject existingSettings = JObject.Parse(existingJson);
-        JObject newSettings = JObject.Parse(newSettingsJson);
+        var existingJson = File.ReadAllText(filePath);
+        var existingSettings = JObject.Parse(existingJson);
+        var newSettings = JObject.Parse(newSettingsJson);
 
         EditKeyValuePairs(existingSettings);
-        Console.WriteLine(existingSettings);
         // Save the updated settings back to the file
         File.WriteAllText(filePath, existingSettings.ToString());
-
-        Console.WriteLine("Settings updated successfully.");
     }
 
     // Recursively update the template JSON with values from the input JSON
@@ -380,9 +367,7 @@ public partial class SettingsEditor : Page
         if (token is JObject obj)
         {
             foreach (var property in obj.Properties())
-            {
                 if (property.Name == "files" && property.Value is JArray files)
-                {
                     // Process each file
                     foreach (var file in files)
                     {
@@ -390,21 +375,16 @@ public partial class SettingsEditor : Page
                         var sections = file["sections"] as JArray;
                         foreach (var section in sections)
                         {
-                            string sectionName = section["name"]?.ToString();
+                            var sectionName = section["name"]?.ToString();
                             // Now edit settings under the section
                             var settings = section["settings"];
                             EditSettingsWithSection(settings, sectionName);
                         }
                     }
-                }
-            }
         }
         else if (token is JArray arr)
         {
-            foreach (var item in arr)
-            {
-                EditKeyValuePairs(item);
-            }
+            foreach (var item in arr) EditKeyValuePairs(item);
         }
     }
 
@@ -412,13 +392,10 @@ public partial class SettingsEditor : Page
     {
         foreach (var setting in settingsher)
         {
-            string name = setting["name"]?.ToString();
-            string newValue = GetSettingValueBySectionName(settings, sectionName, name);
+            var name = setting["name"]?.ToString();
+            var newValue = GetSettingValueBySectionName(settings, sectionName, name);
 
-            if (!string.IsNullOrWhiteSpace(newValue))
-            {
-                setting["value"] = newValue;  // Update the value with user input
-            }
+            if (!string.IsNullOrWhiteSpace(newValue)) setting["value"] = newValue; // Update the value with user input
         }
     }
 
@@ -441,7 +418,8 @@ public partial class SettingsEditor : Page
             case nameof(SettingsIngame.Volume):
                 return settings.Volume.GetType().GetProperty(name)?.GetValue(settings.Volume)?.ToString();
             case nameof(SettingsIngame.MapSkinOptions):
-                return settings.MapSkinOptions.GetType().GetProperty(name)?.GetValue(settings.MapSkinOptions)?.ToString();
+                return settings.MapSkinOptions.GetType().GetProperty(name)?.GetValue(settings.MapSkinOptions)
+                    ?.ToString();
             case nameof(SettingsIngame.TFT):
                 return settings.TFT.GetType().GetProperty(name)?.GetValue(settings.TFT)?.ToString();
             case nameof(SettingsIngame.Replay):

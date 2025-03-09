@@ -1,4 +1,5 @@
-﻿<Window x:Class="League_Account_Manager.Windows.NoteDisplay" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window x:Class="League_Account_Manager.Windows.NoteDisplay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Height="439"
         Width="400" WindowStyle="None" WindowStartupLocation="CenterScreen" Background="#FF252525"

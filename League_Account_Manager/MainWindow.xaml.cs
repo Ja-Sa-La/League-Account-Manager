@@ -11,7 +11,7 @@ using LogLevel = NLog.LogLevel;
 
 namespace League_Account_Manager;
 
-public class notif
+public class Notif
 {
     public static NotificationManager notificationManager = new();
 
@@ -36,7 +36,7 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    dynamic data = await lcu.GetClientInfo();
+                    dynamic data = await Lcu.GetClientInfo();
                     Dispatcher.Invoke(() =>
                     {
                         leaguedata.Text = $"League port: {data.Item3} password: {data.Item4}";
@@ -94,7 +94,7 @@ public partial class MainWindow : Window
         catch (Exception e)
         {
             logger.Error(e, "An error occurred during initialization");
-            notif.notificationManager.Show(new NotificationContent
+            Notif.notificationManager.Show(new NotificationContent
             {
                 Title = "Error",
                 Message = "An error occurred during initialization",

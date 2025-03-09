@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using NLog;
-using static League_Account_Manager.views.Accounts;
 
 namespace League_Account_Manager.Misc;
 
@@ -22,6 +21,7 @@ public class Utils
             account.note = RemoveDoubleQuotes(account.note);
         }
     }
+
     public static string? RemoveDoubleQuotes(string? input)
     {
         if (string.IsNullOrEmpty(input)) return input;
@@ -67,6 +67,7 @@ public class Utils
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
+
     public static void killleaguefunc2()
     {
         try
