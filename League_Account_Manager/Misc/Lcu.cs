@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace League_Account_Manager.Misc;
 
-internal class lcu
+internal class Lcu
 {
     public static Vals Riot = new() { path = "", port = "", token = "", Value = "", version = null };
     public static Vals League;

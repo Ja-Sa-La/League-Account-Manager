@@ -50,10 +50,10 @@ public partial class ProfileEditor : Page
             }
             catch (Exception e)
             {
-                notif.notificationManager.Show("Error",
+                Notif.notificationManager.Show("Error",
                     "League of Legends client is not running! waiting 5 seconds to try again",
                     NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 await Task.Delay(5000); // Use Task.Delay instead of Thread.Sleep in async methods
             }
@@ -65,9 +65,9 @@ public partial class ProfileEditor : Page
         var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
         if (leagueclientprocess.Length == 0)
         {
-            notif.notificationManager.Show("Error", "League of Legends client is not running!",
+            Notif.notificationManager.Show("Error", "League of Legends client is not running!",
                 NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             return false;
         }
@@ -79,7 +79,7 @@ public partial class ProfileEditor : Page
     {
         if (!await CheckLeagueClientProcess())
             return "";
-        var resp = await lcu.Connector(module, method, endpoint, data);
+        var resp = await Lcu.Connector(module, method, endpoint, data);
         return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
@@ -273,7 +273,7 @@ public partial class ProfileEditor : Page
 
             Task.Run(async () =>
             {
-                var resp = await lcu.Connector("league", "get", "/lol-store/v1/catalog",
+                var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
                     "inventoryType=[%22SUMMONER_ICON%22]");
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
@@ -308,7 +308,7 @@ public partial class ProfileEditor : Page
 
             Task.Run(async () =>
             {
-                var resp = await lcu.Connector("league", "get", "/lol-store/v1/catalog",
+                var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
                     "inventoryType=[%22CHAMPION_SKIN%22]");
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 JArray tmp = JArray.Parse(responseBody2);
@@ -349,10 +349,6 @@ public partial class ProfileEditor : Page
         SendKeys.SendWait(" ");
         SkinList.Text = "";
         IconList.Text = "";
-    }
-
-    private void SetBackground(object sender, RoutedEventArgs e)
-    {
     }
 
     private void SkinList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)

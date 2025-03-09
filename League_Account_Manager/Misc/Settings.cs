@@ -170,7 +170,7 @@ public class Settings
             if (num == 5) break;
         }
 
-        var resp = await lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
+        var resp = await Lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
         JObject responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
         if (startedclient == 1) Utils.killleaguefunc();
 

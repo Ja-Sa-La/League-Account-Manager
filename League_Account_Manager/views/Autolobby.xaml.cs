@@ -38,10 +38,10 @@ public partial class Autolobby : Page
     {
         try
         {
-            var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
             var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             JObject summonerdata = JObject.Parse(responseBody);
-            resp = await lcu.Connector("league", "get",
+            resp = await Lcu.Connector("league", "get",
                 $"/lol-champions/v1/inventories/{(string)summonerdata["summonerId"]}/champions-minimal", "");
             responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             var champList = JArray.Parse(responseBody);
@@ -110,7 +110,7 @@ public partial class Autolobby : Page
                     (queueJObject["phase"].ToString() == "ChampSelect" ||
                      queueJObject["phase"].ToString() == "ReadyCheck"))
                 {
-                    var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+                    var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
                     champselectJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
                     if (champselectJObject.ContainsKey("actions"))
                     {
@@ -168,7 +168,7 @@ public partial class Autolobby : Page
             {
                 if (toggles.Any(t => t.Value.Item1))
                 {
-                    var resp = await lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
+                    var resp = await Lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
                     queueJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
                 }
 
@@ -208,7 +208,7 @@ public partial class Autolobby : Page
         {
             if (queueJObject != null && queueJObject.ContainsKey("phase") &&
                 queueJObject["phase"].ToString() == "ReadyCheck")
-                await lcu.Connector("league", "post", "/lol-matchmaking/v1/ready-check/accept", "");
+                await Lcu.Connector("league", "post", "/lol-matchmaking/v1/ready-check/accept", "");
             await Task.Delay(3000, ct);
         }
     }
@@ -220,7 +220,7 @@ public partial class Autolobby : Page
             if (champselectaction != null && champselectaction.ContainsKey("type") &&
                 champselectaction["type"].ToString() == "pick")
             {
-                var resp = await lcu.Connector("league", "patch",
+                var resp = await Lcu.Connector("league", "patch",
                     "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
                     "{\"completed\":true,\"championId\":" + await getpickchampid() + "}");
             }
@@ -231,7 +231,7 @@ public partial class Autolobby : Page
 
     private async Task<string> getpickchampid()
     {
-        var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/pickable-champion-ids", "");
+        var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/pickable-champion-ids", "");
         JArray Pickable = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
         var returnva = Dispatcher.Invoke(() =>
         {
@@ -284,7 +284,7 @@ public partial class Autolobby : Page
 
     private async Task<string> getbanchampid()
     {
-        var resp = await lcu.Connector("league", "get", "/lol-champ-select/v1/bannable-champion-ids", "");
+        var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/bannable-champion-ids", "");
         JArray banable = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
         var returnval = Dispatcher.Invoke(() =>
         {
@@ -322,7 +322,7 @@ public partial class Autolobby : Page
                     champselectaction["type"].ToString() == "ban")
                 {
                     Task.Delay(1000, ct);
-                    var resp = await lcu.Connector("league", "patch",
+                    var resp = await Lcu.Connector("league", "patch",
                         "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
                         "{\"completed\":true,\"championId\":" + await getbanchampid() + "}");
                 }
@@ -338,20 +338,20 @@ public partial class Autolobby : Page
 
     private async Task sendmsg(string msg)
     {
-        var response = await lcu.Connector("league", "get", "/lol-chat/v1/conversations", "");
+        var response = await Lcu.Connector("league", "get", "/lol-chat/v1/conversations", "");
         var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         List<Chat> chats = JArray.Parse(responseContent).ToObject<List<Chat>>();
         champSelect = chats.FirstOrDefault(chat => chat.type == "championSelect");
         if (champSelect == null)
             return;
-        var resp = await lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
+        var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
         var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         var summonerinfo = JObject.Parse(responseBody2);
         string postdata = "{\"type\":\"chat\",\"fromId\":\"" + champSelect.id +
                           "\",\"fromSummonerId\":" + summonerinfo["accountId"] +
                           ",\"isHistorical\":false,\"timestamp\":\"" +
                           DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") + "\",\"body\":\"" + msg + "\"}";
-        resp = await lcu.Connector("league", "post", "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
+        resp = await Lcu.Connector("league", "post", "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
             postdata);
     }
 

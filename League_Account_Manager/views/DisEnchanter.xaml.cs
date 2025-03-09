@@ -33,7 +33,7 @@ public partial class DisEnchanter : Page
             if (leagueclientprocess.Length == 0) return;
             LootChampsList.Clear();
             LootSkinsList.Clear();
-            var resp = await lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "");
             JToken responseBody = JToken.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
             foreach (var jtoken in responseBody)
             foreach (var thing in jtoken)
@@ -84,20 +84,20 @@ public partial class DisEnchanter : Page
     {
         foreach (LootChamps champ in ChampLootTable.SelectedItems)
         {
-            var resp = await lcu.Connector("league", "post",
+            var resp = await Lcu.Connector("league", "post",
                 "/lol-loot/v1/recipes/" + champ.disenchantRecipeName + "/craft?repeat=1", "[\"" + champ.id + "\"]");
         }
 
         foreach (LootChamps champ in SkinLootTable.SelectedItems)
         {
-            var resp = await lcu.Connector("league", "post",
+            var resp = await Lcu.Connector("league", "post",
                 "/lol-loot/v1/recipes/" + champ.disenchantRecipeName + "/craft?repeat=1", "[\"" + champ.id + "\"]");
         }
 
         UpdateShit();
     }
 
-    private async void ButtonBase_OnClick1(object sender, RoutedEventArgs e)
+    private void ButtonBase_OnClick1(object sender, RoutedEventArgs e)
     {
         BuyShit();
     }

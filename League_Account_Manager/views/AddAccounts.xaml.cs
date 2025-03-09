@@ -26,8 +26,8 @@ public partial class AddAccounts : Page
     {
         if (string.IsNullOrWhiteSpace(Password.Password) || string.IsNullOrWhiteSpace(Username.Text))
         {
-            notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Notification,
-                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => notif.donothing(), "OK",
+            Notif.notificationManager.Show("Error", "No username or password set!", NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             return;
         }
@@ -57,7 +57,8 @@ public partial class AddAccounts : Page
             try
             {
                 fileStream =
-                    File.Open(Path.Combine(Directory.GetCurrentDirectory(), $"{Misc.Settings.settingsloaded.filename}.csv"),
+                    File.Open(
+                        Path.Combine(Directory.GetCurrentDirectory(), $"{Misc.Settings.settingsloaded.filename}.csv"),
                         FileMode.Open, FileAccess.Read, FileShare.None);
                 fileStream.Close();
             }
@@ -68,7 +69,8 @@ public partial class AddAccounts : Page
             }
 
         using var writer =
-            new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(), $"{Misc.Settings.settingsloaded.filename}.csv"));
+            new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                $"{Misc.Settings.settingsloaded.filename}.csv"));
         using var csvWriter = new CsvWriter(writer, _config);
         csvWriter.WriteRecords(Accounts.ActualAccountlists);
     }

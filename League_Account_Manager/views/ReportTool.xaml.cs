@@ -6,7 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Newtonsoft.Json.Linq;
 using NLog;
-using static League_Account_Manager.Misc.lcu;
+using static League_Account_Manager.Misc.Lcu;
 
 namespace League_Account_Manager.views;
 

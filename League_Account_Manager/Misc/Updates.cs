@@ -19,7 +19,7 @@ public class Updates
         {
             File.Delete(Path.Combine(Environment.CurrentDirectory, "temp_update.exe"));
             Thread.Sleep(500);
-            notif.notificationManager.Show("Update!", "League Account Manager was updated successfully",
+            Notif.notificationManager.Show("Update!", "League Account Manager was updated successfully",
                 NotificationType.Notification);
             LogManager.GetCurrentClassLogger().Info("File removed");
         }
@@ -37,7 +37,7 @@ public class Updates
         {
             string msg = "New update " + responseBody2["Version"] +
                          " is available, click here to download the new version!";
-            notif.notificationManager.Show("Update!", msg, NotificationType.Notification,
+            Notif.notificationManager.Show("Update!", msg, NotificationType.Notification,
                 "WindowArea", TimeSpan.FromSeconds(10), null, null, () => UpdateAndRestart(), "Update now!",
                 () => launchupdate(), "Go to github", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             LogManager.GetCurrentClassLogger().Info("Update available");

@@ -37,15 +37,15 @@ public partial class ChampionBuyer : Page
             {
                 var id = champ.ID;
                 var price = champ.Price;
-                var val = await lcu.Connector("league", "post", "/lol-purchase-widget/v2/purchaseItems",
+                var val = await Lcu.Connector("league", "post", "/lol-purchase-widget/v2/purchaseItems",
                     "{\"items\":[{\"itemKey\":{\"inventoryType\":\"CHAMPION\",\"itemId\":" + champ.ID +
                     "},\"purchaseCurrencyInfo\":{\"currencyType\":\"IP\",\"price\":" + champ.Price +
                     ",\"purchasable\":true},\"source\":\"cdp\",\"quantity\":1}]}");
                 if (val.ToString() == "0")
                 {
-                    notif.notificationManager.Show("Error", "League of legends client is not running!",
+                    Notif.notificationManager.Show("Error", "League of legends client is not running!",
                         NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null,
-                        () => notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                        () => Notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                     return;
                 }
 
@@ -88,9 +88,9 @@ public partial class ChampionBuyer : Page
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0) return;
             Buyable.Clear();
-            var responseBody = await lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
+            var responseBody = await Lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
             string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
-            responseBody = await lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "");
+            responseBody = await Lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "");
             JObject authtoken = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
             var handler = new SocketsHttpHandler
             {
