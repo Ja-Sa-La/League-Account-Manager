@@ -1,0 +1,602 @@
+﻿<Page x:Class="League_Account_Manager.views.SettingsEditor"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      mc:Ignorable="d"
+      d:DesignHeight="749" d:DesignWidth="1216"
+      Title="SettingsEditor">
+    <Page.Resources>
+        <!-- Custom style for TabControl to keep tabs in a single line -->
+        <Style TargetType="TabControl" x:Key="MyTabControl">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid SnapsToDevicePixels="true" HorizontalAlignment="Stretch">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Use WrapPanel to prevent reorganizing -->
+                            <WrapPanel x:Name="HeaderPanel" IsItemsHost="True" Grid.Row="0" Width="1200" />
+
+                            <!-- Content Presenter for the selected tab content -->
+                            <ContentPresenter Grid.Row="1" x:Name="PART_SelectedContentHost"
+                                              ContentSource="SelectedContent" Margin="10" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Page.Resources>
+
+    <Grid>
+
+        <TabControl Style="{StaticResource MyTabControl}">
+            <TabItem Header="Floating Text" Foreground="white">
+                <StackPanel>
+                    <CheckBox Content="Special Enabled" Name="Special_Enabled"
+                              IsChecked="{Binding FloatingText.Special_Enabled}" />
+                    <CheckBox Content="Score Enabled" Name="Score_Enabled"
+                              IsChecked="{Binding FloatingText.Score_Enabled}" />
+                    <CheckBox Content="Quest Received Enabled" Name="QuestReceived_Enabled"
+                              IsChecked="{Binding FloatingText.QuestReceived_Enabled}" />
+                    <CheckBox Content="Mana Damage Enabled" Name="ManaDamage_Enabled"
+                              IsChecked="{Binding FloatingText.ManaDamage_Enabled}" />
+                    <CheckBox Content="Level Enabled" Name="Level_Enabled"
+                              IsChecked="{Binding FloatingText.Level_Enabled}" />
+                    <CheckBox Content="Invulnerable Enabled" Name="Invulnerable_Enabled"
+                              IsChecked="{Binding FloatingText.Invulnerable_Enabled}" />
+                    <CheckBox Content="Heal Enabled" Name="Heal_Enabled"
+                              IsChecked="{Binding FloatingText.Heal_Enabled}" />
+                    <CheckBox Content="Gold Enabled" Name="Gold_Enabled"
+                              IsChecked="{Binding FloatingText.Gold_Enabled}" />
+                    <CheckBox Content="Experience Enabled" Name="Experience_Enabled"
+                              IsChecked="{Binding FloatingText.Experience_Enabled}" />
+                    <CheckBox Content="Enemy Damage Enabled" Name="EnemyDamage_Enabled"
+                              IsChecked="{Binding FloatingText.EnemyDamage_Enabled}" />
+                    <CheckBox Content="Dodge Enabled" Name="Dodge_Enabled"
+                              IsChecked="{Binding FloatingText.Dodge_Enabled}" />
+                    <CheckBox Content="Damage Enabled" Name="Damage_Enabled"
+                              IsChecked="{Binding FloatingText.Damage_Enabled}" />
+                </StackPanel>
+            </TabItem>
+
+            <!-- General Settings Section -->
+            <TabItem Header="General" Foreground="white">
+                <Grid>
+                    <!-- Define Columns -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Define Rows -->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Column 1 -->
+                    <StackPanel Grid.Column="0">
+                        <!-- Game Mouse Speed -->
+                        <TextBlock Text="Game Mouse Speed" Margin="5" />
+                        <Slider Name="GameMouseSpeed" Minimum="1" Maximum="20"
+                                Value="{Binding General.GameMouseSpeed}" />
+                        <TextBlock Text="{Binding General.GameMouseSpeed}" Margin="5" />
+
+                        <!-- System Mouse Speed -->
+                        <TextBlock Text="System Mouse Speed" Margin="5" />
+                        <Slider Name="SystemMouseSpeed" Minimum="1" Maximum="20"
+                                Value="{Binding General.SystemMouseSpeed}" />
+                        <TextBlock Text="{Binding General.SystemMouseSpeed}" Margin="5" />
+
+                        <!-- Height -->
+                        <TextBlock Text="Height" Margin="5" />
+                        <Slider Name="HeightSlider" Minimum="600" Maximum="3000" Value="{Binding General.Height}" />
+                        <TextBox Name="HeightTextBox" Text="{Binding General.Height}" Margin="5" />
+
+                        <!-- Width -->
+                        <TextBlock Text="Width" Margin="5" />
+                        <Slider Name="WidthSlider" Minimum="600" Maximum="4000" Value="{Binding General.Width}" />
+                        <TextBox Name="WidthTextBox" Text="{Binding General.Width}" Margin="5" />
+
+                        <!-- Checkboxes (Left Column) -->
+                        <CheckBox Content="Minimize Camera Motion" Name="MinimizeCameraMotion"
+                                  IsChecked="{Binding General.MinimizeCameraMotion}" />
+                        <CheckBox Content="Hide External Browser Prompt" Name="HideExternalBrowserPrompt"
+                                  IsChecked="{Binding General.HideExternalBrowserPrompt}" />
+                        <CheckBox Content="Enable Light FX" Name="EnableLightFx"
+                                  IsChecked="{Binding General.EnableLightFx}" />
+                        <CheckBox Content="Enable Global Spell Cast Notifications"
+                                  Name="EnableGlobalSpellCastNotifications"
+                                  IsChecked="{Binding General.EnableGlobalSpellCastNotifications}" />
+                        <CheckBox Content="Enable Custom Announcer" Name="EnableCustomAnnouncer"
+                                  IsChecked="{Binding General.EnableCustomAnnouncer}" />
+                    </StackPanel>
+
+                    <!-- Column 2 -->
+                    <StackPanel Grid.Column="1">
+                        <!-- Checkboxes (Right Column) -->
+                        <CheckBox Content="Enable Cosmetic Arena Audio TFT" Name="EnableCosmeticArenaAudioTFT"
+                                  IsChecked="{Binding General.EnableCosmeticArenaAudioTFT}" />
+                        <CheckBox Content="Enable Champion Spell Preview" Name="EnableChampionSpellPreview"
+                                  IsChecked="{Binding General.EnableChampionSpellPreview}" />
+                        <CheckBox Content="Always Show Extended Tooltip" Name="AlwaysShowExtendedTooltip"
+                                  IsChecked="{Binding General.AlwaysShowExtendedTooltip}" />
+                        <ComboBox Name="WindowMode" SelectedItem="{Binding General.WindowMode}">
+                            <ComboBoxItem Content="Windowed" />
+                            <ComboBoxItem Content="Fullscreen" />
+                            <ComboBoxItem Content="Borderless" />
+                        </ComboBox>
+
+                        <CheckBox Content="Wait for Vertical Sync" Name="WaitForVerticalSync"
+                                  IsChecked="{Binding General.WaitForVerticalSync}" />
+                        <CheckBox Content="Theme Music" Name="ThemeMusic" IsChecked="{Binding General.ThemeMusic}" />
+                        <CheckBox Content="Target Champions Only As Toggle" Name="TargetChampionsOnlyAsToggle"
+                                  IsChecked="{Binding General.TargetChampionsOnlyAsToggle}" />
+                        <CheckBox Content="Snap Camera on Respawn" Name="SnapCameraOnRespawn"
+                                  IsChecked="{Binding General.SnapCameraOnRespawn}" />
+                        <CheckBox Content="Show Turret Range Indicators" Name="ShowTurretRangeIndicators"
+                                  IsChecked="{Binding General.ShowTurretRangeIndicators}" />
+                        <CheckBox Content="Show Godray" Name="ShowGodray" IsChecked="{Binding General.ShowGodray}" />
+                        <CheckBox Content="Show Cursor Locator" Name="ShowCursorLocator"
+                                  IsChecked="{Binding General.ShowCursorLocator}" />
+                        <CheckBox Content="Relative Team Colors" Name="RelativeTeamColors"
+                                  IsChecked="{Binding General.RelativeTeamColors}" />
+                        <CheckBox Content="Recommend Jungle Paths" Name="RecommendJunglePaths"
+                                  IsChecked="{Binding General.RecommendJunglePaths}" />
+                        <CheckBox Content="Prefer OpenGL Legacy Mode" Name="PreferOpenGLLegacyMode"
+                                  IsChecked="{Binding General.PreferOpenGLLegacyMode}" />
+                        <CheckBox Content="Predict Movement" Name="PredictMovement"
+                                  IsChecked="{Binding General.PredictMovement}" />
+                    </StackPanel>
+
+                    <!-- Column 1 (Continuing) -->
+                    <StackPanel Grid.Column="0" Grid.Row="1">
+                        <CheckBox Content="Hide Eye Candy" Name="HideEyeCandy"
+                                  IsChecked="{Binding General.HideEyeCandy}" />
+                        <CheckBox Content="Enable Targeted Attack Move" Name="EnableTargetedAttackMove"
+                                  IsChecked="{Binding General.EnableTargetedAttackMove}" />
+                        <CheckBox Content="Enable Audio" Name="EnableAudio" IsChecked="{Binding General.EnableAudio}" />
+                        <CheckBox Content="Cursor Override" Name="CursorOverride"
+                                  IsChecked="{Binding General.CursorOverride}" />
+                        <CheckBox Content="Clamp Cast Target Location Within Max Range"
+                                  Name="ClampCastTargetLocationWithinMaxRange"
+                                  IsChecked="{Binding General.ClampCastTargetLocationWithinMaxRange}" />
+                        <CheckBox Content="Bind System Keys" Name="BindSysKeys"
+                                  IsChecked="{Binding General.BindSysKeys}" />
+                        <CheckBox Content="Auto Acquire Target" Name="AutoAcquireTarget"
+                                  IsChecked="{Binding General.AutoAcquireTarget}" />
+                        <CheckBox Content="User Set Resolution" Name="UserSetResolution"
+                                  IsChecked="{Binding General.UserSetResolution}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+
+            <!-- HUD Settings Section -->
+            <TabItem Header="HUD" Foreground="white">
+                <Grid>
+                    <!-- Define Columns -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Define Rows -->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Column 1 -->
+                    <StackPanel Grid.Column="0">
+                        <!-- Checkboxes (Left Column) -->
+                        <CheckBox Content="Hide Enemy Summoner Emotes" Name="HideEnemySummonerEmotes"
+                                  IsChecked="{Binding HUD.HideEnemySummonerEmotes}" />
+                        <CheckBox Content="Show Player Perks" Name="ShowPlayerPerks"
+                                  IsChecked="{Binding HUD.ShowPlayerPerks}" />
+                        <CheckBox Content="Show Player Stats" Name="ShowPlayerStats"
+                                  IsChecked="{Binding HUD.ShowPlayerStats}" />
+                        <CheckBox Content="Hide Player Names" Name="HidePlayerNames"
+                                  IsChecked="{Binding HUD.HidePlayerNames}" />
+                        <CheckBox Content="Enable Item Component Purchasing" Name="EnableItemComponentPurchasing"
+                                  IsChecked="{Binding HUD.EnableItemComponentPurchasing}" />
+                        <CheckBox Content="Smart Cast With Indicator"
+                                  Name="SmartCastWithIndicator_CastWhenNewSpellSelected"
+                                  IsChecked="{Binding HUD.SmartCastWithIndicator_CastWhenNewSpellSelected}" />
+                        <CheckBox Content="Smart Cast On Key Release" Name="SmartCastOnKeyRelease"
+                                  IsChecked="{Binding HUD.SmartCastOnKeyRelease}" />
+                        <CheckBox Content="Show Timestamps" Name="ShowTimestamps"
+                                  IsChecked="{Binding HUD.ShowTimestamps}" />
+                        <CheckBox Content="Show Team Frames on Left" Name="ShowTeamFramesOnLeft"
+                                  IsChecked="{Binding HUD.ShowTeamFramesOnLeft}" />
+                        <CheckBox Content="Show Summoner Names in Scoreboard" Name="ShowSummonerNamesInScoreboard"
+                                  IsChecked="{Binding HUD.ShowSummonerNamesInScoreboard}" />
+                        <CheckBox Content="Show Summoner Names" Name="ShowSummonerNames"
+                                  IsChecked="{Binding HUD.ShowSummonerNames}" />
+                    </StackPanel>
+
+                    <!-- Column 2 -->
+                    <StackPanel Grid.Column="1">
+                        <!-- Checkboxes (Right Column) -->
+                        <CheckBox Content="Show Spell Recommendations" Name="ShowSpellRecommendations"
+                                  IsChecked="{Binding HUD.ShowSpellRecommendations}" />
+                        <CheckBox Content="Show Spell Costs" Name="ShowSpellCosts"
+                                  IsChecked="{Binding HUD.ShowSpellCosts}" />
+                        <CheckBox Content="Show Off-Screen Points of Interest" Name="ShowOffScreenPointsOfInterest"
+                                  IsChecked="{Binding HUD.ShowOffScreenPointsOfInterest}" />
+                        <CheckBox Content="Show Neutral Camps" Name="ShowNeutralCamps"
+                                  IsChecked="{Binding HUD.ShowNeutralCamps}" />
+                        <CheckBox Content="Show Attack Radius" Name="ShowAttackRadius"
+                                  IsChecked="{Binding HUD.ShowAttackRadius}" />
+                        <CheckBox Content="Show Allied Chat" Name="ShowAlliedChat"
+                                  IsChecked="{Binding HUD.ShowAlliedChat}" />
+                        <CheckBox Content="Show All Channel Chat" Name="ShowAllChannelChat"
+                                  IsChecked="{Binding HUD.ShowAllChannelChat}" />
+                        <CheckBox Content="Flash Screen When Stunned" Name="FlashScreenWhenStunned"
+                                  IsChecked="{Binding HUD.FlashScreenWhenStunned}" />
+                        <CheckBox Content="Flash Screen When Damaged" Name="FlashScreenWhenDamaged"
+                                  IsChecked="{Binding HUD.FlashScreenWhenDamaged}" />
+                        <CheckBox Content="Enable Line Missile Visibility" Name="EnableLineMissileVis"
+                                  IsChecked="{Binding HUD.EnableLineMissileVis}" />
+                        <CheckBox Content="Emote Size" Name="EmoteSize" IsChecked="{Binding HUD.EmoteSize}" />
+                    </StackPanel>
+
+                    <!-- Column 1 (Continuing) -->
+                    <StackPanel Grid.Column="0" Grid.Row="5">
+                        <!-- Sliders (Left Column) -->
+                        <TextBlock Text="Map Scroll Speed" Margin="5" />
+                        <Slider Name="MapScrollSpeed" Minimum="0" Maximum="1" Value="{Binding HUD.MapScrollSpeed}" />
+                        <TextBlock Text="{Binding HUD.MapScrollSpeed}" Margin="5" />
+
+                        <TextBlock Text="Keyboard Scroll Speed" Margin="5" />
+                        <Slider Name="KeyboardScrollSpeed" Minimum="0" Maximum="1"
+                                Value="{Binding HUD.KeyboardScrollSpeed}" />
+                        <TextBlock Text="{Binding HUD.KeyboardScrollSpeed}" Margin="5" />
+                    </StackPanel>
+
+                    <!-- Column 2 (Continuing) -->
+                    <StackPanel Grid.Column="1" Grid.Row="5">
+                        <!-- Checkboxes (Right Column Continued) -->
+                        <CheckBox Content="Draw Health Bars" Name="DrawHealthBars"
+                                  IsChecked="{Binding HUD.DrawHealthBars}" />
+                        <CheckBox Content="Disable HUD Spell Click" Name="DisableHudSpellClick"
+                                  IsChecked="{Binding HUD.DisableHudSpellClick}" />
+                        <CheckBox Content="Chat Scale" Name="ChatScale" IsChecked="{Binding HUD.ChatScale}" />
+                        <CheckBox Content="Camera Lock Mode" Name="CameraLockMode"
+                                  IsChecked="{Binding HUD.CameraLockMode}" />
+                        <CheckBox Content="Auto Display Target" Name="AutoDisplayTarget"
+                                  IsChecked="{Binding HUD.AutoDisplayTarget}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+
+            <!-- Performance Settings Section -->
+            <TabItem Header="Performance" Foreground="white">
+                <Grid>
+                    <!-- Define Columns -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Define Rows -->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Column 1 -->
+                    <StackPanel Grid.Column="0">
+                        <!-- Sliders (Left Column) -->
+                        <TextBlock Text="Shadow Quality" Margin="5" />
+                        <Slider Name="ShadowQuality" Minimum="1" Maximum="5"
+                                Value="{Binding Performance.ShadowQuality}" />
+                        <TextBlock Text="{Binding Performance.ShadowQuality}" Margin="5" />
+
+                        <TextBlock Text="Frame Cap Type" Margin="5" />
+                        <Slider Name="FrameCapType" Minimum="1" Maximum="5" Value="{Binding Performance.FrameCapType}" />
+                        <TextBlock Text="{Binding Performance.FrameCapType}" Margin="5" />
+
+                        <TextBlock Text="Environment Quality" Margin="5" />
+                        <Slider Name="EnvironmentQuality" Minimum="1" Maximum="5"
+                                Value="{Binding Performance.EnvironmentQuality}" />
+                        <TextBlock Text="{Binding Performance.EnvironmentQuality}" Margin="5" />
+                    </StackPanel>
+
+                    <!-- Column 2 -->
+                    <StackPanel Grid.Column="1">
+                        <!-- Sliders (Right Column) -->
+                        <TextBlock Text="Effects Quality" Margin="5" />
+                        <Slider Name="EffectsQuality" Minimum="1" Maximum="5"
+                                Value="{Binding Performance.EffectsQuality}" />
+                        <TextBlock Text="{Binding Performance.EffectsQuality}" Margin="5" />
+
+                        <TextBlock Text="Character Quality" Margin="5" />
+                        <Slider Name="CharacterQuality" Minimum="1" Maximum="5"
+                                Value="{Binding Performance.CharacterQuality}" />
+                        <TextBlock Text="{Binding Performance.CharacterQuality}" Margin="5" />
+
+                        <CheckBox Content="Enable FXAA" Name="EnableFXAA" IsChecked="{Binding Performance.EnableFXAA}" />
+                        <CheckBox Content="Enable HUD Animations" Name="EnableHUDAnimations"
+                                  IsChecked="{Binding Performance.EnableHUDAnimations}" />
+                        <CheckBox Content="Auto Performance Settings" Name="AutoPerformanceSettings"
+                                  IsChecked="{Binding Performance.AutoPerformanceSettings}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Volume Settings Section -->
+            <TabItem Header="Volume" Foreground="white">
+                <Grid>
+                    <!-- Define Columns -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Define Rows -->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Column 1 -->
+                    <StackPanel Grid.Column="0">
+                        <!-- Sliders (Left Column) -->
+                        <TextBlock Text="Voice Volume" Margin="5" />
+                        <Slider Name="VoiceVolume" Minimum="0" Maximum="1" Value="{Binding Volume.VoiceVolume}" />
+                        <TextBlock Text="{Binding Volume.VoiceVolume}" Margin="5" />
+
+                        <TextBlock Text="SFX Volume" Margin="5" />
+                        <Slider Name="SfxVolume" Minimum="0" Maximum="1" Value="{Binding Volume.SfxVolume}" />
+                        <TextBlock Text="{Binding Volume.SfxVolume}" Margin="5" />
+
+                        <TextBlock Text="Master Volume" Margin="5" />
+                        <Slider Name="MasterVolume" Minimum="0" Maximum="1" Value="{Binding Volume.MasterVolume}" />
+                        <TextBlock Text="{Binding Volume.MasterVolume}" Margin="5" />
+                    </StackPanel>
+
+                    <!-- Column 2 -->
+                    <StackPanel Grid.Column="1">
+                        <!-- Sliders (Right Column) -->
+                        <TextBlock Text="Announcer Volume" Margin="5" />
+                        <Slider Name="AnnouncerVolume" Minimum="0" Maximum="1" Value="{Binding Volume.AnnouncerVolume}" />
+                        <TextBlock Text="{Binding Volume.AnnouncerVolume}" Margin="5" />
+
+                        <TextBlock Text="Ambience Volume" Margin="5" />
+                        <Slider Name="AmbienceVolume" Minimum="0" Maximum="1" Value="{Binding Volume.AmbienceVolume}" />
+                        <TextBlock Text="{Binding Volume.AmbienceVolume}" Margin="5" />
+
+                        <CheckBox Content="Voice Mute" Name="VoiceMute" IsChecked="{Binding Volume.VoiceMute}" />
+                        <CheckBox Content="SFX Mute" Name="SfxMute" IsChecked="{Binding Volume.SfxMute}" />
+                        <CheckBox Content="Pings Mute" Name="PingsMute" IsChecked="{Binding Volume.PingsMute}" />
+                        <CheckBox Content="Music Mute" Name="MusicMute" IsChecked="{Binding Volume.MusicMute}" />
+                        <CheckBox Content="Master Mute" Name="MasterMute" IsChecked="{Binding Volume.MasterMute}" />
+                        <CheckBox Content="Announcer Mute" Name="AnnouncerMute"
+                                  IsChecked="{Binding Volume.AnnouncerMute}" />
+                        <CheckBox Content="Ambience Mute" Name="AmbienceMute" IsChecked="{Binding Volume.AmbienceMute}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+
+            <!-- Map Skin Options Section -->
+            <TabItem Header="Map Skin Options" Foreground="white">
+                <Grid>
+                    <!-- Define Columns -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Column 1 -->
+                    <StackPanel Grid.Column="0">
+                        <CheckBox Content="Disable Worlds" Name="MapSkinOptionDisableWorlds"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableWorlds}" />
+                        <CheckBox Content="Disable URF" Name="MapSkinOptionDisableURF"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableURF}" />
+                        <CheckBox Content="Disable Star Guardian" Name="MapSkinOptionDisableStarGuardian"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableStarGuardian}" />
+                        <CheckBox Content="Disable Snowdown" Name="MapSkinOptionDisableSnowdown"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableSnowdown}" />
+                        <CheckBox Content="Disable Project" Name="MapSkinOptionDisableProject"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableProject}" />
+                    </StackPanel>
+
+                    <!-- Column 2 -->
+                    <StackPanel Grid.Column="1">
+                        <CheckBox Content="Disable Popstar" Name="MapSkinOptionDisablePopstar"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisablePopstar}" />
+                        <CheckBox Content="Disable Pool Party" Name="MapSkinOptionDisablePoolParty"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisablePoolParty}" />
+                        <CheckBox Content="Disable Odyssey" Name="MapSkinOptionDisableOdyssey"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableOdyssey}" />
+                        <CheckBox Content="Disable MSI" Name="MapSkinOptionDisableMSI"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableMSI}" />
+                        <CheckBox Content="Disable Lunar Revel" Name="MapSkinOptionDisableLunarRevel"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableLunarRevel}" />
+                        <CheckBox Content="Disable Arcade" Name="MapSkinOptionDisableArcade"
+                                  IsChecked="{Binding MapSkinOptions.MapSkinOptionDisableArcade}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Replay Settings Section -->
+            <TabItem Header="Replay" Foreground="white">
+                <StackPanel>
+                    <CheckBox Name="EnableDirectedCamera" IsChecked="{Binding Replay.EnableDirectedCamera}">
+                        <TextBlock Text="Enable Directed Camera" />
+                    </CheckBox>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Mobile Settings Section -->
+            <TabItem Header="Mobile" Foreground="white">
+                <StackPanel>
+                    <TextBlock Text="Last Ticker Time" />
+                    <TextBox Name="LastTickerTime" Width="200" Margin="5" Text="{Binding Mobile.LastTickerTime}" />
+
+                    <TextBlock Text="App Region" />
+                    <TextBox Name="AppRegion" Width="200" Margin="5" Text="{Binding Mobile.AppRegion}" />
+
+                    <TextBlock Text="Selected Queue" />
+                    <ComboBox Name="SelectedQueue" Width="200" Margin="5" SelectedItem="{Binding Mobile.SelectedQueue}">
+                        <ComboBoxItem Content="Queue 1090" />
+                        <ComboBoxItem Content="Queue 1100" />
+                        <!-- Add more queues as needed -->
+                    </ComboBox>
+
+                    <TextBlock Text="iOS Metal User ID" />
+                    <TextBox Name="iOSMetalUserId" Width="200" Margin="5" Text="{Binding Mobile.iOSMetalUserId}" />
+
+                    <CheckBox Name="iOSMetalPercentEnabled" IsChecked="{Binding Mobile.iOSMetalPercentEnabled}">
+                        <TextBlock Text="iOS Metal Percent Enabled" />
+                    </CheckBox>
+
+                    <TextBlock Text="Camera Height" />
+                    <TextBox Name="CameraHeight" Width="200" Margin="5" Text="{Binding Mobile.CameraHeight}" />
+
+                    <CheckBox Name="OfferedTutorial" IsChecked="{Binding Mobile.OfferedTutorial}">
+                        <TextBlock Text="Offered Tutorial" />
+                    </CheckBox>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Swarm Settings Section -->
+            <TabItem Header="Swarm" Foreground="white">
+                <StackPanel>
+                    <CheckBox Name="CursorAimEnabled" IsChecked="{Binding Swarm.CursorAimEnabled}">
+                        <TextBlock Text="Cursor Aim Enabled" />
+                    </CheckBox>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Highlights Settings Section -->
+            <TabItem Header="Highlights" Foreground="white">
+                <Grid>
+                    <!-- Define Columns -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Column 1 -->
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Video Quality" />
+                        <Slider Name="VideoQuality" Minimum="0" Maximum="5" Value="{Binding Highlights.VideoQuality}" />
+                        <TextBlock Text="{Binding Highlights.VideoQuality}" Margin="5" />
+
+                        <TextBlock Text="Video Frame Rate" />
+                        <Slider Name="VideoFrameRate" Minimum="30" Maximum="120"
+                                Value="{Binding Highlights.VideoFrameRate}" />
+                        <TextBlock Text="{Binding Highlights.VideoFrameRate}" Margin="5" />
+
+                        <TextBlock Text="Audio Quality" />
+                        <Slider Name="AudioQuality" Minimum="0" Maximum="2" Value="{Binding Highlights.AudioQuality}" />
+                        <TextBlock Text="{Binding Highlights.AudioQuality}" Margin="5" />
+                    </StackPanel>
+
+                    <!-- Column 2 -->
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Scale Video" />
+                        <Slider Name="ScaleVideo" Minimum="480" Maximum="1080" Value="{Binding Highlights.ScaleVideo}" />
+                        <TextBlock Text="{Binding Highlights.ScaleVideo}" Margin="5" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ItemShop Settings Section -->
+            <TabItem Header="Item Shop" Foreground="white">
+                <StackPanel>
+                    <TextBlock Text="Native Offset Y" />
+                    <Slider Name="NativeOffsetY" Minimum="0" Maximum="1" Value="{Binding ItemShop.NativeOffsetY}" />
+                    <TextBlock Text="{Binding ItemShop.NativeOffsetY}" Margin="5" />
+
+                    <TextBlock Text="Native Offset X" />
+                    <Slider Name="NativeOffsetX" Minimum="0" Maximum="1" Value="{Binding ItemShop.NativeOffsetX}" />
+                    <TextBlock Text="{Binding ItemShop.NativeOffsetX}" Margin="5" />
+
+                    <TextBlock Text="Current Tab" />
+                    <ComboBox Name="CurrentTab" Width="200" Margin="5" SelectedItem="{Binding ItemShop.CurrentTab}">
+                        <ComboBoxItem Content="Tab 0" />
+                        <ComboBoxItem Content="Tab 1" />
+                        <ComboBoxItem Content="Tab 2" />
+                        <!-- Add more tabs as needed -->
+                    </ComboBox>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Chat Settings Section -->
+            <TabItem Header="Chat" Foreground="white">
+                <StackPanel>
+                    <CheckBox Name="EnableChatFilter" IsChecked="{Binding Chat.EnableChatFilter}">
+                        <TextBlock Text="Enable Chat Filter" />
+                    </CheckBox>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Actions -->
+            <TabItem Header="Actions" Foreground="white">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Content="Reset Settings" Click="ResetButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="0" />
+                    <Button Content="Export Settings" Click="ExportButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="1" />
+                    <Button Content="Import Settings" Click="ImportButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="2" />
+                    <Button Content="Apply Settings to client" Click="ApplyButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="3" />
+                    <Button Content="Apply Settings to account" Click="ApplyButton2_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="4" />
+                    <Button Content="Lock Settings" Click="LockButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="5" />
+                    <Button Content="Unlock Settings" Click="UnlockButton_Click" HorizontalAlignment="Left"
+                            Margin="0,0,0,10" Grid.Row="6" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Page>

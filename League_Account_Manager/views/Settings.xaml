@@ -1,0 +1,21 @@
+﻿<Page
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Settings"
+    mc:Ignorable="d"
+    d:DesignHeight="749" d:DesignWidth="1216"
+    Title="Settings">
+
+    <Grid>
+        <ui:Button Content="SaveSettings" Margin="0,0,10,10" VerticalAlignment="Bottom" Click="Button_Click"
+                   HorizontalAlignment="Right" Width="153" Height="45" />
+        <CheckBox Name="savesettingsupdates" Content="Check for updates automatically" Margin="10,10,0,0"
+                  VerticalAlignment="Top" Width="241" />
+        <ui:TextBox Name="settingssaveinfobox" HorizontalAlignment="Left" Margin="10,88,0,0" TextWrapping="Wrap"
+                    Text="" VerticalAlignment="Top" MinWidth="228" Width="228" />
+        <Label Content="Save file name" HorizontalAlignment="Left" Margin="10,58,0,0" VerticalAlignment="Top"
+               Height="25" Width="183" />
+    </Grid>
+</Page>
