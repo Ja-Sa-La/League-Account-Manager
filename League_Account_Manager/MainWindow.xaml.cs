@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
+using League_Account_Manager.Misc;
 using NLog;
 using NLog.Config;
 using NLog.Targets;
@@ -26,7 +27,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        AllocConsole();
+        //AllocConsole();
         InitializeLogging();
         InitializeUI();
         Task.Run(async () =>

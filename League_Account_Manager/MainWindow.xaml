@@ -52,56 +52,56 @@
                            x:Name="RootNavigation" Grid.Column="0" Loaded="RootNavigation_OnLoaded">
             <ui:NavigationView.MenuItems>
                 <ui:NavigationViewItem NavigationCacheMode="Required" Content="Dashboard" TargetPageTag="home"
-                                       TargetPageType="{x:Type Page:Page1}">
+                                       TargetPageType="{x:Type Page:Accounts}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Home20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Add accounts" TargetPageType="{x:Type Page:Page2}">
+                <ui:NavigationViewItem Content="Add accounts" TargetPageType="{x:Type Page:AddAccounts}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="AddSquareMultiple20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Champion select" TargetPageType="{x:Type Page:Page4}">
+                <ui:NavigationViewItem Content="Champion select" TargetPageType="{x:Type Page:ChampionSelect}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Group20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem Content="Auto Champ select" NavigationCacheMode="Required"
-                                       TargetPageType="{x:Type Page:Page10}">
+                                       TargetPageType="{x:Type Page:Autolobby}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Group20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Buy champions" TargetPageType="{x:Type Page:Page5}">
+                <ui:NavigationViewItem Content="Buy champions" TargetPageType="{x:Type Page:ChampionBuyer}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Money20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Report tool" TargetPageType="{x:Type Page:Page6}">
+                <ui:NavigationViewItem Content="Report tool" TargetPageType="{x:Type Page:ReportTool}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="BookExclamationMark20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
-                <ui:NavigationViewItem Content="Misc" TargetPageType="{x:Type Page:Page7}">
+                <ui:NavigationViewItem Content="Misc" TargetPageType="{x:Type Page:MiscTools}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="AppGeneric20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem Content="Chat" NavigationCacheMode="Required"
-                                       TargetPageType="{x:Type Page:Page8}">
+                                       TargetPageType="{x:Type Page:ProfileEditor}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Chat20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem Content="Loot"
-                                       TargetPageType="{x:Type Page:Page9}">
+                                       TargetPageType="{x:Type Page:DisEnchanter}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="ShoppingBag20" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem Content="Ingame settings"
-                                       TargetPageType="{x:Type Page:Page11}">
+                                       TargetPageType="{x:Type Page:SettingsEditor}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="EditSettings20" />
                     </ui:NavigationViewItem.Icon>
@@ -110,7 +110,7 @@
             <ui:NavigationView.FooterMenuItems>
                 <Label Height="20" x:Name="version" Content="Version" HorizontalAlignment="Left" Foreground="#80FFFFFF"
                        Padding="15,0,0,4" />
-                <ui:NavigationViewItem Content="Settings" TargetPageType="{x:Type Page:Page3}">
+                <ui:NavigationViewItem Content="Settings" TargetPageType="{x:Type Page:Settings}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="Settings24" />
                     </ui:NavigationViewItem.Icon>

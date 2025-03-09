@@ -1,0 +1,83 @@
+﻿<Page x:Class="League_Account_Manager.views.Autolobby"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+
+      mc:Ignorable="d"
+      d:DesignHeight="749" d:DesignWidth="1216"
+      Title="Autolobby">
+
+    <Grid>
+        <ui:TextBox ClearButtonEnabled="False" PlaceholderText="Write your message here" AcceptsReturn="True"
+                    Margin="900,82,0,138" TextWrapping="Wrap"
+                    Name="MessageContainer" FontSize="11"
+                    Text="" HorizontalAlignment="Left" Width="306" MinWidth="311" />
+
+        <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top" Click="ToggleAutoAccept"
+                Height="67" Width="300" />
+        <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top" Click="ToggleAutoPick"
+                Height="67" Width="290" />
+        <Button Content="Enable AutoAcceptBan" Margin="614,10,0,0" VerticalAlignment="Top" Click="ToggleAutoBan"
+                Height="67" Width="279" />
+        <Button Content="Enable AutoAcceptMessage" Margin="900,10,0,0" VerticalAlignment="Top"
+                Click="ToggleAutoMessage"
+                Height="67" Width="306" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,118,0,0"
+                           Name="blindPickChampion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Blind / No role" HorizontalAlignment="Left" Margin="317,81,0,0" VerticalAlignment="Top"
+               Width="290" Height="30"
+               x:Name="blindPickLabel" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,208,0,0"
+                           x:Name="topPickChampion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Top" HorizontalAlignment="Left" Margin="317,172,0,0" VerticalAlignment="Top" Width="290"
+               Height="29"
+               x:Name="topPickLabel" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,299,0,0"
+                           x:Name="junglePickChampion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Jungle" HorizontalAlignment="Left" Margin="317,262,0,0" VerticalAlignment="Top" Width="290"
+               Height="30"
+               x:Name="junglePickLabel" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,390,0,0"
+                           x:Name="midPickChampion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Mid" HorizontalAlignment="Left" Margin="317,353,0,0" VerticalAlignment="Top" Width="290"
+               Height="30"
+               x:Name="midPickLabel" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,474,0,0"
+                           x:Name="botPickChampion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Bot" HorizontalAlignment="Left" Margin="317,437,0,0" VerticalAlignment="Top" Width="290"
+               Height="30"
+               x:Name="botPickLabel" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,565,0,0"
+                           x:Name="supportPickChampion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="46" />
+        <Label Content="Support" HorizontalAlignment="Left" Margin="317,528,0,0" VerticalAlignment="Top" Width="290"
+               Height="29"
+               x:Name="supportPickLabel" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="612,119,0,0"
+                           x:Name="ban1Champion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Ban 1" HorizontalAlignment="Left" Margin="612,82,0,0" VerticalAlignment="Top" Width="290"
+               Height="30"
+               x:Name="ban1Label" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="614,209,0,0"
+                           x:Name="ban2Champion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Ban 2" HorizontalAlignment="Left" Margin="614,172,0,0" VerticalAlignment="Top" Width="290"
+               Height="30"
+               x:Name="ban2Label" />
+        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="614,299,0,0"
+                           x:Name="ban3Champion" VerticalAlignment="Top" Width="290"
+                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
+        <Label Content="Ban 3" HorizontalAlignment="Left" Margin="614,262,0,0" VerticalAlignment="Top" Width="290"
+               Height="30"
+               x:Name="ban3Label" />
+
+    </Grid>
+</Page>
