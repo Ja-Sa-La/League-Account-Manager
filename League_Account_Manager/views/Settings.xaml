@@ -9,7 +9,7 @@
     Title="Settings">
 
     <Grid>
-        <ui:Button Content="SaveSettings" Margin="0,0,10,10" VerticalAlignment="Bottom" Click="Button_Click"
+        <ui:Button Content="Save settings" Margin="0,0,10,10" VerticalAlignment="Bottom" Click="Button_Click"
                    HorizontalAlignment="Right" Width="153" Height="45" />
         <CheckBox Name="savesettingsupdates" Content="Check for updates automatically" Margin="10,10,0,0"
                   VerticalAlignment="Top" Width="241" />
@@ -17,5 +17,7 @@
                     Text="" VerticalAlignment="Top" MinWidth="228" Width="228" />
         <Label Content="Save file name" HorizontalAlignment="Left" Margin="10,58,0,0" VerticalAlignment="Top"
                Height="25" Width="183" />
+        <CheckBox x:Name="DisplayPasswords" Content="Display password in the accounts tab" Margin="10,129,0,0"
+            VerticalAlignment="Top" Width="241"  />
     </Grid>
 </Page>
