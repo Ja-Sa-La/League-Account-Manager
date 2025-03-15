@@ -24,7 +24,7 @@ public class Settings
             var settingstemp = File.ReadAllText(Directory.GetCurrentDirectory() + "/Settings.json");
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
-            settingsloaded.DisplayPasswords = false;
+            settingsloaded.DisplayPasswords = true;
             settingsloaded = JsonConvert.DeserializeObject<settings1>(settingstemp);
             Console.WriteLine(JsonSerializer.Serialize(settingsloaded));
             if (settingsloaded.riotPath == null)
@@ -53,7 +53,7 @@ public class Settings
         {
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
-            settingsloaded.DisplayPasswords = false;
+            settingsloaded.DisplayPasswords = true;
             settingsloaded.riotPath = findriot();
             settingsloaded.LeaguePath = await findleague();
             settingsloaded.settingsLocation = await findSettings();

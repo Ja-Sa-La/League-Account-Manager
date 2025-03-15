@@ -16,7 +16,11 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
+using Wpf.Ui.Controls;
 using Application = FlaUI.Core.Application;
+using DataGrid = System.Windows.Controls.DataGrid;
+using TextBlock = System.Windows.Controls.TextBlock;
+
 
 namespace League_Account_Manager.views;
 
@@ -89,6 +93,9 @@ public partial class Accounts : Page
                 Championlist.ItemsSource = null;
                 Championlist.ItemsSource = ActualAccountlists;
                 Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+                if(Misc.Settings.settingsloaded.DisplayPasswords == false)
+                Championlist.Columns[1].Visibility = Visibility.Hidden;
+
             });
         }
         catch (Exception exception)
@@ -413,16 +420,21 @@ public partial class Accounts : Page
         try
         {
             if (!await CheckLeague()) throw new Exception("League not installed");
-            var i = 0;
-            DataGridCellInfo cellinfo;
-            foreach (var row in Championlist.SelectedCells)
-            {
-                if (i == 0)
-                    SelectedUsername = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
-                else if (i == 1) SelectedPassword = (row.Column.GetCellContent(row.Item) as TextBlock).Text;
-                i++;
-            }
 
+                if (Championlist.SelectedCells.Count == 0) throw new Exception("Account not selected");
+                var selectedColumn = Championlist.SelectedCells[0].Column;
+
+                if (selectedColumn != null)
+                {
+                    var header = selectedColumn.Header?.ToString();
+                    var selectedRow = Championlist.SelectedItem as Utils.AccountList;
+                    if (selectedRow == null || header == null) throw new Exception("Account not selected");
+                    SelectedUsername = selectedRow.username;
+                    SelectedPassword = selectedRow.password;
+                }
+
+            Console.WriteLine("Username: " + SelectedUsername);
+            Console.WriteLine("Password: " + SelectedPassword);
 
             Utils.killleaguefunc();
             Process[] leagueProcess;
@@ -445,9 +457,9 @@ public partial class Accounts : Page
                 }
 
 
-                Thread.Sleep(2000);
+                Thread.Sleep(200);
                 num++;
-                if (num == 5) return;
+                if (num == 20) return;
             }
 
             while (true)
@@ -522,12 +534,12 @@ public partial class Accounts : Page
                             break;
                         }
 
-                        Thread.Sleep(1000);
+                        Thread.Sleep(500);
                     }
                 }
                 catch (Exception ex)
                 {
-                    //Console.Writeline(ex);
+                    Console.WriteLine(ex);
                     Thread.Sleep(200);
                 }
         }
@@ -579,11 +591,8 @@ public partial class Accounts : Page
     {
         try
         {
-            var processesByName = Process.GetProcessesByName("Riot Client");
-            var processesByName2 = Process.GetProcessesByName("LeagueClientUx");
             Utils.killleaguefunc();
             if (!await CheckLeague()) throw new Exception("League not installed");
-
             openleague();
         }
         catch (Exception exception)
@@ -797,5 +806,41 @@ public partial class Accounts : Page
     private void OpenUrl(string url)
     {
         Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+    }
+
+    private  void Accounts_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if ((Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) && e.Key == Key.C)
+        {
+            var dataGrid = Championlist;
+            if (dataGrid == null) return;
+            if (dataGrid != null && dataGrid.CurrentCell != null)
+            {
+            var selectedColumn = dataGrid.CurrentCell.Column;
+
+            if (selectedColumn != null)
+            {
+                Console.WriteLine(2);
+                var header = selectedColumn.Header?.ToString();
+                var selectedRow = Championlist.SelectedItem as Utils.AccountList;
+                if (selectedRow == null || header == null) return;
+
+                Clipboard.SetText(selectedRow.username + ":" + selectedRow.password +
+                                  " Server: " + selectedRow.server +
+                                  " RiotID: " + selectedRow.riotID +
+                                  " Champions: " + selectedRow.Champions +
+                                  " Skins: " + selectedRow.Skins +
+                                  " BE: " + selectedRow.be +
+                                  " RP: " + selectedRow.rp);
+
+                e.Handled = true;
+                Notif.notificationManager.Show("Info", "Account " + selectedRow.riotID + " has been copied to clipboard",
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null,
+                    () => Notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+            }
+            }
+        }
     }
 }
