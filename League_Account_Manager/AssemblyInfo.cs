@@ -1,4 +1,7 @@
-﻿using System.Reflection;
+﻿
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Resources;
 using System.Runtime.Versioning;
 
@@ -7,11 +10,12 @@ using System.Runtime.Versioning;
 [assembly: AssemblyDescription("Allows you to manage your league of legends accounts")]
 [assembly: AssemblyProduct("League account manager")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCopyright("2025 @j.s.l")]
+[assembly: AssemblyCopyright("2026 @j.s.l")]
 [assembly: AssemblyCulture("")]
 [assembly: SupportedOSPlatform("windows")]
 
 // Version informationr(
-[assembly: AssemblyVersion("2.2.0.3")]
-[assembly: AssemblyFileVersion("2.2.0.3")]
-[assembly: NeutralResourcesLanguageAttribute("en-US")]
+[assembly: AssemblyVersion("2.3.0.0")]
+[assembly: AssemblyFileVersion("2.3.0.0")]
+[assembly: NeutralResourcesLanguageAttribute( "en-US" )]
+
