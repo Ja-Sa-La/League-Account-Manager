@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,13 +15,19 @@ using League_Account_Manager.Misc;
 using League_Account_Manager.Windows;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Windows;   
+using System.Windows.Threading; 
 using NLog;
+using System.Net.Http;
+using HtmlAgilityPack;
 using Notification.Wpf;
 using Wpf.Ui.Controls;
 using Application = FlaUI.Core.Application;
 using Button = Wpf.Ui.Controls.Button;
 using DataGrid = System.Windows.Controls.DataGrid;
 using TextBlock = System.Windows.Controls.TextBlock;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 
 
@@ -37,26 +44,58 @@ public partial class Accounts : Page
     public static string? SelectedUsername;
     public static string? SelectedPassword;
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
-    private readonly FileSystemWatcher? fileWatcher;
+    private  FileSystemWatcher? fileWatcher;
     private bool Executing;
     private double running;
-
+    private INotification? _progressNotification;
     public Accounts()
     {
+
         InitializeComponent();
-        loaddata();
-        var filePath = Path.Combine(Directory.GetCurrentDirectory(), $"{Misc.Settings.settingsloaded.filename}.csv");
-
-        fileWatcher = new FileSystemWatcher
-        {
-            Path = Path.GetDirectoryName(filePath) ?? string.Empty,
-            Filter = Path.GetFileName(filePath) ?? string.Empty,
-            NotifyFilter = NotifyFilters.LastWrite
-        };
-
-        fileWatcher.Changed += OnChanged;
-        fileWatcher.EnableRaisingEvents = true;
+        Loaded += Accounts_Loaded;
+       
     }
+    private async void Accounts_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Console.WriteLine("Accounts page loaded.");
+
+            await loaddata();
+
+            Console.WriteLine("LoadData completed. Starting rank update...");
+
+            if (Misc.Settings.settingsloaded.UpdateRanks)
+            {
+                await UpdateAllRanks();
+            }
+            
+
+            Console.WriteLine("Rank update finished.");
+
+            // Now setup watcher AFTER everything is loaded
+            var filePath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                $"{Misc.Settings.settingsloaded.filename}.csv");
+
+            fileWatcher = new FileSystemWatcher
+            {
+                Path = Path.GetDirectoryName(filePath) ?? string.Empty,
+                Filter = Path.GetFileName(filePath) ?? string.Empty,
+                NotifyFilter = NotifyFilters.LastWrite
+            };
+
+            fileWatcher.Changed += OnChanged;
+            fileWatcher.EnableRaisingEvents = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR during Accounts_Loaded: {ex.Message}");
+        }
+    }
+
+
+
 
     public static List<Utils.AccountList>? ActualAccountlists { get; set; }
 
@@ -577,7 +616,7 @@ public partial class Accounts : Page
                     break;
 
                 case "Stealthlogin":
-                    riotProcess = await offlineLauncher.LaunchRiotOrLeagueOfflineAsync();
+                    riotProcess = await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath);
                     break;
             }
             
@@ -688,6 +727,123 @@ public partial class Accounts : Page
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
+    public async Task UpdateAllRanks()
+    {
+        if (ActualAccountlists == null || ActualAccountlists.Count == 0)
+            return;
+
+        int total = ActualAccountlists.Count;
+        int processed = 0;
+        bool anyChanges = false;
+
+        ProgressWindow progressWindow = null!;
+
+        // Show progress window
+        Dispatcher.Invoke(() =>
+        {
+            progressWindow = new ProgressWindow(total)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            progressWindow.Show();
+            progressWindow.FollowOwner();
+        });
+
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
+
+        foreach (var account in ActualAccountlists)
+        {
+            processed++;
+
+            // Keep window following main window
+            Dispatcher.Invoke(() => progressWindow.FollowOwner());
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(account.riotID) || string.IsNullOrWhiteSpace(account.server))
+                    continue;
+
+                var formattedRiotId = account.riotID.Replace("#", "-");
+                var url = $"https://www.leagueofgraphs.com/summoner/{account.server}/{formattedRiotId}";
+
+                string html = await http.GetStringAsync(url);
+                if (string.IsNullOrWhiteSpace(html)) continue;
+
+                var doc = new HtmlAgilityPack.HtmlDocument();
+                doc.LoadHtml(html);
+
+                var rankingBox = doc.DocumentNode.SelectSingleNode("//div[contains(@class,'summoner-rankings')]");
+                if (rankingBox == null) continue;
+
+                string? soloRank = null;
+                string? flexRank = null;
+
+                // Parse Soloqueue
+                var soloNode = rankingBox.SelectSingleNode(".//span[contains(@class,'queue') and contains(text(),'Soloqueue')]");
+                if (soloNode != null)
+                {
+                    var tier = rankingBox.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText.Trim();
+                    var lp = rankingBox.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText.Trim();
+                    var wins = rankingBox.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText.Trim();
+                    var losses = rankingBox.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(tier))
+                        soloRank = $"{tier} {lp} LP, {wins}W / {losses}L";
+                }
+                Dispatcher.Invoke(() => progressWindow.FollowOwner());
+                // Parse Flex queue
+                var flexNode = rankingBox.SelectSingleNode(".//div[contains(@class,'queueName') and contains(text(),'Flex')]");
+                if (flexNode != null)
+                {
+                    var container = flexNode.SelectSingleNode("./ancestor::div[contains(@class,'img-align-block')]");
+                    var tier = container?.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText.Trim();
+                    var lp = container?.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText.Trim();
+                    var wins = container?.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText.Trim();
+                    var losses = container?.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(tier))
+                        flexRank = $"{tier} {lp} LP, {wins}W / {losses}L";
+                }
+
+                // Update ranks if parsed
+                if (!string.IsNullOrWhiteSpace(soloRank))
+                {
+                    account.rank = soloRank;
+                    anyChanges = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(flexRank))
+                {
+                    account.rank2 = flexRank;
+                    anyChanges = true;
+                }
+
+                await Task.Delay(800); // prevent rate limiting
+            }
+            catch
+            {
+                // ignore individual account errors
+            }
+
+            // Update progress bar
+            Dispatcher.Invoke(() => progressWindow.UpdateProgress(processed));
+        }
+
+        // Save CSV if any changes
+        if (anyChanges)
+        {
+            using var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(), $"{Misc.Settings.settingsloaded.filename}.csv"));
+            using var csv = new CsvWriter(writer, config);
+            csv.WriteRecords(ActualAccountlists);
+
+            Dispatcher.Invoke(() => Championlist.Items.Refresh());
+        }
+
+        // Close progress window
+        Dispatcher.Invoke(() => progressWindow.Close());
+    }
+
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
     {

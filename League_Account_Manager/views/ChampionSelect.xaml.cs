@@ -260,6 +260,7 @@ public partial class ChampionSelect : Page
         var resp = await Lcu.Connector("league", "post",
             "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",
             "");
+        Console.WriteLine(GetResponseBody(resp));
     }
 }
 

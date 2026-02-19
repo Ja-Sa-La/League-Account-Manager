@@ -18,6 +18,9 @@
         <Label Content="Save file name" HorizontalAlignment="Left" Margin="10,58,0,0" VerticalAlignment="Top"
                Height="25" Width="183" />
         <CheckBox x:Name="DisplayPasswords" Content="Display password in the accounts tab" Margin="10,129,0,0"
-            VerticalAlignment="Top" Width="241"  />
+            VerticalAlignment="Top" Width="297"  />
+
+        <CheckBox x:Name="AutoUpdateRanks" Content="Update Ranks automatically on startup" Margin="10,167,0,0"
+                  VerticalAlignment="Top" Width="297"  />
     </Grid>
 </Page>

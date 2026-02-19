@@ -108,7 +108,10 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
+
                 <Label Height="20" x:Name="version" Content="Version" HorizontalAlignment="Left" Foreground="#80FFFFFF"
+                       Padding="15,0,0,4" />
+                <Label Height="20" x:Name="Credits" Content="By Ja-Sa-La" HorizontalAlignment="Left" Foreground="#80FFFFFF"
                        Padding="15,0,0,4" />
                 <ui:NavigationViewItem Content="Settings" TargetPageType="{x:Type Page:Settings}">
                     <ui:NavigationViewItem.Icon>

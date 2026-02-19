@@ -25,8 +25,8 @@ public class Settings
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
             settingsloaded.DisplayPasswords = true;
+            settingsloaded.UpdateRanks = true;
             settingsloaded = JsonConvert.DeserializeObject<settings1>(settingstemp);
-            Console.WriteLine(JsonSerializer.Serialize(settingsloaded));
             if (settingsloaded.riotPath == null)
             {
                 settingsloaded.riotPath = findriot();
@@ -48,9 +48,12 @@ public class Settings
                 var json = JsonSerializer.Serialize(settingsloaded);
                 File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
             }
+            File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", JsonSerializer.Serialize(settingsloaded));
+
         }
         else
         {
+            settingsloaded.UpdateRanks = true;
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
             settingsloaded.DisplayPasswords = true;
@@ -206,5 +209,6 @@ public class Settings
         public bool updates { get; set; }
         public bool DisplayPasswords { get; set; }
         public string settingsLocation { get; set; }
+        public bool UpdateRanks { get; set; }
     }
 }

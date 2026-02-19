@@ -17,6 +17,7 @@ public partial class Settings : Page
         settingssaveinfobox.Text = Misc.Settings.settingsloaded.filename;
         savesettingsupdates.IsChecked = Misc.Settings.settingsloaded.updates;
         DisplayPasswords.IsChecked = Misc.Settings.settingsloaded.DisplayPasswords;
+        AutoUpdateRanks.IsChecked = Misc.Settings.settingsloaded.UpdateRanks;
     }
 
     private void Button_Click(object sender, RoutedEventArgs e)
@@ -30,6 +31,10 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.DisplayPasswords = true;
         else
             Misc.Settings.settingsloaded.DisplayPasswords = false;
+        if(AutoUpdateRanks.IsChecked != false)
+            Misc.Settings.settingsloaded.UpdateRanks = true;
+        else
+            Misc.Settings.settingsloaded.UpdateRanks = false;
         var json = JsonSerializer.Serialize(Misc.Settings.settingsloaded);
         File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
         Process.Start(Process.GetCurrentProcess().MainModule.FileName);
