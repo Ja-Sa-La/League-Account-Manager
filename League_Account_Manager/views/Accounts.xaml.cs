@@ -28,6 +28,7 @@ using DataGrid = System.Windows.Controls.DataGrid;
 using TextBlock = System.Windows.Controls.TextBlock;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using TextBox = FlaUI.Core.AutomationElements.TextBox;
 
 
 
@@ -207,6 +208,12 @@ public partial class Accounts : Page
 
     private async void PullData_Click(object sender, RoutedEventArgs e)
     {
+        // Fire-and-forget wrapper for async Task
+        _ = PullDataAsync();
+    }
+
+    private async Task PullDataAsync()
+    {
         try
         {
             running = 0;
@@ -228,118 +235,127 @@ public partial class Accounts : Page
                 return;
             }
 
-            Progressgrid.Visibility = Visibility.Visible;
-            ring();
 
-            var summonerInfo = await GetSummonerInfoAsync();
-            if (summonerInfo == null)
+            var (isBanned, banNote) = await CheckPermanentBanAsync();
+            if (isBanned)
             {
-                Progressgrid.Visibility = Visibility.Hidden;
-                Notif.notificationManager.Show("Error", "Could not load summoner info (account banned or not logged in).",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
-                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
+                // Kill client
+                foreach (var proc in leagueclientprocess)
+                {
+                    try { proc.Kill(); }
+                    catch { }
+                }
+
+                // Update account as banned
+                ActualAccountlists?.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
+                ActualAccountlists?.Add(new Utils.AccountList
+                {
+                    username = SelectedUsername,
+                    password = SelectedPassword,
+                    riotID = "Banned",
+                    level = 0,
+                    server = "BANNED",
+                    be = 0,
+                    rp = 0,
+                    rank = "Banned",
+                    champions = "",
+                    Champions = 0,
+                    skins = "",
+                    Skins = 0,
+                    Loot = "",
+                    Loots = 0,
+                    rank2 = "Banned",
+                    note = banNote
+                });
+
+                // Write CSV immediately
+                using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                           $"{Misc.Settings.settingsloaded.filename}.csv")))
+                using (var csv2 = new CsvWriter(writer, config))
+                {
+                    csv2.WriteRecords(ActualAccountlists);
+                }
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Progressgrid.Visibility = Visibility.Hidden;
+                    Championlist.ItemsSource = null;
+                    Championlist.ItemsSource = ActualAccountlists;
+                    Championlist.Items.Refresh();
+                });
+
+                return; 
             }
 
-            ring();
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                Progressgrid.Visibility = Visibility.Visible;
+                ring();
+            });
+            while (true)
+            {
+                try
+                {
+                    var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/summoner-requests-ready", "");
+                    var content = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    Console.WriteLine("Summoner ready status: " + content);
+
+                    if (content.Trim().Equals("true", StringComparison.OrdinalIgnoreCase))
+                        break;
+                }
+                catch
+                {
+                    // LCU not ready yet
+                }
+
+                await Task.Delay(1000);
+            }
+            // Fetch all API data in parallel
+            var summonerTask = GetSummonerInfoAsync();
+            var skinTask = GetSkinInfoAsync();
+            var rankedTask = GetRankedInfoAsync();
+            var lootTask = GetLootInfoAsync();
+            var walletTask = GetWalletAsync();
+            var regionTask = GetRegionAsync();
+
+            await Task.WhenAll(summonerTask, skinTask, rankedTask, lootTask, walletTask, regionTask);
+
+            var summonerInfo = summonerTask.Result;
+            if (summonerInfo == null)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Progressgrid.Visibility = Visibility.Hidden;
+                    Notif.notificationManager.Show("Error", "Could not load summoner info (account banned or not logged in).",
+                        NotificationType.Notification,
+                        "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                        NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                });
+                return;
+            }
 
             var summonerId = summonerInfo["summonerId"]?.ToString();
             if (string.IsNullOrEmpty(summonerId))
             {
-                Progressgrid.Visibility = Visibility.Hidden;
-                Notif.notificationManager.Show("Error", "SummonerId missing (account banned or invalid response).",
-                    NotificationType.Notification,
-                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
-                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Progressgrid.Visibility = Visibility.Hidden;
+                    Notif.notificationManager.Show("Error", "SummonerId missing (account banned or invalid response).",
+                        NotificationType.Notification,
+                        "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                        NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                });
                 return;
             }
 
-            var skinInfo = await GetSkinInfoAsync();
-            ring();
-
+            // Now get champion info (depends on summonerId)
             var champInfo = await GetChampionInfoAsync(summonerId);
-            ring();
 
-            var lootInfo = await GetLootInfoAsync();
-            ring();
-
-            var rankedInfo = await GetRankedInfoAsync();
-            ring();
-
-            var wallet = await GetWalletAsync();
-            ring();
-
-            var region = await GetRegionAsync();
-            ring();
-
-            if (wallet == null) wallet = new Utils.Wallet { be = 0, rp = 0 };
-            if (region == null) region = JObject.Parse("{\"region\":\"UNKNOWN\"}");
-
-            string BuildRankString(JToken? token, string queueName)
-            {
-                try
-                {
-                    if (token == null) return "Unranked";
-
-                    var tier = token["queueMap"]?[queueName]?["tier"]?.ToString();
-                    if (string.IsNullOrEmpty(tier))
-                        return "Unranked";
-
-                    var division = token["queueMap"]?[queueName]?["division"]?.ToString();
-                    var lp = token["queueMap"]?[queueName]?["leaguePoints"]?.ToString() ?? "0";
-                    var wins = token["queueMap"]?[queueName]?["wins"]?.ToString() ?? "0";
-                    var losses = token["queueMap"]?[queueName]?["losses"]?.ToString() ?? "0";
-
-                    // Master+ should not show division (NA)
-                    if (tier == "MASTER" || tier == "GRANDMASTER" || tier == "CHALLENGER")
-                        return $"{tier} {lp} LP, {wins} Wins, {losses} Losses";
-
-                    return $"{tier} {division} {lp} LP, {wins} Wins, {losses} Losses";
-                }
-                catch
-                {
-                    return "Unranked";
-                }
-            }
-
-            var Rank = BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
-            var Rank2 = BuildRankString(rankedInfo, "RANKED_FLEX_SR");
-
-            var skinlist = "";
-            var skincount = 0;
-            var champlist = "";
-            var champcount = 0;
-            var Lootlist = "";
-            var Lootcount = 0;
-
-            if (skinInfo != null)
-            {
-                foreach (var item in skinInfo)
-                {
-                    if (item["owned"] != null && item["owned"]?.ToObject<bool>() == true)
-                    {
-                        skinlist += ":" + item["name"];
-                        skincount++;
-                    }
-                }
-            }
-
-            ring();
-
-            if (champInfo != null)
-            {
-                foreach (var item in champInfo)
-                {
-                    if (item["ownership"]?["owned"]?.ToObject<bool>() == true)
-                    {
-                        champlist += ":" + item["name"];
-                        champcount++;
-                    }
-                }
-            }
-
-            ring();
+            // Loot info may need async per item
+            var lootInfo = lootTask.Result;
+            var lootList = new List<string>();
+            int lootCount = 0;
 
             if (lootInfo != null)
             {
@@ -347,51 +363,76 @@ public partial class Accounts : Page
                 {
                     foreach (var thing in item)
                     {
-                        if (thing["count"] != null && thing["count"]?.ToObject<int>() > 0)
+                        if (thing["count"]?.ToObject<int>() > 0)
                         {
                             try
                             {
                                 var lootId = thing["lootId"]?.ToString();
-                                if (string.IsNullOrEmpty(lootId))
-                                    continue;
+                                if (string.IsNullOrEmpty(lootId)) continue;
 
                                 var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "");
                                 if (resp == null) continue;
 
-                                var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                                var responseBody = await resp.Content.ReadAsStringAsync();
                                 var Loot = JObject.Parse(responseBody);
 
-                                if (!string.IsNullOrEmpty(Loot["itemDesc"]?.ToString()))
-                                    Lootlist += ":" + Loot["itemDesc"] + " x " + Loot["count"];
-                                else if (!string.IsNullOrEmpty(Loot["localizedName"]?.ToString()))
-                                    Lootlist += ":" + Loot["localizedName"] + " x " + Loot["count"];
-                                else
-                                    Lootlist += ":" + Loot["asset"] + " x " + Loot["count"];
+                                string lootText = !string.IsNullOrEmpty(Loot["itemDesc"]?.ToString())
+                                    ? Loot["itemDesc"]
+                                    : !string.IsNullOrEmpty(Loot["localizedName"]?.ToString())
+                                        ? Loot["localizedName"]
+                                        : Loot["asset"]?.ToString();
 
-                                Lootcount++;
+                                lootList.Add($"{lootText} x {Loot["count"]}");
+                                lootCount++;
                             }
-                            catch
-                            {
-                                // ignore loot parse errors
-                            }
+                            catch { }
                         }
                     }
                 }
             }
 
-            ring();
+            // Build ranks
+            string BuildRankString(JToken? token, string queueName)
+            {
+                try
+                {
+                    if (token == null) return "Unranked";
 
-            // Keep old note if exists
-            var note = ActualAccountlists?.FindLast(x =>
-                x.username == SelectedUsername &&
-                x.password == SelectedPassword);
+                    var tier = token["queueMap"]?[queueName]?["tier"]?.ToString();
+                    if (string.IsNullOrEmpty(tier)) return "Unranked";
 
-            // remove only exact duplicate entry (NOT all accounts with same username)
-            ActualAccountlists?.RemoveAll(x =>
-                x.username == SelectedUsername &&
-                x.password == SelectedPassword);
+                    var division = token["queueMap"]?[queueName]?["division"]?.ToString();
+                    var lp = token["queueMap"]?[queueName]?["leaguePoints"]?.ToString() ?? "0";
+                    var wins = token["queueMap"]?[queueName]?["wins"]?.ToString() ?? "0";
+                    var losses = token["queueMap"]?[queueName]?["losses"]?.ToString() ?? "0";
 
-            ring();
+                    if (tier == "MASTER" || tier == "GRANDMASTER" || tier == "CHALLENGER")
+                        return $"{tier} {lp} LP, {wins} Wins, {losses} Losses";
+
+                    return $"{tier} {division} {lp} LP, {wins} Wins, {losses} Losses";
+                }
+                catch { return "Unranked"; }
+            }
+
+            var rankedInfo = rankedTask.Result;
+            var Rank = BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
+            var Rank2 = BuildRankString(rankedInfo, "RANKED_FLEX_SR");
+
+            var skinInfo = skinTask.Result;
+            var skinList = skinInfo?.Where(i => i["owned"]?.ToObject<bool>() == true)
+                                     .Select(i => i["name"].ToString())
+                                     .ToList() ?? new List<string>();
+
+            var champList = champInfo?.Where(i => i["ownership"]?["owned"]?.ToObject<bool>() == true)
+                                       .Select(i => i["name"].ToString())
+                                       .ToList() ?? new List<string>();
+
+            var wallet = walletTask.Result ?? new Utils.Wallet { be = 0, rp = 0 };
+            var region = regionTask.Result ?? JObject.Parse("{\"region\":\"UNKNOWN\"}");
+
+            // Update ActualAccountlists
+            var note = ActualAccountlists?.FindLast(x => x.username == SelectedUsername && x.password == SelectedPassword);
+            ActualAccountlists?.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
 
             ActualAccountlists?.Add(new Utils.AccountList
             {
@@ -403,18 +444,17 @@ public partial class Accounts : Page
                 be = wallet.be,
                 rp = wallet.rp,
                 rank = Rank,
-                champions = champlist,
-                Champions = champcount,
-                skins = skinlist,
-                Skins = skincount,
-                Loot = Lootlist,
-                Loots = Lootcount,
+                champions = string.Join(":", champList),
+                Champions = champList.Count,
+                skins = string.Join(":", skinList),
+                Skins = skinList.Count,
+                Loot = string.Join(":", lootList),
+                Loots = lootCount,
                 rank2 = Rank2,
                 note = note?.note
             });
 
-            ring();
-
+            // Write CSV **outside Dispatcher** (no UI thread required)
             using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
                        $"{Misc.Settings.settingsloaded.filename}.csv")))
             using (var csv2 = new CsvWriter(writer, config))
@@ -422,22 +462,24 @@ public partial class Accounts : Page
                 csv2.WriteRecords(ActualAccountlists);
             }
 
-            ring();
-
-            Progressgrid.Visibility = Visibility.Hidden;
-
-            Championlist.ItemsSource = null;
-            Championlist.ItemsSource = ActualAccountlists;
-
-            Championlist.Items.SortDescriptions.Clear();
-            Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-
-            Championlist.Items.Refresh();
+            // Update UI last
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                Progressgrid.Visibility = Visibility.Hidden;
+                Championlist.ItemsSource = null;
+                Championlist.ItemsSource = ActualAccountlists;
+                Championlist.Items.SortDescriptions.Clear();
+                Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+                Championlist.Items.Refresh();
+            });
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            Progressgrid.Visibility = Visibility.Hidden;
-            LogManager.GetCurrentClassLogger().Error(exception, "Error pulling account data");
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                Progressgrid.Visibility = Visibility.Hidden;
+            });
+            LogManager.GetCurrentClassLogger().Error(ex, "Error pulling account data");
         }
     }
 
@@ -581,23 +623,75 @@ public partial class Accounts : Page
         }
     }
 
+    private async Task<(bool isBanned, string note)> CheckPermanentBanAsync()
+    {
+        try
+        {
+            var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "");
+            if (resp == null) return (false, "");
+
+            var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var parsed = JObject.Parse(responseBody);
+
+            foreach (var property in parsed.Properties())
+            {
+                var data = property.Value["data"];
+                if (data == null) continue;
+
+                var penalties = data["penalties"] as JArray;
+                if (penalties == null) continue;
+
+                bool permanentBanFound = false;
+                var banDetails = new List<string>();
+
+                foreach (var penalty in penalties)
+                {
+                    var type = penalty["penaltyType"]?.ToString() ?? "";
+                    var permanent = penalty["isPermanent"]?.ToObject<bool>() ?? false;
+
+                    if (type == "PERMANENT_BAN" || permanent)
+                    {
+                        permanentBanFound = true;
+                    }
+
+                    banDetails.Add($"{type} (Permanent: {permanent})");
+                }
+
+                if (permanentBanFound)
+                {
+                    // Collect localized info
+                    var localized = data["localizedTexts"];
+                    string reason = localized?["body"]?.ToString() ?? data["transgressionCategory"]?.ToString() ?? "Unknown ban reason";
+                    string title = localized?["title"]?.ToString() ?? "Permanent Ban";
+                    string penaltiesText = string.Join("; ", banDetails);
+
+                    string note = $"{title}: {reason} | Penalties: {penaltiesText}";
+                    return (true, note);
+                }
+            }
+        }
+        catch { }
+
+        return (false, "");
+    }
+
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             if (!await CheckLeague()) throw new Exception("League not installed");
 
-                if (Championlist.SelectedCells.Count == 0) throw new Exception("Account not selected");
-                var selectedColumn = Championlist.SelectedCells[0].Column;
+            if (Championlist.SelectedCells.Count == 0) throw new Exception("Account not selected");
+            var selectedColumn = Championlist.SelectedCells[0].Column;
 
-                if (selectedColumn != null)
-                {
-                    var header = selectedColumn.Header?.ToString();
-                    var selectedRow = Championlist.SelectedItem as Utils.AccountList;
-                    if (selectedRow == null || header == null) throw new Exception("Account not selected");
-                    SelectedUsername = selectedRow.username;
-                    SelectedPassword = selectedRow.password;
-                }
+            if (selectedColumn != null)
+            {
+                var header = selectedColumn.Header?.ToString();
+                var selectedRow = Championlist.SelectedItem as Utils.AccountList;
+                if (selectedRow == null || header == null) throw new Exception("Account not selected");
+                SelectedUsername = selectedRow.username;
+                SelectedPassword = selectedRow.password;
+            }
 
             Console.WriteLine("Username: " + SelectedUsername);
             Console.WriteLine("Password: " + SelectedPassword);
@@ -612,14 +706,14 @@ public partial class Accounts : Page
             switch (clickedButton.Name)
             {
                 case "Login":
-                    riotProcess = Process.Start(Misc.Settings.settingsloaded.riotPath, "--launch-product=league_of_legends --launch-patchline=live"); 
+                    riotProcess = Process.Start(Misc.Settings.settingsloaded.riotPath, "--launch-product=league_of_legends --launch-patchline=live");
                     break;
 
                 case "Stealthlogin":
                     riotProcess = await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath);
                     break;
             }
-            
+
             var riotval = string.Empty;
             while (true)
             {
@@ -710,6 +804,7 @@ public partial class Accounts : Page
 
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+                            WaitForSummonerReadyAsync();
                             break;
                         }
 
@@ -725,6 +820,33 @@ public partial class Accounts : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+        }
+    }
+
+
+    private async Task WaitForSummonerReadyAsync()
+    {
+        while (true)
+        {
+            try
+            {
+                var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "");
+
+                if (resp != null && resp.IsSuccessStatusCode) // Ensure HTTP 200
+                {
+                    var content = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    // Optional: you can parse content here or just call PullDataAsync
+                    await PullDataAsync();
+                    return; // exit the loop
+                }
+            }
+            catch
+            {
+                // LCU not ready yet, ignore and retry
+            }
+
+            await Task.Delay(1000); // retry every 1 second
         }
     }
     public async Task UpdateAllRanks()
