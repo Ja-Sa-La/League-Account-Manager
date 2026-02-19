@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Resources;
-using System.Runtime.Versioning;
 
 // General Information
 [assembly: AssemblyTitle("League account manager")]
@@ -15,7 +14,7 @@ using System.Runtime.Versioning;
 [assembly: SupportedOSPlatform("windows")]
 
 // Version informationr(
-[assembly: AssemblyVersion("2.3.0.0")]
-[assembly: AssemblyFileVersion("2.3.0.0")]
+[assembly: AssemblyVersion("2.3.0.1")]
+[assembly: AssemblyFileVersion("2.3.0.1")]
 [assembly: NeutralResourcesLanguageAttribute( "en-US" )]
 
