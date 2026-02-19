@@ -245,7 +245,7 @@ public partial class MiscTools : Page
     {
         try
         {
-            var resp = await Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+            var resp = await Connector("league", "post", "/riotclient/kill-and-restart-ux", "");
             var Game = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             success.Text = "response = " + Game;
         }
