@@ -1,9 +1,15 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using IniParser;
 using IniParser.Model;
 using League_Account_Manager.Misc;
@@ -12,430 +18,411 @@ using Newtonsoft.Json.Linq;
 using NLog;
 using static League_Account_Manager.Misc.Utils;
 
-namespace League_Account_Manager.views;
-
-/// <summary>
-///     Interaction logic for SettingsEditor.xaml
-/// </summary>
-public partial class SettingsEditor : Page
+namespace League_Account_Manager.views
 {
-    public SettingsEditor()
+    public partial class SettingsEditor : Page
     {
-        InitializeComponent();
-        try
-        {
-            settings = LoadSettings(Misc.Settings.settingsloaded.settingsLocation);
-            originalSettings = CloneSettings(settings); // Clone to ensure it's a separate copy
-            DataContext = settings;
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    public SettingsIngame settings { get; set; }
-    public SettingsIngame originalSettings { get; set; }
+        public SettingsIngame settings { get; set; }
+        private SettingsIngame originalSettings { get; set; }
 
-    // Method to create a deep copy of the settings object
-    public static SettingsIngame CloneSettings(SettingsIngame settingsToClone)
-    {
-        try
+        public SettingsEditor()
         {
-            var json = JsonSerializer.Serialize(settingsToClone);
-            return JsonSerializer.Deserialize<SettingsIngame>(json);
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            InitializeComponent();
+            LoadInitialSettings();
+            GenerateDynamicUI();
         }
 
-        return new SettingsIngame();
-    }
-
-    public static SettingsIngame LoadSettings(string iniFilePath)
-    {
-        try
+        private void GenerateDynamicUI()
         {
-            var parser = new FileIniDataParser();
-            var data = parser.ReadFile(iniFilePath);
+            // Clear existing tabs
+            DynamicTabControl.Items.Clear();
 
-            var settings = new SettingsIngame();
-
-            // Get all properties of the Settings class
-            foreach (var property in settings.GetType().GetProperties())
+            // Iterate through all top-level sections in SettingsIngame
+            foreach (var sectionProp in settings.GetType().GetProperties())
             {
-                // Check if property has a matching section in the INI file
-                var section = data[property.Name];
-                if (section != null)
-                    // Iterate through all keys in the section and map them to the object's properties
-                    foreach (var key in section)
-                    {
-                        var keyName = key.KeyName;
-                        var prop = property.PropertyType.GetProperty(keyName);
-                        if (prop != null)
-                        {
-                            object value = null;
-                            if (prop.PropertyType == typeof(bool))
-                                value = key.Value == "1" || key.Value.ToLower() == "true";
-                            else if (prop.PropertyType == typeof(float))
-                                value = float.Parse(key.Value, CultureInfo.InvariantCulture);
-                            else if (prop.PropertyType == typeof(double))
-                                value = double.Parse(key.Value, CultureInfo.InvariantCulture);
-                            else
-                                value = Convert.ChangeType(key.Value, prop.PropertyType);
+                var sectionName = sectionProp.Name;
+                var sectionValue = sectionProp.GetValue(settings);
 
-                            if (value != null) prop.SetValue(property.GetValue(settings), value);
-                        }
-                    }
-            }
+                var tab = new TabItem { Header = sectionName };
+                var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+                var stack = new StackPanel { Margin = new Thickness(5) };
 
-            return settings;
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-
-        return new SettingsIngame();
-    }
-
-    public void SaveSettings(SettingsIngame settings, string iniFilePath, string PersistedSettings)
-    {
-        try
-        {
-            UpdateSettings(PersistedSettings, JsonSerializer.Serialize(settings));
-
-            var parser = new FileIniDataParser();
-            var data = new IniData();
-
-            foreach (var property in settings.GetType().GetProperties())
-            {
-                var sectionName = property.Name;
-
-                if (!data.Sections.ContainsSection(sectionName)) data.Sections.AddSection(sectionName);
-
-                var section = data[sectionName];
-
-                var subProperties = property.PropertyType.GetProperties();
-                if (subProperties.Length > 0)
+                foreach (var prop in sectionProp.PropertyType.GetProperties())
                 {
-                    var sectionInstance = property.GetValue(settings);
-                    foreach (var subProp in subProperties)
-                        if (sectionInstance != null)
-                        {
-                            var keyName = subProp.Name;
-                            var value = subProp.GetValue(sectionInstance);
-
-                            // Convert values properly
-                            var stringValue = value switch
-                            {
-                                bool boolValue => boolValue ? "1" : "0", // Convert bools to 1/0
-                                float floatValue => floatValue.ToString(CultureInfo
-                                    .InvariantCulture), // Ensure "." for decimals
-                                double doubleValue => doubleValue.ToString(CultureInfo
-                                    .InvariantCulture), // Ensure "." for decimals
-                                _ => value?.ToString() ?? ""
-                            };
-
-                            section.AddKey(keyName, stringValue);
-                        }
-                }
-                else
-                {
-                    var value = property.GetValue(settings);
-                    var stringValue = value switch
+                    // Create label
+                    var label = new TextBlock
                     {
-                        bool boolValue => boolValue ? "1" : "0",
-                        float floatValue => floatValue.ToString(CultureInfo.InvariantCulture),
-                        double doubleValue => doubleValue.ToString(CultureInfo.InvariantCulture),
-                        _ => value?.ToString() ?? ""
+                        Text = prop.Name,
+                        FontWeight = FontWeights.SemiBold,
+                        Margin = new Thickness(0, 5, 0, 0)
                     };
 
-                    section.AddKey("Value", stringValue);
-                }
-            }
+                    UIElement control = null;
 
-            parser.WriteFile(iniFilePath, data);
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-
-    // Reset settings to original values
-    private void ResetSettings()
-    {
-        try
-        {
-            settings = CloneSettings(originalSettings); // Use the clone for reset
-            DataContext = null; // Reset DataContext first
-            DataContext = settings; // Re-assign the reset settings
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    // Export settings to a JSON file
-    private void ExportSettings()
-    {
-        try
-        {
-            var saveFileDialog = new SaveFileDialog
-            {
-                Filter = "JSON Files (*.json)|*.json|All Files (*.*)|*.*",
-                FileName = "settings_export.json"
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                var filePath = saveFileDialog.FileName;
-
-                // Serialize settings to JSON
-                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-
-                // Write the JSON data to the selected file path
-                File.WriteAllText(filePath, json);
-
-                MessageBox.Show("Settings exported as JSON.");
-            }
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    // Import settings from a JSON file
-    private void ImportSettings()
-    {
-        try
-        {
-            var openFileDialog = new OpenFileDialog
-            {
-                Filter = "JSON Files (*.json)|*.json|All Files (*.*)|*.*",
-                Title = "Select the settings file to import"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-            {
-                var filePath = openFileDialog.FileName;
-
-                // Read the JSON file contents
-                var json = File.ReadAllText(filePath);
-
-                // Deserialize the settings from the JSON string
-                settings = JsonSerializer.Deserialize<SettingsIngame>(json);
-
-                // Update the DataContext to reflect the imported settings
-                DataContext = settings;
-
-                MessageBox.Show("Settings imported from JSON.");
-            }
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    // Event handlers (you can bind them to buttons, for example)
-    private void ResetButton_Click(object sender, RoutedEventArgs e)
-    {
-        ResetSettings();
-    }
-
-    private void ExportButton_Click(object sender, RoutedEventArgs e)
-    {
-        ExportSettings();
-    }
-
-    private void ImportButton_Click(object sender, RoutedEventArgs e)
-    {
-        ImportSettings();
-    }
-
-    private async void ApplyButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-
-        {
-            var settFile = new FileInfo(Misc.Settings.settingsloaded.settingsLocation);
-            settFile.IsReadOnly = false;
-            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) +
-                                         "//PersistedSettings.json");
-            settFile2.IsReadOnly = false;
-            SaveSettings(settings, Misc.Settings.settingsloaded.settingsLocation,
-                Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) + "//PersistedSettings.json");
-            settFile.IsReadOnly = true;
-            settFile2.IsReadOnly = true;
-            Process.Start(Misc.Settings.settingsloaded.riotPath,
-                "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
-            Thread.Sleep(1000);
-            killleaguefunc2();
-            await Lcu.Connector("riot", "post",
-                "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    private async void ApplyButton2_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var payload = JsonSerializer.Serialize(settings);
-            var payload2 = JsonSerializer.Serialize(settings);
-            var payload3 = JsonSerializer.Serialize(settings);
-
-            var resp = await Lcu.Connector("league", "PATCH", "/lol-game-settings/v1/game-settings", payload);
-            resp = await Lcu.Connector("league", "PATCH", "/lol-settings/v1/account/game-settings", payload2);
-            resp = await Lcu.Connector("league", "PATCH", "/lol-settings/v2/account/GamePreferences/game-settings",
-                payload3);
-            Process.Start(Misc.Settings.settingsloaded.riotPath,
-                "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
-            Thread.Sleep(1000);
-            killleaguefunc2();
-            await Lcu.Connector("riot", "post",
-                "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    private void LockButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var settFile = new FileInfo(Misc.Settings.settingsloaded.settingsLocation);
-            if (!settFile.IsReadOnly) settFile.IsReadOnly = true;
-            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) +
-                                         "//PersistedSettings.json");
-            if (!settFile2.IsReadOnly) settFile2.IsReadOnly = true;
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    private void UnlockButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var settFile = new FileInfo(Misc.Settings.settingsloaded.settingsLocation);
-            if (settFile.IsReadOnly) settFile.IsReadOnly = false;
-            var settFile2 = new FileInfo(Path.GetDirectoryName(Misc.Settings.settingsloaded.settingsLocation) +
-                                         "//PersistedSettings.json");
-            if (settFile2.IsReadOnly) settFile2.IsReadOnly = false;
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
-        }
-    }
-
-    private void UpdateSettings(string filePath, string newSettingsJson)
-    {
-        if (!File.Exists(filePath))
-        {
-            Console.WriteLine("Settings file not found.");
-            return;
-        }
-
-        // Load existing JSON
-        var existingJson = File.ReadAllText(filePath);
-        var existingSettings = JObject.Parse(existingJson);
-        var newSettings = JObject.Parse(newSettingsJson);
-
-        EditKeyValuePairs(existingSettings);
-        // Save the updated settings back to the file
-        File.WriteAllText(filePath, existingSettings.ToString());
-    }
-
-    // Recursively update the template JSON with values from the input JSON
-    public void EditKeyValuePairs(JToken token)
-    {
-        if (token is JObject obj)
-        {
-            foreach (var property in obj.Properties())
-                if (property.Name == "files" && property.Value is JArray files)
-                    // Process each file
-                    foreach (var file in files)
+                    // Boolean
+                    if (prop.PropertyType == typeof(bool))
                     {
-                        // Iterate over the sections within each file
-                        var sections = file["sections"] as JArray;
-                        foreach (var section in sections)
+                        var cb = new CheckBox
                         {
-                            var sectionName = section["name"]?.ToString();
-                            // Now edit settings under the section
-                            var settings = section["settings"];
-                            EditSettingsWithSection(settings, sectionName);
+                            Content = prop.Name,
+                            Margin = new Thickness(0, 2, 0, 2)
+                        };
+                        cb.SetBinding(CheckBox.IsCheckedProperty, new Binding(prop.Name)
+                        {
+                            Source = sectionValue,
+                            Mode = BindingMode.TwoWay,
+                            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                        });
+                        control = cb;
+                    }
+                    // Numeric
+                    else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(float) || prop.PropertyType == typeof(double))
+                    {
+                        var slider = new Slider
+                        {
+                            Minimum = 0,
+                            Maximum = 10,
+                            Margin = new Thickness(0, 2, 0, 2)
+                        };
+                        slider.SetBinding(Slider.ValueProperty, new Binding(prop.Name)
+                        {
+                            Source = sectionValue,
+                            Mode = BindingMode.TwoWay,
+                            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                        });
+
+                        var valText = new TextBlock
+                        {
+                            Margin = new Thickness(0, 0, 0, 5)
+                        };
+                        valText.SetBinding(TextBlock.TextProperty, new Binding(prop.Name)
+                        {
+                            Source = sectionValue,
+                            Mode = BindingMode.OneWay,
+                            StringFormat = "0.##"
+                        });
+
+                        stack.Children.Add(label);
+                        stack.Children.Add(slider);
+                        stack.Children.Add(valText);
+                        continue; // Already added control
+                    }
+                    // Enum
+                    else if (prop.PropertyType.IsEnum)
+                    {
+                        var combo = new ComboBox
+                        {
+                            ItemsSource = Enum.GetNames(prop.PropertyType),
+                            Margin = new Thickness(0, 2, 0, 2)
+                        };
+                        combo.SetBinding(ComboBox.SelectedItemProperty, new Binding(prop.Name)
+                        {
+                            Source = sectionValue,
+                            Mode = BindingMode.TwoWay,
+                            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                        });
+                        control = combo;
+                    }
+                    // String / other
+                    else
+                    {
+                        var tb = new TextBox
+                        {
+                            Width = 200,
+                            Margin = new Thickness(0, 2, 0, 2)
+                        };
+                        tb.SetBinding(TextBox.TextProperty, new Binding(prop.Name)
+                        {
+                            Source = sectionValue,
+                            Mode = BindingMode.TwoWay,
+                            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                        });
+                        control = tb;
+                    }
+
+                    // Add to stack
+                    stack.Children.Add(label);
+                    stack.Children.Add(control);
+                }
+
+                scroll.Content = stack;
+                tab.Content = scroll;
+                DynamicTabControl.Items.Add(tab);
+            }
+        }
+        public class MySection : INotifyPropertyChanged
+        {
+            private bool _someBool;
+            public bool SomeBool
+            {
+                get => _someBool;
+                set { _someBool = value; OnPropertyChanged(); }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+            protected void OnPropertyChanged([CallerMemberName] string name = null)
+                => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+        private void LoadInitialSettings()
+        {
+            try
+            {
+                settings = LoadSettings(Misc.Settings.settingsloaded.settingsLocation);
+                originalSettings = CloneSettings(settings);
+                DataContext = settings;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to load initial settings");
+                MessageBox.Show("Error loading settings: " + ex.Message);
+            }
+        }
+
+        #region Settings Load / Save / Clone
+
+        public static SettingsIngame CloneSettings(SettingsIngame s)
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(s);
+                return JsonSerializer.Deserialize<SettingsIngame>(json);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to clone settings");
+                return new SettingsIngame();
+            }
+        }
+
+        public static SettingsIngame LoadSettings(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return new SettingsIngame();
+
+                var parser = new FileIniDataParser();
+                var data = parser.ReadFile(path);
+                var s = new SettingsIngame();
+
+                foreach (var property in s.GetType().GetProperties())
+                {
+                    var section = data[property.Name];
+                    if (section == null) continue;
+
+                    foreach (var key in section)
+                    {
+                        var prop = property.PropertyType.GetProperty(key.KeyName);
+                        if (prop == null) continue;
+
+                        object value = key.Value switch
+                        {
+                            "1" => true,
+                            "0" => false,
+                            _ when prop.PropertyType == typeof(bool) => bool.Parse(key.Value),
+                            _ when prop.PropertyType == typeof(float) => float.Parse(key.Value, CultureInfo.InvariantCulture),
+                            _ when prop.PropertyType == typeof(double) => double.Parse(key.Value, CultureInfo.InvariantCulture),
+                            _ => Convert.ChangeType(key.Value, prop.PropertyType)
+                        };
+                        prop.SetValue(property.GetValue(s), value);
+                    }
+                }
+
+                return s;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to load settings from INI");
+                return new SettingsIngame();
+            }
+        }
+
+        public void SaveSettings(SettingsIngame s, string iniPath, string persistedPath)
+        {
+            try
+            {
+                UpdatePersistedSettings(persistedPath, JsonSerializer.Serialize(s));
+
+                var parser = new FileIniDataParser();
+                var data = new IniData();
+
+                foreach (var property in s.GetType().GetProperties())
+                {
+                    if (!data.Sections.ContainsSection(property.Name))
+                        data.Sections.AddSection(property.Name);
+
+                    var section = data[property.Name];
+                    var subProps = property.PropertyType.GetProperties();
+
+                    if (subProps.Length > 0)
+                    {
+                        var sectionInstance = property.GetValue(s);
+                        foreach (var sub in subProps)
+                        {
+                            if (sectionInstance == null) continue;
+                            section.AddKey(sub.Name, FormatValue(sub.GetValue(sectionInstance)));
                         }
                     }
-        }
-        else if (token is JArray arr)
-        {
-            foreach (var item in arr) EditKeyValuePairs(item);
-        }
-    }
+                    else
+                    {
+                        section.AddKey("Value", FormatValue(property.GetValue(s)));
+                    }
+                }
 
-    private void EditSettingsWithSection(JToken settingsher, string sectionName)
-    {
-        foreach (var setting in settingsher)
-        {
-            var name = setting["name"]?.ToString();
-            var newValue = GetSettingValueBySectionName(settings, sectionName, name);
-
-            if (!string.IsNullOrWhiteSpace(newValue)) setting["value"] = newValue; // Update the value with user input
+                parser.WriteFile(iniPath, data);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to save settings");
+            }
         }
-    }
 
-    private string GetSettingValueBySectionName(SettingsIngame settings, string sectionName, string name)
-    {
-        switch (sectionName)
+        private static string FormatValue(object val) => val switch
         {
-            case nameof(SettingsIngame.FloatingText):
-                return settings.FloatingText.GetType().GetProperty(name)?.GetValue(settings.FloatingText)?.ToString();
-            case nameof(SettingsIngame.General):
-                return settings.General.GetType().GetProperty(name)?.GetValue(settings.General)?.ToString();
-            case nameof(SettingsIngame.HUD):
-                return settings.HUD.GetType().GetProperty(name)?.GetValue(settings.HUD)?.ToString();
-            case nameof(SettingsIngame.LossOfControl):
-                return settings.LossOfControl.GetType().GetProperty(name)?.GetValue(settings.LossOfControl)?.ToString();
-            case nameof(SettingsIngame.Performance):
-                return settings.Performance.GetType().GetProperty(name)?.GetValue(settings.Performance)?.ToString();
-            case nameof(SettingsIngame.Voice):
-                return settings.Voice.GetType().GetProperty(name)?.GetValue(settings.Voice)?.ToString();
-            case nameof(SettingsIngame.Volume):
-                return settings.Volume.GetType().GetProperty(name)?.GetValue(settings.Volume)?.ToString();
-            case nameof(SettingsIngame.MapSkinOptions):
-                return settings.MapSkinOptions.GetType().GetProperty(name)?.GetValue(settings.MapSkinOptions)
-                    ?.ToString();
-            case nameof(SettingsIngame.TFT):
-                return settings.TFT.GetType().GetProperty(name)?.GetValue(settings.TFT)?.ToString();
-            case nameof(SettingsIngame.Replay):
-                return settings.Replay.GetType().GetProperty(name)?.GetValue(settings.Replay)?.ToString();
-            case nameof(SettingsIngame.Mobile):
-                return settings.Mobile.GetType().GetProperty(name)?.GetValue(settings.Mobile)?.ToString();
-            case nameof(SettingsIngame.Swarm):
-                return settings.Swarm.GetType().GetProperty(name)?.GetValue(settings.Swarm)?.ToString();
-            case nameof(SettingsIngame.Highlights):
-                return settings.Highlights.GetType().GetProperty(name)?.GetValue(settings.Highlights)?.ToString();
-            case nameof(SettingsIngame.ItemShop):
-                return settings.ItemShop.GetType().GetProperty(name)?.GetValue(settings.ItemShop)?.ToString();
-            case nameof(SettingsIngame.Chat):
-                return settings.Chat.GetType().GetProperty(name)?.GetValue(settings.Chat)?.ToString();
-            default:
-                return null;
+            bool b => b ? "1" : "0",
+            float f => f.ToString(CultureInfo.InvariantCulture),
+            double d => d.ToString(CultureInfo.InvariantCulture),
+            _ => val?.ToString() ?? ""
+        };
+
+        #endregion
+
+        #region PersistedSettings JSON
+
+        private void UpdatePersistedSettings(string filePath, string newJson)
+        {
+            if (!File.Exists(filePath))
+            {
+                File.WriteAllText(filePath, newJson);
+                return;
+            }
+
+            var existing = JObject.Parse(File.ReadAllText(filePath));
+            var updated = JObject.Parse(newJson);
+
+            ApplySettingsToJToken(existing, updated);
+
+            File.WriteAllText(filePath, existing.ToString());
         }
+
+        private void ApplySettingsToJToken(JToken existing, JToken updated)
+        {
+            if (existing is JObject obj && updated is JObject upd)
+            {
+                foreach (var prop in obj.Properties())
+                {
+                    if (upd[prop.Name] != null)
+                        prop.Value = upd[prop.Name];
+                }
+            }
+        }
+
+        #endregion
+
+        #region Button Handlers
+
+        private void ResetButton_Click(object sender, RoutedEventArgs e)
+        {
+            settings = CloneSettings(originalSettings);
+            DataContext = null;
+            DataContext = settings;
+        }
+
+        private void ExportButton_Click(object sender, RoutedEventArgs e)
+        {
+            var sfd = new SaveFileDialog
+            {
+                Filter = "JSON Files|*.json",
+                FileName = "PersistedSettings.json"
+            };
+            if (sfd.ShowDialog() == true)
+                File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        private void ImportButton_Click(object sender, RoutedEventArgs e)
+        {
+            var ofd = new OpenFileDialog
+            {
+                Filter = "JSON Files|*.json",
+                Title = "Select settings file to import"
+            };
+            if (ofd.ShowDialog() != true) return;
+
+            settings = JsonSerializer.Deserialize<SettingsIngame>(File.ReadAllText(ofd.FileName));
+            DataContext = null;
+            DataContext = settings;
+        }
+
+        private async void ApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string iniPath = Misc.Settings.settingsloaded.settingsLocation;
+                string persistedPath = Path.Combine(Path.GetDirectoryName(iniPath), "PersistedSettings.json");
+
+                SaveSettings(settings, iniPath, persistedPath);
+
+                Process.Start(Misc.Settings.settingsloaded.riotPath,
+                    "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
+
+                Thread.Sleep(1000);
+                killleaguefunc2();
+
+                await Lcu.Connector("riot", "post",
+                    "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to apply settings to client");
+            }
+        }
+
+        private async void ApplyButton2_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string payload = JsonSerializer.Serialize(settings);
+
+                await Lcu.Connector("league", "PATCH", "/lol-game-settings/v1/game-settings", payload);
+                await Lcu.Connector("league", "PATCH", "/lol-settings/v1/account/game-settings", payload);
+                await Lcu.Connector("league", "PATCH", "/lol-settings/v2/account/GamePreferences/game-settings", payload);
+
+                Process.Start(Misc.Settings.settingsloaded.riotPath,
+                    "--launch-product=Riot Client --launch-patchline=KeystoneFoundationLiveWin");
+
+                Thread.Sleep(1000);
+                killleaguefunc2();
+
+                await Lcu.Connector("riot", "post",
+                    "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to apply settings to account");
+            }
+        }
+
+        private void LockButton_Click(object sender, RoutedEventArgs e) => SetReadOnly(true);
+        private void UnlockButton_Click(object sender, RoutedEventArgs e) => SetReadOnly(false);
+
+        private void SetReadOnly(bool readOnly)
+        {
+            try
+            {
+                var iniPath = Misc.Settings.settingsloaded.settingsLocation;
+                var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath), "PersistedSettings.json");
+
+                new FileInfo(iniPath).IsReadOnly = readOnly;
+                new FileInfo(persistedPath).IsReadOnly = readOnly;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to change read-only state");
+            }
+        }
+
+        #endregion
     }
 }

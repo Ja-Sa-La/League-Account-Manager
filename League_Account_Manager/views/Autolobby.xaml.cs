@@ -1,58 +1,130 @@
-﻿using System.Windows;
+﻿using System.Collections.Concurrent;
+using System.Windows;
 using System.Windows.Controls;
 using League_Account_Manager.Misc;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Button = System.Windows.Controls.Button;
 
-
 namespace League_Account_Manager.views;
 
-/// <summary>
-///     Interaction logic for Autolobby.xaml
-/// </summary>
 public partial class Autolobby : Page
 {
-    private readonly List<IconData>? listChamps = new();
-    private readonly Dictionary<string, (bool, Task, CancellationTokenSource)> toggles = new();
+    private readonly Logger _logger = LogManager.GetCurrentClassLogger();
+
+    private readonly List<IconData> listChamps = new();
+    private readonly ConcurrentDictionary<string, ToggleTaskInfo> toggles = new();
+
     private Chat champSelect;
     private JObject champselectaction;
     private JObject champselectJObject;
     private JObject ChampselectTeamJObject;
     private JObject queueJObject;
+
     private bool sentmsg;
 
     public Autolobby()
     {
         InitializeComponent();
 
+        Task.Run(BackgroundDataFunction1);
+        Task.Run(BackgroundDataFunction2);
+        Task.Run(LoadBuyableData);
+    }
+
+    // =====================================================
+    // TOGGLE SYSTEM
+    // =====================================================
+
+    private class ToggleTaskInfo
+    {
+        public bool Running { get; set; }
+        public Task Task { get; set; }
+        public CancellationTokenSource Cts { get; set; }
+    }
+
+    private bool AnyFeatureEnabled()
+    {
+        return toggles.Any(t => t.Value.Running);
+    }
+
+    private void ToggleTask(string taskName, Func<CancellationToken, Task> taskFunc, object sender)
+    {
+        if (sender is not Button button)
+            return;
+
+        if (!toggles.ContainsKey(taskName))
         {
-            Task.Run(() => BackgroundDataFunction1());
-            Task.Run(() => BackgroundDataFunction2());
-            Task.Run(() => LoadBuyableData());
+            var cts = new CancellationTokenSource();
+            var task = Task.Run(() => taskFunc(cts.Token), cts.Token);
+
+            toggles[taskName] = new ToggleTaskInfo
+            {
+                Running = true,
+                Task = task,
+                Cts = cts
+            };
+
+            button.Content = $"Disable {taskName}";
+            return;
+        }
+
+        var info = toggles[taskName];
+
+        if (info.Running)
+        {
+            info.Running = false;
+            info.Cts.Cancel();
+            button.Content = $"Enable {taskName}";
+        }
+        else
+        {
+            var cts = new CancellationTokenSource();
+            var task = Task.Run(() => taskFunc(cts.Token), cts.Token);
+
+            toggles[taskName] = new ToggleTaskInfo
+            {
+                Running = true,
+                Task = task,
+                Cts = cts
+            };
+
+            button.Content = $"Disable {taskName}";
         }
     }
 
-    private async void LoadBuyableData()
+    // =====================================================
+    // LOAD CHAMPION DATA
+    // =====================================================
 
+    private async Task LoadBuyableData()
     {
         try
         {
             var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
             var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            JObject summonerdata = JObject.Parse(responseBody);
+
+            var summonerdata = JObject.Parse(responseBody);
+
             resp = await Lcu.Connector("league", "get",
                 $"/lol-champions/v1/inventories/{(string)summonerdata["summonerId"]}/champions-minimal", "");
+
             responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
             var champList = JArray.Parse(responseBody);
 
+            listChamps.Clear();
+
             foreach (var champ in champList)
+            {
                 listChamps.Add(new IconData
                 {
-                    Name = champ["name"].ToString(),
-                    ID = champ["id"].ToString()
+                    Name = champ["name"]?.ToString(),
+                    ID = champ["id"]?.ToString()
                 });
-            Dispatcher.Invoke(() =>
+            }
+
+            await Dispatcher.InvokeAsync(() =>
             {
                 blindPickChampion.OriginalItemsSource = listChamps;
                 topPickChampion.OriginalItemsSource = listChamps;
@@ -67,81 +139,88 @@ public partial class Autolobby : Page
         }
         catch (Exception ex)
         {
-            LogManager.GetCurrentClassLogger().Error(ex, "Error loading data");
+            _logger.Error(ex, "Error loading champion data");
         }
     }
 
-    private void ToggleTask(string taskName, Func<CancellationToken, Task> taskFunc, object sender, RoutedEventArgs e)
-    {
-        var button = sender as Button;
-        if (!toggles.ContainsKey(taskName))
-        {
-            var cts = new CancellationTokenSource();
-            var task = Task.Run(() => taskFunc(cts.Token), cts.Token);
-            toggles[taskName] = (true, task, cts);
-            button.Content = $"Disable {taskName}";
-        }
-        else
-        {
-            var (running, task, cts) = toggles[taskName];
-            if (running)
-            {
-                cts.Cancel();
-                toggles[taskName] = (false, task, cts);
-                button.Content = $"Enable {taskName}";
-            }
-            else
-            {
-                cts = new CancellationTokenSource();
-                task = Task.Run(() => taskFunc(cts.Token), cts.Token);
-                toggles[taskName] = (true, task, cts);
-                button.Content = $"Disable {taskName}";
-            }
-        }
-    }
+    // =====================================================
+    // BACKGROUND LOOPS (RUN FOREVER)
+    // =====================================================
 
     private async Task BackgroundDataFunction1()
     {
-        try
+        while (true)
         {
-            while (true)
+            try
             {
-                if (toggles.Any(t => t.Value.Item1) && queueJObject != null && queueJObject.ContainsKey("phase") &&
-                    (queueJObject["phase"].ToString() == "ChampSelect" ||
-                     queueJObject["phase"].ToString() == "ReadyCheck"))
+                if (AnyFeatureEnabled() && queueJObject != null &&
+                    queueJObject.TryGetValue("phase", out var phaseToken))
                 {
-                    var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
-                    champselectJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-                    if (champselectJObject.ContainsKey("actions"))
+                    var phase = phaseToken.ToString();
+
+                    if (phase == "ChampSelect" || phase == "ReadyCheck")
                     {
-                        var found = false;
-                        foreach (JArray actionArray in (JArray)champselectJObject["actions"])
+                        var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
+                        champselectJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+
+                        champselectaction = null;
+                        ChampselectTeamJObject = null;
+
+                        if (champselectJObject.TryGetValue("actions", out var actionsToken) &&
+                            actionsToken is JArray actionsArray)
                         {
-                            foreach (JObject action in actionArray)
-                                if ((bool)action["isInProgress"] && action["actorCellId"].ToString() ==
-                                    champselectJObject["localPlayerCellId"].ToString() &&
-                                    champselectJObject["timer"]["phase"].ToString() != "PLANNING")
+                            foreach (var actionGroup in actionsArray)
+                            {
+                                if (actionGroup is not JArray innerArray)
+                                    continue;
+
+                                foreach (var act in innerArray)
                                 {
-                                    champselectaction = action;
-                                    found = true;
-                                    break;
+                                    if (act is not JObject actionObj)
+                                        continue;
+
+                                    var isInProgress = actionObj["isInProgress"]?.Value<bool>() ?? false;
+                                    var actorCellId = actionObj["actorCellId"]?.ToString();
+                                    var localCellId = champselectJObject["localPlayerCellId"]?.ToString();
+                                    var timerPhase = champselectJObject["timer"]?["phase"]?.ToString();
+
+                                    if (isInProgress &&
+                                        actorCellId == localCellId &&
+                                        timerPhase != "PLANNING")
+                                    {
+                                        champselectaction = actionObj;
+                                        break;
+                                    }
                                 }
 
-                            if (found) break;
-                            champselectaction = null;
+                                if (champselectaction != null)
+                                    break;
+                            }
                         }
 
+                        if (champselectJObject.TryGetValue("myTeam", out var myTeamToken) &&
+                            myTeamToken is JArray myTeamArray)
+                        {
+                            var localCellId = champselectJObject["localPlayerCellId"]?.ToString();
 
-                        foreach (JObject teamArray in (JArray)champselectJObject["myTeam"])
-                            if (teamArray["cellId"].ToString() == champselectJObject["localPlayerCellId"].ToString())
+                            foreach (var t in myTeamArray)
                             {
-                                ChampselectTeamJObject = teamArray;
-                                break;
+                                if (t is not JObject teamObj)
+                                    continue;
+
+                                if (teamObj["cellId"]?.ToString() == localCellId)
+                                {
+                                    ChampselectTeamJObject = teamObj;
+                                    break;
+                                }
                             }
+                        }
                     }
                     else
                     {
                         champselectaction = null;
+                        champselectJObject = null;
+                        ChampselectTeamJObject = null;
                     }
                 }
                 else
@@ -150,258 +229,383 @@ public partial class Autolobby : Page
                     champselectJObject = null;
                     ChampselectTeamJObject = null;
                 }
-
-
-                await Task.Delay(500);
             }
-        }
-        catch (Exception e)
-        {
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in BackgroundDataFunction1");
+            }
+
+            await Task.Delay(500);
         }
     }
 
     private async Task BackgroundDataFunction2()
     {
-        try
+        while (true)
         {
-            while (true)
+            try
             {
-                if (toggles.Any(t => t.Value.Item1))
+                if (AnyFeatureEnabled())
                 {
                     var resp = await Lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
                     queueJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
                 }
-
-                await Task.Delay(1000);
             }
-        }
-        catch (Exception e)
-        {
-            LogManager.GetCurrentClassLogger().Error(e, "Error loading data");
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in BackgroundDataFunction2");
+            }
+
+            await Task.Delay(1000);
         }
     }
 
+    // =====================================================
+    // BUTTON TOGGLES
+    // =====================================================
 
     private void ToggleAutoAccept(object sender, RoutedEventArgs e)
     {
-        ToggleTask("AutoAcceptQueue", StartAutoAcceptTask, sender, e);
+        ToggleTask("AutoAcceptQueue", StartAutoAcceptTask, sender);
     }
 
     private void ToggleAutoPick(object sender, RoutedEventArgs e)
     {
-        ToggleTask("AutoAcceptPick", StartAutoPickTask, sender, e);
+        ToggleTask("AutoAcceptPick", StartAutoPickTask, sender);
     }
 
     private void ToggleAutoBan(object sender, RoutedEventArgs e)
     {
-        ToggleTask("AutoAcceptBan", StartAutoBanTask, sender, e);
+        ToggleTask("AutoAcceptBan", StartAutoBanTask, sender);
     }
 
     private void ToggleAutoMessage(object sender, RoutedEventArgs e)
     {
-        ToggleTask("AutoAcceptMessage", StartAutoMessageTask, sender, e);
+        ToggleTask("AutoAcceptMessage", StartAutoMessageTask, sender);
     }
+
+    // =====================================================
+    // AUTO ACCEPT
+    // =====================================================
 
     private async Task StartAutoAcceptTask(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested && toggles["AutoAcceptQueue"].Item1)
+        while (!ct.IsCancellationRequested)
         {
-            if (queueJObject != null && queueJObject.ContainsKey("phase") &&
-                queueJObject["phase"].ToString() == "ReadyCheck")
-                await Lcu.Connector("league", "post", "/lol-matchmaking/v1/ready-check/accept", "");
+            try
+            {
+                if (queueJObject != null &&
+                    queueJObject.TryGetValue("phase", out var phaseToken) &&
+                    phaseToken.ToString() == "ReadyCheck")
+                {
+                    await Lcu.Connector("league", "post", "/lol-matchmaking/v1/ready-check/accept", "");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in AutoAccept");
+            }
+
             await Task.Delay(3000, ct);
         }
     }
 
+    // =====================================================
+    // PICK FIXED
+    // =====================================================
+
     private async Task StartAutoPickTask(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested && toggles["AutoAcceptPick"].Item1)
+        while (!ct.IsCancellationRequested)
         {
-            if (champselectaction != null && champselectaction.ContainsKey("type") &&
-                champselectaction["type"].ToString() == "pick")
+            try
             {
-                var resp = await Lcu.Connector("league", "patch",
-                    "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
-                    "{\"completed\":true,\"championId\":" + await getpickchampid() + "}");
+                if (champselectaction != null &&
+                    champselectaction["type"]?.ToString() == "pick")
+                {
+                    var champId = await getpickchampid();
+
+                    if (!string.IsNullOrEmpty(champId))
+                    {
+                        await Lcu.Connector("league", "patch",
+                            "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
+                            "{\"completed\":true,\"championId\":" + champId + "}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in AutoPick");
             }
 
-            await Task.Delay(300, ct); // Delay for 1 second before checking again
+            await Task.Delay(300, ct);
         }
     }
 
     private async Task<string> getpickchampid()
     {
-        var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/pickable-champion-ids", "");
-        JArray Pickable = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        var returnva = Dispatcher.Invoke(() =>
+        try
         {
-            var position = ChampselectTeamJObject["assignedPosition"].ToString().ToUpper();
+            if (ChampselectTeamJObject == null || champselectJObject == null)
+                return "";
+
+            var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/pickable-champion-ids", "");
+            var pickableArray = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+
+            var pickableIds = pickableArray.Values<int>().ToHashSet();
+
+            string position = ChampselectTeamJObject["assignedPosition"]?.ToString()?.ToUpper() ?? "";
+
             var positions = new List<string> { position, "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY" };
-            var id = "1";
+
+            string blind = "", top = "", jungle = "", mid = "", bot = "", supp = "";
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                blind = blindPickChampion.Text;
+                top = topPickChampion.Text;
+                jungle = junglePickChampion.Text;
+                mid = midPickChampion.Text;
+                bot = botPickChampion.Text;
+                supp = supportPickChampion.Text;
+            });
+
             foreach (var pos in positions)
             {
-                var champName = "";
-                switch (pos)
+                string champName = pos switch
                 {
-                    case "TOP":
-                        champName = topPickChampion.Text;
-                        break;
-                    case "JUNGLE":
-                        champName = junglePickChampion.Text;
-                        break;
-                    case "MIDDLE":
-                        champName = midPickChampion.Text;
-                        break;
-                    case "BOTTOM":
-                        champName = botPickChampion.Text;
-                        break;
-                    case "UTILITY":
-                        champName = supportPickChampion.Text;
-                        break;
-                    default:
-                        champName = blindPickChampion.Text;
-                        break;
-                }
+                    "TOP" => top,
+                    "JUNGLE" => jungle,
+                    "MIDDLE" => mid,
+                    "BOTTOM" => bot,
+                    "UTILITY" => supp,
+                    _ => blind
+                };
 
-                // If the text box for the current position is not empty
-                if (!string.IsNullOrEmpty(champName))
-                {
-                    // Get the champion ID
-                    id = listChamps.First(c => c.Name == champName).ID;
-                    // If the selected champion ID is in the Pickable list
-                    foreach (string jToken in Pickable)
-                        if (id != jToken &&
-                            !champselectJObject["bans"]["myTeamBans"].Values<int>().Contains(int.Parse(id)) &&
-                            !champselectJObject["bans"]["theirTeamBans"].Values<int>().Contains(int.Parse(id)))
-                            return id;
-                }
+                if (string.IsNullOrWhiteSpace(champName))
+                    continue;
+
+                var champ = listChamps.FirstOrDefault(c => c.Name == champName);
+
+                if (champ?.ID == null)
+                    continue;
+
+                if (!int.TryParse(champ.ID, out var champIdInt))
+                    continue;
+
+                if (!pickableIds.Contains(champIdInt))
+                    continue;
+
+                var myBans = champselectJObject["bans"]?["myTeamBans"]?.Values<int>() ?? Enumerable.Empty<int>();
+                var theirBans = champselectJObject["bans"]?["theirTeamBans"]?.Values<int>() ?? Enumerable.Empty<int>();
+
+                if (myBans.Contains(champIdInt) || theirBans.Contains(champIdInt))
+                    continue;
+
+                return champ.ID;
             }
 
-            return id;
-        });
-        return returnva;
+            return "";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error in getpickchampid");
+            return "";
+        }
+    }
+
+    // =====================================================
+    // BAN FIXED
+    // =====================================================
+
+    private async Task StartAutoBanTask(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                if (champselectaction != null &&
+                    champselectaction["type"]?.ToString() == "ban")
+                {
+                    await Task.Delay(1000, ct);
+
+                    var champId = await getbanchampid();
+
+                    if (!string.IsNullOrEmpty(champId))
+                    {
+                        await Lcu.Connector("league", "patch",
+                            "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
+                            "{\"completed\":true,\"championId\":" + champId + "}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in AutoBan");
+            }
+
+            await Task.Delay(2000, ct);
+        }
     }
 
     private async Task<string> getbanchampid()
     {
-        var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/bannable-champion-ids", "");
-        JArray banable = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        var returnval = Dispatcher.Invoke(() =>
-        {
-            string[] banChampions = { ban1Champion.Text, ban2Champion.Text, ban3Champion.Text };
-            var result = "1"; // Default value is "1"
-
-            foreach (var champion in banChampions)
-                if (!string.IsNullOrEmpty(champion))
-                {
-                    var champId = listChamps.FirstOrDefault(c => c.Name == champion)?.ID;
-                    if (banable.ToString().Contains(result))
-                        // Check if the JObject contains the champion ID in the myTeamBans or theirTeamBans array
-                        if (!champselectJObject["bans"]["myTeamBans"].Values<int>().Contains(int.Parse(champId)) &&
-                            !champselectJObject["bans"]["theirTeamBans"].Values<int>().Contains(int.Parse(champId)))
-                        {
-                            result = champId;
-                            break;
-                        }
-                }
-
-            return result;
-        });
-
-        // If none of the champions are in the banable array, return an empty string or handle it appropriately
-        return returnval;
-    }
-
-    private async Task StartAutoBanTask(CancellationToken ct)
-    {
         try
         {
-            while (!ct.IsCancellationRequested && toggles["AutoAcceptBan"].Item1)
+            if (champselectJObject == null)
+                return "";
+
+            var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/bannable-champion-ids", "");
+            var bannableArray = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+
+            var bannableIds = bannableArray.Values<int>().ToHashSet();
+
+            string ban1 = "", ban2 = "", ban3 = "";
+
+            await Dispatcher.InvokeAsync(() =>
             {
-                if (champselectaction != null && champselectaction.ContainsKey("type") &&
-                    champselectaction["type"].ToString() == "ban")
-                {
-                    Task.Delay(1000, ct);
-                    var resp = await Lcu.Connector("league", "patch",
-                        "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
-                        "{\"completed\":true,\"championId\":" + await getbanchampid() + "}");
-                }
+                ban1 = ban1Champion.Text;
+                ban2 = ban2Champion.Text;
+                ban3 = ban3Champion.Text;
+            });
 
-                await Task.Delay(2000, ct); // Delay for 1 second before checking again
+            var banNames = new[] { ban1, ban2, ban3 };
+
+            foreach (var championName in banNames)
+            {
+                if (string.IsNullOrWhiteSpace(championName))
+                    continue;
+
+                var champ = listChamps.FirstOrDefault(c => c.Name == championName);
+
+                if (champ?.ID == null)
+                    continue;
+
+                if (!int.TryParse(champ.ID, out var champIdInt))
+                    continue;
+
+                if (!bannableIds.Contains(champIdInt))
+                    continue;
+
+                var myBans = champselectJObject["bans"]?["myTeamBans"]?.Values<int>() ?? Enumerable.Empty<int>();
+                var theirBans = champselectJObject["bans"]?["theirTeamBans"]?.Values<int>() ?? Enumerable.Empty<int>();
+
+                if (myBans.Contains(champIdInt) || theirBans.Contains(champIdInt))
+                    continue;
+
+                return champ.ID;
             }
+
+            return "";
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
+            _logger.Error(ex, "Error in getbanchampid");
+            return "";
         }
     }
 
-
-    private async Task sendmsg(string msg)
-    {
-        var response = await Lcu.Connector("league", "get", "/lol-chat/v1/conversations", "");
-        var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        List<Chat> chats = JArray.Parse(responseContent).ToObject<List<Chat>>();
-        champSelect = chats.FirstOrDefault(chat => chat.type == "championSelect");
-        if (champSelect == null)
-            return;
-        var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
-        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        var summonerinfo = JObject.Parse(responseBody2);
-        string postdata = "{\"type\":\"chat\",\"fromId\":\"" + champSelect.id +
-                          "\",\"fromSummonerId\":" + summonerinfo["accountId"] +
-                          ",\"isHistorical\":false,\"timestamp\":\"" +
-                          DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") + "\",\"body\":\"" + msg + "\"}";
-        resp = await Lcu.Connector("league", "post", "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
-            postdata);
-    }
-
+    // =====================================================
+    // AUTO MESSAGE FIXED
+    // =====================================================
 
     private async Task StartAutoMessageTask(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested && toggles["AutoAcceptMessage"].Item1)
+        while (!ct.IsCancellationRequested)
         {
-            if (champselectaction != null && champselectaction.ContainsKey("type") && !sentmsg)
+            try
             {
-                Thread.Sleep(1000);
-                var msg = "";
-                Dispatcher.Invoke(() => { msg = MessageContainer.Text; });
-                if (!string.IsNullOrEmpty(msg))
+                if (champselectaction != null && champselectaction.ContainsKey("type") && !sentmsg)
                 {
-                    await sendmsg(msg);
-                    sentmsg = true;
+                    await Task.Delay(1000, ct);
+
+                    string msg = "";
+                    await Dispatcher.InvokeAsync(() => msg = MessageContainer.Text);
+
+                    if (!string.IsNullOrWhiteSpace(msg))
+                    {
+                        await sendmsg(msg);
+                        sentmsg = true;
+                    }
+                }
+                else if (queueJObject == null ||
+                         (queueJObject.TryGetValue("phase", out var phaseToken) &&
+                          phaseToken.ToString() != "ChampSelect"))
+                {
+                    sentmsg = false;
                 }
             }
-            else if (queueJObject == null ||
-                     (queueJObject.ContainsKey("phase") && queueJObject["phase"].ToString() != "ChampSelect"))
+            catch (Exception ex)
             {
-                sentmsg = false;
+                _logger.Error(ex, "Error in AutoMessage");
             }
 
             await Task.Delay(1000, ct);
         }
     }
 
+    private async Task sendmsg(string msg)
+    {
+        try
+        {
+            var response = await Lcu.Connector("league", "get", "/lol-chat/v1/conversations", "");
+            var responseContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            // Explicitly typed variable
+            List<Chat> chats = JArray.Parse(responseContent).ToObject<List<Chat>>() ?? new List<Chat>();
+
+            // Now FirstOrDefault works safely
+            champSelect = chats.FirstOrDefault(c => c.type == "championSelect");
+
+            if (champSelect == null)
+                return;
+
+            var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
+            var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            var summonerinfo = JObject.Parse(responseBody2);
+
+            string postdata =
+                "{\"type\":\"chat\",\"fromId\":\"" + champSelect.id +
+                "\",\"fromSummonerId\":" + summonerinfo["accountId"] +
+                ",\"isHistorical\":false,\"timestamp\":\"" +
+                DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") +
+                "\",\"body\":\"" + msg.Replace("\"", "\\\"") + "\"}";
+
+            await Lcu.Connector("league", "post",
+                "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
+                postdata);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error sending message");
+        }
+    }
+
+    // =====================================================
+    // DATA CLASSES
+    // =====================================================
 
     public class IconData
     {
-        public string? Name { get; set; }
-        public string? ID { get; set; }
+        public string Name { get; set; }
+        public string ID { get; set; }
     }
 
     public class Chat
     {
-        public string? gameName { get; set; }
-        public string? gameTag { get; set; }
-        public string? id { get; set; }
-        public string? inviterId { get; set; }
+        public string gameName { get; set; }
+        public string gameTag { get; set; }
+        public string id { get; set; }
+        public string inviterId { get; set; }
         public bool isMuted { get; set; }
-        public Lastmessage? lastMessage { get; set; }
-        public Mucjwtdto? mucJwtDto { get; set; }
-        public string? name { get; set; }
-        public string? password { get; set; }
-        public string? pid { get; set; }
-        public string? targetRegion { get; set; }
-        public string? type { get; set; }
+        public Lastmessage lastMessage { get; set; }
+        public Mucjwtdto mucJwtDto { get; set; }
+        public string name { get; set; }
+        public string password { get; set; }
+        public string pid { get; set; }
+        public string targetRegion { get; set; }
+        public string type { get; set; }
         public long unreadMessageCount { get; set; }
     }
 

@@ -14,8 +14,8 @@
                   MouseLeftButtonDown="Championlist_MouseLeftButtonDown"
                   IsReadOnly="True"
                   HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
-                  SelectionMode="Single" Margin="0,36,0,0" HorizontalScrollBarVisibility="Disabled"
-                  Height="713" VerticalAlignment="Top">
+                  SelectionMode="Single" Margin="0,61,0,0" HorizontalScrollBarVisibility="Disabled"
+                  Height="688" VerticalAlignment="Top">
             <DataGrid.Columns>
                 <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
                 <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />
@@ -57,7 +57,12 @@
         </DataGrid>
         <Grid HorizontalAlignment="Center"
               VerticalAlignment="Top" Margin="0,4,0,0" Width="1176">
+            <Grid.RowDefinitions>
+                <RowDefinition></RowDefinition>
+                <RowDefinition></RowDefinition>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
+                <ColumnDefinition />
                 <ColumnDefinition />
                 <ColumnDefinition />
                 <ColumnDefinition />
@@ -72,30 +77,36 @@
 
             <ui:Button Grid.Column="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
                        VerticalAlignment="Stretch" x:Name="killleague" Content="Kill client" FontSize="12"
-                       Click="killleague_Click" />
-            <ui:Button Grid.Column="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       Click="killleague_Click" Grid.ColumnSpan="2"/>
+            <ui:Button Grid.Row="1" Grid.Column="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
                        VerticalAlignment="Stretch" x:Name="openleague1" Content="Open League" FontSize="12"
-                       Click="openleague1_Click" />
+                       Click="openleague1_Click" Grid.ColumnSpan="2"/>
             <ui:Button Grid.Column="2" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
                        VerticalAlignment="Stretch" x:Name="PullData" Content="PullData" FontSize="12"
-                       Click="PullData_Click" />
-            <ui:Button Grid.Column="3" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="Delete" Content="Delete" FontSize="12" Click="Delete_Click" />
+                       Click="PullData_Click" Grid.ColumnSpan="2"/>
+            <ui:Button Grid.Column="2" Grid.Row="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="Delete" Content="Delete" FontSize="12" Click="Delete_Click" Grid.ColumnSpan="2"/>
             <ui:Button Grid.Column="4" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="Login" Content="Login" FontSize="12" Click="Button_Click" />
-            <ui:Button Grid.Column="5" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="openleague1_Copy" Content="Name Change" FontSize="12"
-                       Click="openleague1_Copy_Click" />
+                       VerticalAlignment="Stretch" x:Name="Login" Content="Login" FontSize="12" Click="Button_Click" Grid.ColumnSpan="2"/>
+            <ui:Button Grid.Column="4" Grid.Row="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="Stealthlogin" Content="Stealth Login" FontSize="12"
+                       Click="Button_Click" Grid.ColumnSpan="2"/>
             <ui:Button Grid.Column="6" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
                        VerticalAlignment="Stretch" x:Name="SecondaryClient" Content="Second client" FontSize="10"
-                       Click="SecondaryClient_OnClick" />
-            <ui:TextBox Grid.Column="7" Grid.ColumnSpan="3" Name="champfilter"
+                       Click="SecondaryClient_OnClick" Grid.ColumnSpan="2"/>
+            <ui:Button Grid.Column="6" Grid.Row="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="DuplicateRemover" Content="Remove duplicates" FontSize="10"
+                       Click="DuplicateRemover_OnClick" Grid.ColumnSpan="2" />
+            <ui:Button Grid.Column="8" Grid.Row="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch" x:Name="openleague1_Copy" Content="Name Change" FontSize="12"
+                       Click="openleague1_Copy_Click" Grid.ColumnSpan="2"/>
+            <ui:TextBox Grid.Row="1" Grid.Column="8" Grid.ColumnSpan="3" Name="champfilter"
                         PlaceholderText="Champion, skin, loot or server name"
                         TextWrapping="NoWrap" VerticalAlignment="Center" Padding="6,1" FontSize="10"
                         TextChanged="TextBox_TextChanged" Margin="10,0,10,0" />
         </Grid>
 
-        <Grid Margin="0,36,0,0" Grid.ColumnSpan="2" />
+        <Grid Margin="0,66,0,0" />
         <Grid x:Name="Progressgrid" MaxWidth="400" MaxHeight="300" Margin="225,124,237,124" Visibility="Hidden"
               Grid.ColumnSpan="2">
             <Grid.Background>

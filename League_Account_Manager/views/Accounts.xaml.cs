@@ -18,8 +18,10 @@ using NLog;
 using Notification.Wpf;
 using Wpf.Ui.Controls;
 using Application = FlaUI.Core.Application;
+using Button = Wpf.Ui.Controls.Button;
 using DataGrid = System.Windows.Controls.DataGrid;
 using TextBlock = System.Windows.Controls.TextBlock;
+
 
 
 namespace League_Account_Manager.views;
@@ -29,6 +31,9 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Accounts : Page
 {
+    private OfflineLauncher offlineLauncher = new OfflineLauncher();
+    private DateTime _lastFileChange = DateTime.MinValue;
+    private readonly object _fileChangeLock = new();
     public static string? SelectedUsername;
     public static string? SelectedPassword;
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
@@ -57,12 +62,24 @@ public partial class Accounts : Page
 
     private async void OnChanged(object source, FileSystemEventArgs e)
     {
+        lock (_fileChangeLock)
+        {
+            // debounce spam events
+            if ((DateTime.Now - _lastFileChange).TotalMilliseconds < 500)
+                return;
+
+            _lastFileChange = DateTime.Now;
+        }
+
         await loaddata();
+
         Dispatcher.Invoke(() =>
         {
+            Championlist.Items.SortDescriptions.Clear();
             Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
         });
     }
+
 
     public async Task loaddata()
     {
@@ -87,15 +104,16 @@ public partial class Accounts : Page
                 Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
             });
 
-            // Update UI on the UI thread
             Dispatcher.Invoke(() =>
             {
                 Championlist.ItemsSource = null;
                 Championlist.ItemsSource = ActualAccountlists;
-                Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-                if(Misc.Settings.settingsloaded.DisplayPasswords == false)
-                Championlist.Columns[1].Visibility = Visibility.Hidden;
 
+                Championlist.Items.SortDescriptions.Clear();
+                Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+
+                if (Misc.Settings.settingsloaded.DisplayPasswords == false && Championlist.Columns.Count > 1)
+                    Championlist.Columns[1].Visibility = Visibility.Hidden;
             });
         }
         catch (Exception exception)
@@ -104,39 +122,47 @@ public partial class Accounts : Page
         }
     }
 
+
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var selectedrow = Championlist.SelectedItem as Utils.AccountList;
-            if (selectedrow != null)
+            if (selectedrow == null) return;
+
+            ActualAccountlists?.RemoveAll(r =>
+                r.username == selectedrow.username &&
+                r.password == selectedrow.password &&
+                r.server == selectedrow.server);
+
+            ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
+
+            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                       $"{Misc.Settings.settingsloaded.filename}.csv")))
+            using (var csv = new CsvWriter(writer, config))
             {
-                var itemToRemove = ActualAccountlists?.SingleOrDefault(r =>
-                    r.username == selectedrow.username && r.password == selectedrow.password &&
-                    r.server == selectedrow.server);
-                if (itemToRemove != null)
-                    ActualAccountlists?.Remove(itemToRemove);
-
-                ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
-
-                using (var writer =
-                       new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Misc.Settings.settingsloaded.filename +
-                                        ".csv"))
-                using (var csv = new CsvWriter(writer, config))
-                {
-                    csv.WriteRecords(ActualAccountlists);
-                }
+                csv.WriteRecords(ActualAccountlists);
             }
+
+            Championlist.ItemsSource = null;
+            Championlist.ItemsSource = ActualAccountlists;
+
+            Championlist.Items.SortDescriptions.Clear();
+            Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+
+            Championlist.Items.Refresh();
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            LogManager.GetCurrentClassLogger().Error(exception, "Error deleting account");
         }
     }
 
-    public async void ring()
+
+    public void ring()
     {
         running += 7;
+        if (running > 100) running = 100;
         edistyy.Progress = running;
     }
 
@@ -144,6 +170,9 @@ public partial class Accounts : Page
     {
         try
         {
+            running = 0;
+            edistyy.Progress = 0;
+
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0)
             {
@@ -154,129 +183,225 @@ public partial class Accounts : Page
                 return;
             }
 
-            if (SelectedUsername == null || SelectedPassword == null) new MissingInfo().ShowDialog();
+            if (SelectedUsername == null || SelectedPassword == null)
+            {
+                new MissingInfo().ShowDialog();
+                return;
+            }
 
             Progressgrid.Visibility = Visibility.Visible;
             ring();
 
             var summonerInfo = await GetSummonerInfoAsync();
+            if (summonerInfo == null)
+            {
+                Progressgrid.Visibility = Visibility.Hidden;
+                Notif.notificationManager.Show("Error", "Could not load summoner info (account banned or not logged in).",
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                return;
+            }
+
             ring();
+
+            var summonerId = summonerInfo["summonerId"]?.ToString();
+            if (string.IsNullOrEmpty(summonerId))
+            {
+                Progressgrid.Visibility = Visibility.Hidden;
+                Notif.notificationManager.Show("Error", "SummonerId missing (account banned or invalid response).",
+                    NotificationType.Notification,
+                    "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                    NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                return;
+            }
+
             var skinInfo = await GetSkinInfoAsync();
             ring();
-            var champInfo = await GetChampionInfoAsync((string)summonerInfo["summonerId"]);
+
+            var champInfo = await GetChampionInfoAsync(summonerId);
             ring();
+
             var lootInfo = await GetLootInfoAsync();
             ring();
+
             var rankedInfo = await GetRankedInfoAsync();
             ring();
+
             var wallet = await GetWalletAsync();
             ring();
+
             var region = await GetRegionAsync();
             ring();
+
+            if (wallet == null) wallet = new Utils.Wallet { be = 0, rp = 0 };
+            if (region == null) region = JObject.Parse("{\"region\":\"UNKNOWN\"}");
+
+            string BuildRankString(JToken? token, string queueName)
+            {
+                try
+                {
+                    if (token == null) return "Unranked";
+
+                    var tier = token["queueMap"]?[queueName]?["tier"]?.ToString();
+                    if (string.IsNullOrEmpty(tier))
+                        return "Unranked";
+
+                    var division = token["queueMap"]?[queueName]?["division"]?.ToString();
+                    var lp = token["queueMap"]?[queueName]?["leaguePoints"]?.ToString() ?? "0";
+                    var wins = token["queueMap"]?[queueName]?["wins"]?.ToString() ?? "0";
+                    var losses = token["queueMap"]?[queueName]?["losses"]?.ToString() ?? "0";
+
+                    // Master+ should not show division (NA)
+                    if (tier == "MASTER" || tier == "GRANDMASTER" || tier == "CHALLENGER")
+                        return $"{tier} {lp} LP, {wins} Wins, {losses} Losses";
+
+                    return $"{tier} {division} {lp} LP, {wins} Wins, {losses} Losses";
+                }
+                catch
+                {
+                    return "Unranked";
+                }
+            }
+
+            var Rank = BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
+            var Rank2 = BuildRankString(rankedInfo, "RANKED_FLEX_SR");
+
             var skinlist = "";
             var skincount = 0;
             var champlist = "";
             var champcount = 0;
             var Lootlist = "";
             var Lootcount = 0;
-            var Rank = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]?.ToString())
-                ? "Unranked"
-                : rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["tier"] + " " +
-                  rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["division"] + " " +
-                  rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["leaguePoints"] + " LP, " +
-                  rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["wins"] + " Wins, " +
-                  rankedInfo["queueMap"]["RANKED_SOLO_5x5"]["losses"] + " Losses";
-            var Rank2 = string.IsNullOrEmpty(rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"]?.ToString())
-                ? "Unranked"
-                : rankedInfo["queueMap"]["RANKED_FLEX_SR"]["tier"] + " " +
-                  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["division"] + " " +
-                  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["leaguePoints"] + " LP, " +
-                  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["wins"] + " Wins, " +
-                  rankedInfo["queueMap"]["RANKED_FLEX_SR"]["losses"] + " Losses";
 
-            foreach (var item in skinInfo)
-                if ((bool)item["owned"])
+            if (skinInfo != null)
+            {
+                foreach (var item in skinInfo)
                 {
-                    skinlist += ":" + item["name"];
-                    skincount++;
-                }
-
-            ring();
-            foreach (var item in champInfo)
-                if ((bool)item["ownership"]["owned"])
-                {
-                    champlist += ":" + item["name"];
-                    champcount++;
-                }
-
-            ring();
-            foreach (var item in lootInfo)
-            foreach (var thing in item)
-                if ((int)thing["count"] > 0)
-                {
-                    var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + thing["lootId"], "");
-                    var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    try
+                    if (item["owned"] != null && item["owned"]?.ToObject<bool>() == true)
                     {
-                        var Loot = JObject.Parse(responseBody);
-                        if (Loot["itemDesc"] != "")
-                            Lootlist += ":" + Loot["itemDesc"] + " x " + Loot["count"];
-                        else if (Loot["localizedName"] != "")
-                            Lootlist += ":" + Loot["localizedName"] + " x " + Loot["count"];
-                        else
-                            Lootlist += ":" + Loot["asset"] + " x " + Loot["count"];
+                        skinlist += ":" + item["name"];
+                        skincount++;
                     }
-                    catch (Exception ex)
-                    {
-                        // Handle exception
-                    }
-
-                    Lootcount++;
                 }
+            }
 
             ring();
-            var note = ActualAccountlists?.FindLast(x => x.username == SelectedUsername);
-            ActualAccountlists?.RemoveAll(x => x.username == SelectedUsername);
+
+            if (champInfo != null)
+            {
+                foreach (var item in champInfo)
+                {
+                    if (item["ownership"]?["owned"]?.ToObject<bool>() == true)
+                    {
+                        champlist += ":" + item["name"];
+                        champcount++;
+                    }
+                }
+            }
+
             ring();
+
+            if (lootInfo != null)
+            {
+                foreach (var item in lootInfo)
+                {
+                    foreach (var thing in item)
+                    {
+                        if (thing["count"] != null && thing["count"]?.ToObject<int>() > 0)
+                        {
+                            try
+                            {
+                                var lootId = thing["lootId"]?.ToString();
+                                if (string.IsNullOrEmpty(lootId))
+                                    continue;
+
+                                var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "");
+                                if (resp == null) continue;
+
+                                var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                                var Loot = JObject.Parse(responseBody);
+
+                                if (!string.IsNullOrEmpty(Loot["itemDesc"]?.ToString()))
+                                    Lootlist += ":" + Loot["itemDesc"] + " x " + Loot["count"];
+                                else if (!string.IsNullOrEmpty(Loot["localizedName"]?.ToString()))
+                                    Lootlist += ":" + Loot["localizedName"] + " x " + Loot["count"];
+                                else
+                                    Lootlist += ":" + Loot["asset"] + " x " + Loot["count"];
+
+                                Lootcount++;
+                            }
+                            catch
+                            {
+                                // ignore loot parse errors
+                            }
+                        }
+                    }
+                }
+            }
+
+            ring();
+
+            // Keep old note if exists
+            var note = ActualAccountlists?.FindLast(x =>
+                x.username == SelectedUsername &&
+                x.password == SelectedPassword);
+
+            // remove only exact duplicate entry (NOT all accounts with same username)
+            ActualAccountlists?.RemoveAll(x =>
+                x.username == SelectedUsername &&
+                x.password == SelectedPassword);
+
+            ring();
+
             ActualAccountlists?.Add(new Utils.AccountList
             {
                 username = SelectedUsername,
                 password = SelectedPassword,
                 riotID = summonerInfo["gameName"] + "#" + summonerInfo["tagLine"],
-                level = (int)summonerInfo["summonerLevel"],
-                server = (string)region["region"],
-                be = Convert.ToInt32(wallet.be),
-                rp = Convert.ToInt32(wallet.rp),
+                level = summonerInfo["summonerLevel"]?.ToObject<int>() ?? 0,
+                server = region["region"]?.ToString() ?? "UNKNOWN",
+                be = wallet.be,
+                rp = wallet.rp,
                 rank = Rank,
                 champions = champlist,
-                Champions = Convert.ToInt32(champcount),
+                Champions = champcount,
                 skins = skinlist,
-                Skins = Convert.ToInt32(skincount),
+                Skins = skincount,
                 Loot = Lootlist,
-                Loots = Convert.ToInt32(Lootcount),
+                Loots = Lootcount,
                 rank2 = Rank2,
                 note = note?.note
             });
+
             ring();
-            using (var writer =
-                   new StreamWriter(Directory.GetCurrentDirectory() + "\\" + Misc.Settings.settingsloaded.filename +
-                                    ".csv"))
+
+            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                       $"{Misc.Settings.settingsloaded.filename}.csv")))
             using (var csv2 = new CsvWriter(writer, config))
             {
                 csv2.WriteRecords(ActualAccountlists);
             }
 
             ring();
+
             Progressgrid.Visibility = Visibility.Hidden;
+
+            Championlist.ItemsSource = null;
             Championlist.ItemsSource = ActualAccountlists;
+
+            Championlist.Items.SortDescriptions.Clear();
             Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+
             Championlist.Items.Refresh();
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Progressgrid.Visibility = Visibility.Hidden;
+            LogManager.GetCurrentClassLogger().Error(exception, "Error pulling account data");
         }
     }
+
 
 
     private async Task<JObject?> GetSummonerInfoAsync()
@@ -313,36 +438,38 @@ public partial class Accounts : Page
 
     private async Task<JArray?> GetChampionInfoAsync(string summonerId)
     {
-        while (true)
+        for (int attempt = 0; attempt < 5; attempt++)
         {
-            var responseBody = "";
             try
             {
                 var resp = await Lcu.Connector("league", "get",
                     $"/lol-champions/v1/inventories/{summonerId}/champions-minimal", "");
+
                 if (resp == null) return null;
 
-                responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                // Sometimes returns an error JSON object instead of array
+                if (responseBody.TrimStart().StartsWith("{"))
+                {
+                    var token = JToken.Parse(responseBody);
+                    var errorCode = token["errorCode"]?.ToString();
+
+                    if (!string.IsNullOrEmpty(errorCode))
+                        return null;
+                }
+
                 return JArray.Parse(responseBody);
             }
-            catch (Exception)
+            catch
             {
-                if (!string.IsNullOrEmpty(responseBody))
-                    try
-                    {
-                        var jotain = JToken.Parse(responseBody);
-                        if (jotain["errorCode"]?.ToString() != "RPC_ERROR")
-                            Environment.Exit(1);
-                    }
-                    catch (JsonException)
-                    {
-                        /* Ignore invalid JSON */
-                    }
-
-                await Task.Delay(2000);
+                await Task.Delay(1500);
             }
         }
+
+        return null;
     }
+
 
     private async Task<JToken?> GetLootInfoAsync()
     {
@@ -438,9 +565,22 @@ public partial class Accounts : Page
 
             Utils.killleaguefunc();
             Process[] leagueProcess;
+            Process riotProcess;
             var num = 0;
-            var RiotClient = Process.Start(Misc.Settings.settingsloaded.riotPath,
-                "--launch-product=league_of_legends --launch-patchline=live");
+            var clickedButton = sender as Button;
+            if (clickedButton == null) return;
+
+            switch (clickedButton.Name)
+            {
+                case "Login":
+                    riotProcess = Process.Start(Misc.Settings.settingsloaded.riotPath, "--launch-product=league_of_legends --launch-patchline=live"); 
+                    break;
+
+                case "Stealthlogin":
+                    riotProcess = await offlineLauncher.LaunchRiotOrLeagueOfflineAsync();
+                    break;
+            }
+            
             var riotval = string.Empty;
             while (true)
             {
@@ -551,28 +691,39 @@ public partial class Accounts : Page
 
     private void Championlist_OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Delete)
+        if (e.Key != Key.Delete) return;
+
+        try
         {
             var selectedrow = Championlist.SelectedItem as Utils.AccountList;
-            if (selectedrow != null)
+            if (selectedrow == null) return;
+
+            ActualAccountlists?.RemoveAll(r =>
+                r.username == selectedrow.username &&
+                r.password == selectedrow.password &&
+                r.server == selectedrow.server);
+
+            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                       $"{Misc.Settings.settingsloaded.filename}.csv")))
+            using (var csv = new CsvWriter(writer, config))
             {
-                var itemToRemove = ActualAccountlists.FindAll(r =>
-                    r.username == selectedrow.username && r.password == selectedrow.password &&
-                    r.server == selectedrow.server);
-                if (itemToRemove != null)
-                    foreach (var VARIABLE in itemToRemove)
-                        ActualAccountlists.Remove(VARIABLE);
-
-
-                using (var writer = new StreamWriter(Directory.GetCurrentDirectory() + "\\" +
-                                                     Misc.Settings.settingsloaded.filename + ".csv"))
-                using (var csv = new CsvWriter(writer, config))
-                {
-                    csv.WriteRecords(ActualAccountlists);
-                }
+                csv.WriteRecords(ActualAccountlists);
             }
+
+            Championlist.ItemsSource = null;
+            Championlist.ItemsSource = ActualAccountlists;
+
+            Championlist.Items.SortDescriptions.Clear();
+            Championlist.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+
+            Championlist.Items.Refresh();
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error deleting account with delete key");
         }
     }
+
 
     public async Task<bool> CheckLeague()
     {
@@ -609,25 +760,38 @@ public partial class Accounts : Page
 
     private async void TextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (champfilter.Text != "")
+        try
         {
-            var filteredList = ActualAccountlists.Where(word =>
-                    word.champions.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    word.skins.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    word.Loot.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    word.server.IndexOf(champfilter.Text, StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
-            ;
-            Championlist.ItemsSource = filteredList;
-        }
-        else
-        {
-            Championlist.ItemsSource = ActualAccountlists;
-        }
+            if (!string.IsNullOrEmpty(champfilter.Text))
+            {
+                var search = champfilter.Text;
 
-        Championlist.UpdateLayout();
-        Championlist.Items.Refresh();
+                var filteredList = ActualAccountlists?
+                    .Where(word =>
+                        (word.champions ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (word.skins ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (word.Loot ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (word.server ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (word.riotID ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0
+                    )
+                    .ToList();
+
+                Championlist.ItemsSource = filteredList;
+            }
+            else
+            {
+                Championlist.ItemsSource = ActualAccountlists;
+            }
+
+            Championlist.UpdateLayout();
+            Championlist.Items.Refresh();
+        }
+        catch (Exception ex)
+        {
+            LogManager.GetCurrentClassLogger().Error(ex, "Error filtering accounts");
+        }
     }
+
 
     public async Task<List<Utils.AccountList>> LoadCSV(string filePath)
     {
@@ -635,69 +799,65 @@ public partial class Accounts : Page
 
         try
         {
-            FileStream? fileStream = null;
-            while (fileStream == null)
+            // Wait until file is not locked
+            while (true)
+            {
                 try
                 {
-                    fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
-                    fileStream.Close();
+                    using (File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None))
+                    {
+                        break;
+                    }
                 }
                 catch (IOException)
                 {
-                    // The file is in use by another process. Wait and try again.
-                    await Task.Delay(1000);
+                    await Task.Delay(300);
                 }
+            }
 
             using (var reader = new StreamReader(filePath))
+            using (var csv = new CsvReader(reader, config))
             {
-                var isFirstLine = true;
+                // If file is empty, return empty list
+                if (!csv.Read())
+                    return records;
 
-                while (!reader.EndOfStream)
+                // Read header if exists
+                csv.ReadHeader();
+
+                while (true)
                 {
-                    var line = reader.ReadLine();
-                    if (line == null) continue;
-
-                    if (isFirstLine)
+                    try
                     {
-                        isFirstLine = false;
-                        continue;
+                        if (!csv.Read())
+                            break;
+
+                        var record = new Utils.AccountList
+                        {
+                            username = csv.GetField(0) ?? "",
+                            password = csv.GetField(1) ?? "",
+                            riotID = csv.GetField(2) ?? "",
+                            level = TryParseInt(csv.GetField(3)),
+                            server = csv.GetField(4) ?? "",
+                            be = TryParseInt(csv.GetField(5)),
+                            rp = TryParseInt(csv.GetField(6)),
+                            rank = csv.GetField(7) ?? "",
+                            champions = csv.GetField(8) ?? "",
+                            skins = csv.GetField(9) ?? "",
+                            Champions = TryParseInt(csv.GetField(10)),
+                            Skins = TryParseInt(csv.GetField(11)),
+                            Loot = csv.GetField(12) ?? "",
+                            Loots = TryParseInt(csv.GetField(13)),
+                            rank2 = csv.GetField(14) ?? "",
+                            note = csv.GetField(15) ?? ""
+                        };
+
+                        records.Add(record);
                     }
-
-                    var values = line.Split(';');
-
-                    var record = new Utils.AccountList
+                    catch
                     {
-                        username = values.Length > 0 ? values[0] : "",
-                        password = values.Length > 1 ? values[1] : "",
-                        riotID = values.Length > 2 ? values[2] : "",
-                        level = values.Length > 3 && !string.IsNullOrEmpty(values[3])
-                            ? Convert.ToInt32(values[3].Replace("\"", "").Replace("\'", ""))
-                            : 0,
-                        server = values.Length > 4 ? values[4] : "",
-                        be = values.Length > 5 && !string.IsNullOrEmpty(values[5])
-                            ? Convert.ToInt32(values[5].Replace("\"", "").Replace("\'", ""))
-                            : 0,
-                        rp = values.Length > 6 && !string.IsNullOrEmpty(values[6])
-                            ? Convert.ToInt32(values[6].Replace("\"", "").Replace("\'", ""))
-                            : 0,
-                        rank = values.Length > 7 ? values[7] : "",
-                        rank2 = values.Length > 14 ? values[14] : "",
-                        champions = values.Length > 8 ? values[8] : "",
-                        skins = values.Length > 9 ? values[9] : "",
-                        Champions = values.Length > 10 && !string.IsNullOrEmpty(values[10])
-                            ? Convert.ToInt32(values[10].Replace("\"", "").Replace("\'", ""))
-                            : 0,
-                        Skins = values.Length > 11 && !string.IsNullOrEmpty(values[11])
-                            ? Convert.ToInt32(values[11].Replace("\"", "").Replace("\'", ""))
-                            : 0,
-                        Loot = values.Length > 12 ? values[12] : "",
-                        Loots = values.Length > 13 && !string.IsNullOrEmpty(values[13])
-                            ? Convert.ToInt32(values[13].Replace("\"", "").Replace("\'", ""))
-                            : 0,
-                        note = values.Length > 15 ? values[15] : ""
-                    };
-
-                    records.Add(record);
+                        // skip broken row
+                    }
                 }
             }
         }
@@ -708,11 +868,24 @@ public partial class Accounts : Page
                     NotificationType.Notification,
                     "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+
+            LogManager.GetCurrentClassLogger().Error(exception, "Error loading CSV");
         }
 
         return records;
     }
+
+
+    private int TryParseInt(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return 0;
+
+        value = value.Replace("\"", "").Replace("\'", "").Trim();
+
+        return int.TryParse(value, out var result) ? result : 0;
+    }
+
 
 
     private async void Championlist_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -843,4 +1016,22 @@ public partial class Accounts : Page
             }
         }
     }
+
+    private void DuplicateRemover_OnClick(object sender, RoutedEventArgs e)
+    {
+
+            if (ActualAccountlists == null) return;
+
+            ActualAccountlists = ActualAccountlists
+                .GroupBy(x => (x.username ?? "").Trim().ToLower() + "|" + (x.password ?? "").Trim())
+                .Select(g => g.First())
+                .ToList();
+            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
+                       $"{Misc.Settings.settingsloaded.filename}.csv")))
+            using (var csv = new CsvWriter(writer, config))
+            {
+                csv.WriteRecords(ActualAccountlists);
+            }
+        
+}
 }
