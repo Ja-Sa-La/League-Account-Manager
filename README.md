@@ -89,14 +89,6 @@ dotnet build League_Account_Manager/League_Account_Manager.csproj -c Release
 dotnet run --project League_Account_Manager/League_Account_Manager.csproj
 ```
 
-## Usage
-
-- Add or import accounts; data is stored locally in CSV
-- Use the tools to manage loot, champions, and friends directly via LCU
-- Change Riot ID and profile settings without opening the website
-- Optionally enable auto-accept for queue pops
-- Stealth login available for staying hidden
-
 ## Privacy & Safety
 
 - All account data stays on your machine (local CSV)
