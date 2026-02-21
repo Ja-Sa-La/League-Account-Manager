@@ -4,7 +4,7 @@ A WPF utility for managing League of Legends accounts from one place. It uses th
 
 ## Features
 
-- Store accounts locally (CSV) and log in with a click
+- Store accounts locally (CSV) (optionally you can encrypt the data with AES-GCM) and log in with a click
 - Save rank, level, champions, skins, loot, and notes per account
 - Search accounts by region, loot value, champions, and skins
 - Champion buyer (quick purchase flow)
