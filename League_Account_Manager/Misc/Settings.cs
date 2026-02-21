@@ -48,8 +48,9 @@ public class Settings
                 var json = JsonSerializer.Serialize(settingsloaded);
                 File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
             }
-            File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", JsonSerializer.Serialize(settingsloaded));
 
+            File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json",
+                JsonSerializer.Serialize(settingsloaded));
         }
         else
         {
@@ -175,7 +176,7 @@ public class Settings
 
         var resp = await Lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
         JObject responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-        if (startedclient == 1) Utils.killleaguefunc();
+        if (startedclient == 1) Utils.KillLeagueFunc();
 
         if (responseBody != null && responseBody.ContainsKey("path"))
             return responseBody["path"].ToString().Replace("/", "\\") + "\\LeagueClient.exe";

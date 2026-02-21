@@ -9,23 +9,23 @@
       Title="MiscTools">
 
     <Grid>
-        <ui:Button Click="Button_Click" ContentControl.Content="Nuke logs" FrameworkElement.Margin="10,10,0,0"
+        <ui:Button Click="NukeLogs_Click" ContentControl.Content="Nuke logs" FrameworkElement.Margin="10,10,0,0"
                    FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
         <ScrollViewer Margin="0,75,0,0" Height="674" VerticalAlignment="Top">
             <TextBox Name="success" Margin="0,0,0,0" Text="Deleted files/friends"
                      Foreground="White" FontSize="18" IsReadOnly="True" TextWrapping="WrapWithOverflow" />
         </ScrollViewer>
-        <ui:Button Click="Button_Click1" Content="Nuke friends" Margin="166,10,0,0"
+        <ui:Button Click="NukeFriends_Click" Content="Nuke friends" Margin="166,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="Button_Click2" Content="Get Friends" Margin="322,10,0,0"
+        <ui:Button Click="GetFriends_Click" Content="Get Friends" Margin="322,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="Button_Click_1" Content="Uninstall league" Margin="478,10,0,0"
+        <ui:Button Click="UninstallLeague_Click" Content="Uninstall league" Margin="478,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="Button_Click_2" Content="Disable Riot client autolaunch" Margin="634,10,0,0"
+        <ui:Button Click="DisableAutolaunch_Click" Content="Disable Riot client autolaunch" Margin="634,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="213" />
-        <ui:Button Click="Button_Click_3" Content="Get riot hwid" Margin="852,10,0,0"
+        <ui:Button Click="GetRiotHwid_Click" Content="Get riot hwid" Margin="852,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="Button_Click_4" Content="Restart LeagueClient UX" Margin="1008,10,0,0"
+        <ui:Button Click="RestartLeagueUx_Click" Content="Restart LeagueClient UX" Margin="1008,10,0,0"
                    VerticalAlignment="Top" Height="40" Width="179" />
 
     </Grid>

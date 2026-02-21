@@ -7,114 +7,165 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Accounts"
     mc:Ignorable="d"
     d:DesignHeight="749" d:DesignWidth="1216"
-    Title="Accounts" KeyUp="Championlist_OnKeyDown" KeyDown="Championlist_OnKeyDown" PreviewKeyDown="Accounts_OnPreviewKeyDown">
+    Title="Accounts" KeyUp="ChampionList_OnKeyDown" KeyDown="ChampionList_OnKeyDown"
+    PreviewKeyDown="Accounts_OnPreviewKeyDown"
+    ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
 
-    <Grid Margin="10,0,10,0">
-        <DataGrid x:Name="Championlist" SelectionUnit="FullRow"
-                  MouseLeftButtonDown="Championlist_MouseLeftButtonDown"
-                  IsReadOnly="True"
-                  HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
-                  SelectionMode="Single" Margin="0,61,0,0" HorizontalScrollBarVisibility="Disabled"
-                  Height="688" VerticalAlignment="Top">
-            <DataGrid.Columns>
-                <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
-                <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />
-                <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}" />
-                <DataGridTextColumn MinWidth="50" Header="Level" Binding="{Binding level}" />
-                <DataGridTextColumn MinWidth="50" Header="Server" Binding="{Binding server}" />
-                <DataGridTextColumn MinWidth="50" Header="BE" Binding="{Binding be}" />
-                <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}" />
-                <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}" />
-                <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}" />
-                <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}" />
-                <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}" />
-                <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}" />
-                <DataGridTextColumn MinWidth="50" Header="Notes">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="Open" />
+    <Grid Margin="0,0,10,10" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Padding="12" Background="#FF3A3A3A" CornerRadius="8" BorderBrush="#FF4C4C4C"
+                Margin="10,10,10,265" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel ItemHeight="40" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <StackPanel Orientation="Vertical" Width="260" Margin="0,0,0,6">
+                            <TextBlock Text="Account dashboard" FontSize="16" FontWeight="SemiBold" Foreground="White"
+                                       Width="260" />
+                            <TextBlock Text="Manage accounts, pull data, view champions and notes." FontSize="10"
+                                       Foreground="#CCFFFFFF" />
+                        </StackPanel>
+                        <ui:Button Margin="4" Padding="6,1" x:Name="killleague" Content="Kill client" FontSize="12"
+                                   Click="KillLeague_Click" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="openleague1" Content="Open League" FontSize="12"
+                                   Click="OpenLeague1_Click" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="PullData" Content="PullData" FontSize="12"
+                                   Click="PullData_Click" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="Delete" Content="Delete" FontSize="12"
+                                   Click="Delete_Click" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="Login" Content="Login" FontSize="12"
+                                   Click="Button_Click" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="Stealthlogin" Content="Stealth Login" FontSize="12"
+                                   Click="Button_Click" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="SecondaryClient" Content="Second client"
+                                   FontSize="10"
+                                   Click="SecondaryClient_OnClick" Width="140" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="DuplicateRemover" Content="Remove duplicates"
+                                   FontSize="10"
+                                   Click="DuplicateRemover_OnClick" Width="130" />
+                        <ui:Button Margin="4" Padding="6,1" x:Name="openleague1_Copy" Content="Name Change"
+                                   FontSize="12"
+                                   Click="OpenLeague1_Copy_Click" Width="130" />
+                    </WrapPanel>
+                    <ui:TextBox x:Name="FilterTextBox" Margin="680,50,62,0"
+                                PlaceholderText="Champion, skin, loot or server name"
+                                TextWrapping="NoWrap" Padding="8,6" FontSize="12"
+                                TextChanged="TextBox_TextChanged" VerticalAlignment="Top" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid Height="605" Margin="10,124,10,0" Width="1186" VerticalAlignment="Top" Grid.RowSpan="2">
+            <Border Background="#FF2F2F2F" CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+                <DataGrid x:Name="AccountsDataGrid" SelectionUnit="FullRow"
+                          MouseLeftButtonDown="ChampionList_MouseLeftButtonDown"
+                          Sorting="AccountsDataGrid_Sorting"
+                          IsReadOnly="True"
+                          HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
+                          SelectionMode="Single" Background="#FF202020" BorderBrush="#FF4C4C4C" Margin="0"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
+                        <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />
+                        <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}" />
+                        <DataGridTextColumn MinWidth="50" Header="Level" Binding="{Binding level}" />
+                        <DataGridTextColumn MinWidth="50" Header="Server" Binding="{Binding server}" />
+                        <DataGridTextColumn MinWidth="50" Header="BE" Binding="{Binding be}" />
+                        <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}" />
+                        <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}" />
+                        <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}" />
+                        <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}" />
+                        <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}" />
+                        <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}" />
+                        <DataGridTextColumn MinWidth="50" Header="Notes">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Open" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+
+                    <DataGrid.Resources>
+                        <Style TargetType="{x:Type DataGridCell}">
+                            <Style.Triggers>
+                                <Trigger Property="DataGridCell.IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#FF313131" />
+                                    <Setter Property="BorderBrush" Value="#FF313131" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </Trigger>
+                            </Style.Triggers>
                         </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-            </DataGrid.Columns>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextWrapping" Value="WrapWithOverflow" />
+                        </Style>
 
-            <DataGrid.Resources>
-                <Style TargetType="{x:Type DataGridCell}">
-                    <Style.Triggers>
-                        <Trigger Property="DataGridCell.IsSelected" Value="True">
-                            <Setter Property="Background" Value="#FF313131" />
-                            <Setter Property="BorderBrush" Value="#FF313131" />
-                            <Setter Property="Foreground" Value="White" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-                <Style TargetType="TextBlock">
-                    <Setter Property="TextWrapping" Value="WrapWithOverflow" />
-                </Style>
-
-            </DataGrid.Resources>
-
-        </DataGrid>
-        <Grid HorizontalAlignment="Center"
-              VerticalAlignment="Top" Margin="0,4,0,0" Width="1176">
-            <Grid.RowDefinitions>
-                <RowDefinition></RowDefinition>
-                <RowDefinition></RowDefinition>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-                <ColumnDefinition />
-            </Grid.ColumnDefinitions>
-
-            <ui:Button Grid.Column="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="killleague" Content="Kill client" FontSize="12"
-                       Click="killleague_Click" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Row="1" Grid.Column="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="openleague1" Content="Open League" FontSize="12"
-                       Click="openleague1_Click" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Column="2" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="PullData" Content="PullData" FontSize="12"
-                       Click="PullData_Click" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Column="2" Grid.Row="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="Delete" Content="Delete" FontSize="12" Click="Delete_Click" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Column="4" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="Login" Content="Login" FontSize="12" Click="Button_Click" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Column="4" Grid.Row="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="Stealthlogin" Content="Stealth Login" FontSize="12"
-                       Click="Button_Click" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Column="6" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="SecondaryClient" Content="Second client" FontSize="10"
-                       Click="SecondaryClient_OnClick" Grid.ColumnSpan="2"/>
-            <ui:Button Grid.Column="6" Grid.Row="1" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="DuplicateRemover" Content="Remove duplicates" FontSize="10"
-                       Click="DuplicateRemover_OnClick" Grid.ColumnSpan="2" />
-            <ui:Button Grid.Column="8" Grid.Row="0" Margin="5" Padding="6,1" HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" x:Name="openleague1_Copy" Content="Name Change" FontSize="12"
-                       Click="openleague1_Copy_Click" Grid.ColumnSpan="2"/>
-            <ui:TextBox Grid.Row="1" Grid.Column="8" Grid.ColumnSpan="3" Name="champfilter"
-                        PlaceholderText="Champion, skin, loot or server name"
-                        TextWrapping="NoWrap" VerticalAlignment="Center" Padding="6,1" FontSize="10"
-                        TextChanged="TextBox_TextChanged" Margin="10,0,10,0" />
+                    </DataGrid.Resources>
+                </DataGrid>
+            </Border>
         </Grid>
 
-        <Grid Margin="0,66,0,0" />
         <Grid x:Name="Progressgrid" MaxWidth="400" MaxHeight="300" Margin="225,124,237,124" Visibility="Hidden"
               Grid.ColumnSpan="2">
             <Grid.Background>
                 <SolidColorBrush Color="#FF1D1D1D" Opacity="0.8" />
             </Grid.Background>
-            <Label Content="Loading Summoner info" HorizontalAlignment="Center" Margin="0,36,0,0"
-                   VerticalAlignment="Top" FontSize="24" FontFamily="Arial Black" />
-            <ui:ProgressRing x:Name="edistyy" HorizontalAlignment="Center" Margin="0,101,0,0" VerticalAlignment="Top" />
+            <Label Content="Loading Summoner info" HorizontalAlignment="Center" Margin="0,12,0,0"
+                   VerticalAlignment="Top" FontSize="20" FontFamily="Arial Black" />
+
+            <!-- Spinning circular indicator -->
+            <Grid HorizontalAlignment="Center" Margin="0,48,0,0" VerticalAlignment="Top">
+                <Canvas Width="64" Height="64">
+                    <Ellipse Width="56" Height="56" Stroke="#FF4CAF50" StrokeThickness="6" StrokeDashArray="2 3"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform x:Name="SpinnerRotate" Angle="0" />
+                        </Ellipse.RenderTransform>
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="SpinnerRotate"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:1" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                </Canvas>
+            </Grid>
+
+            <!-- Task list below spinner -->
+            <Border Margin="12,124,12,12" Background="#00111111" CornerRadius="4">
+                <!-- Show full task list without scroll -->
+                <ListBox x:Name="TaskListBox" Background="Transparent" Foreground="White" BorderThickness="0"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled" Padding="4" FontSize="12">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Height" Value="20" />
+                            <Setter Property="Padding" Value="1,0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                            <Setter Property="FontSize" Value="9" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </Border>
         </Grid>
 
 

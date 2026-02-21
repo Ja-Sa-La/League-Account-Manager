@@ -14,6 +14,8 @@ public partial class Autolobby : Page
 
     private readonly List<IconData> listChamps = new();
     private readonly ConcurrentDictionary<string, ToggleTaskInfo> toggles = new();
+    private string _lastQueuePhase = string.Empty;
+    private string _lastTimerPhase = string.Empty;
 
     private Chat champSelect;
     private JObject champselectaction;
@@ -32,15 +34,29 @@ public partial class Autolobby : Page
         Task.Run(LoadBuyableData);
     }
 
-    // =====================================================
-    // TOGGLE SYSTEM
-    // =====================================================
-
-    private class ToggleTaskInfo
+    private void Log(string message)
     {
-        public bool Running { get; set; }
-        public Task Task { get; set; }
-        public CancellationTokenSource Cts { get; set; }
+        var formatted = $"[Autolobby] {message}";
+        DebugConsole.WriteLine(formatted);
+        _logger.Info(message);
+    }
+
+    private void LogResponse(string name, string body, int maxConsoleLength = 800)
+    {
+        if (string.IsNullOrEmpty(body))
+        {
+            Log($"{name}: <empty>");
+            return;
+        }
+
+        // Write full payload to debug log
+        _logger.Debug($"{name}: {body}");
+
+        // Trim console/info output to keep readability
+        if (body.Length > maxConsoleLength)
+            Log($"{name} (truncated {maxConsoleLength}/{body.Length} chars): {body[..maxConsoleLength]}...");
+        else
+            Log($"{name}: {body}");
     }
 
     private bool AnyFeatureEnabled()
@@ -66,6 +82,7 @@ public partial class Autolobby : Page
             };
 
             button.Content = $"Disable {taskName}";
+            Log($"Enabled {taskName}");
             return;
         }
 
@@ -76,6 +93,7 @@ public partial class Autolobby : Page
             info.Running = false;
             info.Cts.Cancel();
             button.Content = $"Enable {taskName}";
+            Log($"Disabled {taskName}");
         }
         else
         {
@@ -90,6 +108,7 @@ public partial class Autolobby : Page
             };
 
             button.Content = $"Disable {taskName}";
+            Log($"Enabled {taskName}");
         }
     }
 
@@ -103,6 +122,7 @@ public partial class Autolobby : Page
         {
             var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
             var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            LogResponse("Summoner info", responseBody);
 
             var summonerdata = JObject.Parse(responseBody);
 
@@ -110,19 +130,19 @@ public partial class Autolobby : Page
                 $"/lol-champions/v1/inventories/{(string)summonerdata["summonerId"]}/champions-minimal", "");
 
             responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            LogResponse("Champion inventory", responseBody);
 
             var champList = JArray.Parse(responseBody);
+            Log($"Loaded {champList.Count} champions from inventory.");
 
             listChamps.Clear();
 
             foreach (var champ in champList)
-            {
                 listChamps.Add(new IconData
                 {
                     Name = champ["name"]?.ToString(),
                     ID = champ["id"]?.ToString()
                 });
-            }
 
             await Dispatcher.InvokeAsync(() =>
             {
@@ -161,14 +181,16 @@ public partial class Autolobby : Page
                     if (phase == "ChampSelect" || phase == "ReadyCheck")
                     {
                         var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
-                        champselectJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+                        var sessionBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        LogResponse("Champ select session", sessionBody);
+                        champselectJObject = JObject.Parse(sessionBody);
+                        Log("Fetched champ select session.");
 
                         champselectaction = null;
                         ChampselectTeamJObject = null;
 
                         if (champselectJObject.TryGetValue("actions", out var actionsToken) &&
                             actionsToken is JArray actionsArray)
-                        {
                             foreach (var actionGroup in actionsArray)
                             {
                                 if (actionGroup is not JArray innerArray)
@@ -184,6 +206,13 @@ public partial class Autolobby : Page
                                     var localCellId = champselectJObject["localPlayerCellId"]?.ToString();
                                     var timerPhase = champselectJObject["timer"]?["phase"]?.ToString();
 
+                                    if (!string.IsNullOrEmpty(timerPhase) && !string.Equals(timerPhase, _lastTimerPhase,
+                                            StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        _lastTimerPhase = timerPhase;
+                                        Log($"Champ Select timer phase changed: {_lastTimerPhase}");
+                                    }
+
                                     if (isInProgress &&
                                         actorCellId == localCellId &&
                                         timerPhase != "PLANNING")
@@ -196,7 +225,6 @@ public partial class Autolobby : Page
                                 if (champselectaction != null)
                                     break;
                             }
-                        }
 
                         if (champselectJObject.TryGetValue("myTeam", out var myTeamToken) &&
                             myTeamToken is JArray myTeamArray)
@@ -235,7 +263,8 @@ public partial class Autolobby : Page
                 _logger.Error(ex, "Error in BackgroundDataFunction1");
             }
 
-            await Task.Delay(500);
+            // Faster polling to avoid missing champ select state changes
+            await Task.Delay(2000);
         }
     }
 
@@ -248,7 +277,17 @@ public partial class Autolobby : Page
                 if (AnyFeatureEnabled())
                 {
                     var resp = await Lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
-                    queueJObject = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+                    var queueBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    LogResponse("Gameflow session", queueBody);
+                    queueJObject = JObject.Parse(queueBody);
+
+                    var phase = queueJObject?["phase"]?.ToString();
+                    if (!string.IsNullOrEmpty(phase) &&
+                        !string.Equals(phase, _lastQueuePhase, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _lastQueuePhase = phase;
+                        Log($"Queue phase changed: {_lastQueuePhase}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -297,9 +336,7 @@ public partial class Autolobby : Page
                 if (queueJObject != null &&
                     queueJObject.TryGetValue("phase", out var phaseToken) &&
                     phaseToken.ToString() == "ReadyCheck")
-                {
                     await Lcu.Connector("league", "post", "/lol-matchmaking/v1/ready-check/accept", "");
-                }
             }
             catch (Exception ex)
             {
@@ -321,16 +358,15 @@ public partial class Autolobby : Page
             try
             {
                 if (champselectaction != null &&
-                    champselectaction["type"]?.ToString() == "pick")
+                    champselectaction["type"]?.ToString() == "pick" &&
+                    !(champselectaction["completed"]?.Value<bool>() ?? false))
                 {
                     var champId = await getpickchampid();
 
                     if (!string.IsNullOrEmpty(champId))
-                    {
                         await Lcu.Connector("league", "patch",
                             "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
                             "{\"completed\":true,\"championId\":" + champId + "}");
-                    }
                 }
             }
             catch (Exception ex)
@@ -338,7 +374,7 @@ public partial class Autolobby : Page
                 _logger.Error(ex, "Error in AutoPick");
             }
 
-            await Task.Delay(300, ct);
+            await Task.Delay(1000, ct);
         }
     }
 
@@ -350,11 +386,21 @@ public partial class Autolobby : Page
                 return "";
 
             var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/pickable-champion-ids", "");
-            var pickableArray = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            LogResponse("Pickable champions", body);
+
+            var pickableToken = JToken.Parse(body);
+            var pickableArray = pickableToken as JArray;
+            if (pickableArray == null)
+            {
+                Log("Pickable champions response was not an array; skipping pick.");
+                return "";
+            }
 
             var pickableIds = pickableArray.Values<int>().ToHashSet();
+            Log($"Pickable champions count: {pickableIds.Count}");
 
-            string position = ChampselectTeamJObject["assignedPosition"]?.ToString()?.ToUpper() ?? "";
+            var position = ChampselectTeamJObject["assignedPosition"]?.ToString()?.ToUpper() ?? "";
 
             var positions = new List<string> { position, "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY" };
 
@@ -372,7 +418,7 @@ public partial class Autolobby : Page
 
             foreach (var pos in positions)
             {
-                string champName = pos switch
+                var champName = pos switch
                 {
                     "TOP" => top,
                     "JUNGLE" => jungle,
@@ -402,6 +448,7 @@ public partial class Autolobby : Page
                 if (myBans.Contains(champIdInt) || theirBans.Contains(champIdInt))
                     continue;
 
+                Log($"Auto-pick selecting {champ.Name} (ID {champIdInt})");
                 return champ.ID;
             }
 
@@ -410,6 +457,7 @@ public partial class Autolobby : Page
         catch (Exception ex)
         {
             _logger.Error(ex, "Error in getpickchampid");
+            Log("Error while resolving auto-pick champion; see log for details.");
             return "";
         }
     }
@@ -425,18 +473,17 @@ public partial class Autolobby : Page
             try
             {
                 if (champselectaction != null &&
-                    champselectaction["type"]?.ToString() == "ban")
+                    champselectaction["type"]?.ToString() == "ban" &&
+                    !(champselectaction["completed"]?.Value<bool>() ?? false))
                 {
                     await Task.Delay(1000, ct);
 
                     var champId = await getbanchampid();
 
                     if (!string.IsNullOrEmpty(champId))
-                    {
                         await Lcu.Connector("league", "patch",
                             "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
                             "{\"completed\":true,\"championId\":" + champId + "}");
-                    }
                 }
             }
             catch (Exception ex)
@@ -456,9 +503,19 @@ public partial class Autolobby : Page
                 return "";
 
             var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/bannable-champion-ids", "");
-            var bannableArray = JArray.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            LogResponse("Bannable champions", body);
+
+            var bannableToken = JToken.Parse(body);
+            var bannableArray = bannableToken as JArray;
+            if (bannableArray == null)
+            {
+                Log("Bannable champions response was not an array; skipping ban.");
+                return "";
+            }
 
             var bannableIds = bannableArray.Values<int>().ToHashSet();
+            Log($"Bannable champions count: {bannableIds.Count}");
 
             string ban1 = "", ban2 = "", ban3 = "";
 
@@ -493,6 +550,7 @@ public partial class Autolobby : Page
                 if (myBans.Contains(champIdInt) || theirBans.Contains(champIdInt))
                     continue;
 
+                Log($"Auto-ban selecting {champ.Name} (ID {champIdInt})");
                 return champ.ID;
             }
 
@@ -501,6 +559,7 @@ public partial class Autolobby : Page
         catch (Exception ex)
         {
             _logger.Error(ex, "Error in getbanchampid");
+            Log("Error while resolving auto-ban champion; see log for details.");
             return "";
         }
     }
@@ -519,7 +578,7 @@ public partial class Autolobby : Page
                 {
                     await Task.Delay(1000, ct);
 
-                    string msg = "";
+                    var msg = "";
                     await Dispatcher.InvokeAsync(() => msg = MessageContainer.Text);
 
                     if (!string.IsNullOrWhiteSpace(msg))
@@ -580,6 +639,17 @@ public partial class Autolobby : Page
         {
             _logger.Error(ex, "Error sending message");
         }
+    }
+
+    // =====================================================
+    // TOGGLE SYSTEM
+    // =====================================================
+
+    private class ToggleTaskInfo
+    {
+        public bool Running { get; set; }
+        public Task Task { get; set; }
+        public CancellationTokenSource Cts { get; set; }
     }
 
     // =====================================================
