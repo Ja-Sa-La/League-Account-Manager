@@ -17,7 +17,7 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class ChampionBuyer : Page
 {
-    private readonly List<Champs> Buyable = new();
+    private readonly List<ChampionEntry> _buyableChampions = new();
 
     public ChampionBuyer()
     {
@@ -25,15 +25,15 @@ public partial class ChampionBuyer : Page
         LoadBuyableData();
     }
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void BuySelectedChampions_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var totalcost = 0;
             var count = 1;
-            var championsbought = " Bought champions \n";
-            var championsfailed = "Failed to Buy \n";
-            foreach (Champs champ in buyableChampsList.SelectedItems)
+            var championsBoughtLog = " Bought champions \n";
+            var championsFailedLog = "Failed to Buy \n";
+            foreach (ChampionEntry champ in BuyableChampionsList.SelectedItems)
             {
                 var id = champ.ID;
                 var price = champ.Price;
@@ -53,26 +53,26 @@ public partial class ChampionBuyer : Page
                 try
                 {
                     totalcost += Convert.ToInt32(val2["items"][0]["purchaseCurrencyInfo"]["price"].ToString());
-                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/" +
-                                            buyableChampsList.SelectedItems.Count + " Total BE used: " +
-                                            totalcost;
-                    championsbought = championsbought + champ.Name + "\n";
-                    success.Text = championsbought;
+                    StatusMessageLabel.Content = "Bought: " + champ.Name + "! progress: " + count + "/" +
+                                                 BuyableChampionsList.SelectedItems.Count + " Total BE used: " +
+                                                 totalcost;
+                    championsBoughtLog = championsBoughtLog + champ.Name + "\n";
+                    BuyLog.Text = championsBoughtLog;
                 }
                 catch (Exception value)
                 {
-                    statusmessage.Content = "Bought: " + champ.Name + "! progress: " + count + "/" +
-                                            buyableChampsList.SelectedItems.Count + " Total BE used: " +
-                                            totalcost;
-                    championsfailed = championsfailed + champ.Name + " " + val2["message"] + "\n";
-                    success.Text = championsfailed;
+                    StatusMessageLabel.Content = "Bought: " + champ.Name + "! progress: " + count + "/" +
+                                                 BuyableChampionsList.SelectedItems.Count + " Total BE used: " +
+                                                 totalcost;
+                    championsFailedLog = championsFailedLog + champ.Name + " " + val2["message"] + "\n";
+                    BuyLog.Text = championsFailedLog;
                 }
 
                 Thread.Sleep(500);
                 count++;
             }
 
-            statusmessage.Content = "All champions bought! Total BE used: " + totalcost;
+            StatusMessageLabel.Content = "All champions bought! Total BE used: " + totalcost;
             LoadBuyableData();
         }
         catch (Exception exception)
@@ -87,7 +87,7 @@ public partial class ChampionBuyer : Page
         {
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0) return;
-            Buyable.Clear();
+            _buyableChampions.Clear();
             var responseBody = await Lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "");
             string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
             responseBody = await Lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "");
@@ -115,17 +115,18 @@ public partial class ChampionBuyer : Page
             {
                 var champObject = champ as JObject;
                 if (!champObject.ContainsKey("ownedQuantity"))
-                    Buyable.Add(new Champs
+                    _buyableChampions.Add(new ChampionEntry
                     {
                         ID = Convert.ToInt32(champ["itemId"]),
                         Price = Convert.ToInt32(champ["ip"]),
                         Name = champ["name"].ToString(),
-                        namelist = champ["name"] + " " + champ["ip"]
+                        DisplayName = champ["name"] + " " + champ["ip"],
+                        IconUrl = $"https://cdn.communitydragon.org/latest/champion/{champ["itemId"]}/square"
                     });
             }
 
-            buyableChampsList.ItemsSource = Buyable;
-            buyableChampsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
+            BuyableChampionsList.ItemsSource = _buyableChampions;
+            BuyableChampionsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
             client.Dispose();
         }
         catch (Exception exception)
@@ -134,11 +135,20 @@ public partial class ChampionBuyer : Page
         }
     }
 
-    private class Champs
+    private class ChampionEntry
     {
         public int ID { get; set; }
         public int Price { get; set; }
         public string Name { get; set; }
-        public string namelist { get; set; }
+        public string DisplayName { get; set; }
+
+        public string IconUrl { get; set; }
+
+        // keep legacy property name for bindings
+        public string namelist
+        {
+            get => DisplayName;
+            set => DisplayName = value;
+        }
     }
 }

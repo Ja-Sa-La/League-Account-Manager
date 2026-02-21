@@ -31,12 +31,12 @@ public partial class ChangeName : Window
     }
 
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void ChangeName_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var name = Nameholder.Text;
-            var tag = Tagline.Text;
+            var name = NameTextBox.Text;
+            var tag = TaglineTextBox.Text;
             HttpResponseMessage resp = null;
             JObject body = null;
             Process.Start(Settings.settingsloaded.riotPath);
@@ -55,13 +55,13 @@ public partial class ChangeName : Window
 
             if ((bool)body["isSuccess"])
             {
-                errormessage.Content = "Namechange was succesful!";
-                errormessage.Visibility = Visibility.Visible;
+                ErrorMessageLabel.Content = "Namechange was succesful!";
+                ErrorMessageLabel.Visibility = Visibility.Visible;
             }
             else
             {
-                errormessage.Content = $"{body["errorCode"]} {body["errorMessage"]}";
-                errormessage.Visibility = Visibility.Visible;
+                ErrorMessageLabel.Content = $"{body["errorCode"]} {body["errorMessage"]}";
+                ErrorMessageLabel.Visibility = Visibility.Visible;
             }
         }
         catch (Exception exception)
@@ -75,12 +75,12 @@ public partial class ChangeName : Window
         }
     }
 
-    private async void Button_Click_2(object sender, RoutedEventArgs e)
+    private async void CheckNameValidity_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var name = Nameholder.Text;
-            var tag = Tagline.Text;
+            var name = NameTextBox.Text;
+            var tag = TaglineTextBox.Text;
             HttpResponseMessage resp = null;
             JObject body = null;
             Process.Start(Settings.settingsloaded.riotPath);
@@ -99,13 +99,13 @@ public partial class ChangeName : Window
 
             if ((bool)body["isValid"])
             {
-                errormessage.Content = "Namechange name is valid";
-                errormessage.Visibility = Visibility.Visible;
+                ErrorMessageLabel.Content = "Namechange name is valid";
+                ErrorMessageLabel.Visibility = Visibility.Visible;
             }
             else
             {
-                errormessage.Content = $"{body["invalidReason"]}";
-                errormessage.Visibility = Visibility.Visible;
+                ErrorMessageLabel.Content = $"{body["invalidReason"]}";
+                ErrorMessageLabel.Visibility = Visibility.Visible;
             }
         }
         catch (Exception exception)

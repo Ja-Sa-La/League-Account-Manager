@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
+using System.Windows.Media.Imaging;
 using League_Account_Manager.Misc;
 using Newtonsoft.Json.Linq;
 using NLog;
@@ -83,27 +84,25 @@ public partial class ProfileEditor : Page
         return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void DisableChat_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var responseBody2 = await ExecuteCommand("riot", "post", "/chat/v1/suspend", "{\"config\":\"disable\"}");
-            Console.WriteLine(responseBody2);
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
     }
 
-    private async void Button_Click_1(object sender, RoutedEventArgs e)
+    private async void EnableChat_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var responseBody2 = await ExecuteCommand("riot", "post", "/chat/v1/resume", "");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -111,12 +110,12 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void Button_Click_2(object sender, RoutedEventArgs e)
+    private async void GetChatSettings_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             var responseBody2 = await ExecuteCommand("riot", "get", "/chat/v2/session/state", "");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -134,7 +133,7 @@ public partial class ProfileEditor : Page
             responseBody2 = await ExecuteCommand("riot", "patch", "/chat/v1/settings",
                 "{\"chat-status-message\": \"" +
                 StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ") + "\"}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -148,7 +147,7 @@ public partial class ProfileEditor : Page
         {
             var responseBody2 =
                 await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"online\"}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -162,7 +161,7 @@ public partial class ProfileEditor : Page
         {
             var responseBody2 =
                 await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"offline\"}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -176,7 +175,7 @@ public partial class ProfileEditor : Page
         {
             var responseBody2 =
                 await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"mobile\"}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -195,7 +194,7 @@ public partial class ProfileEditor : Page
             var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me",
                 "{\"lol\":{\"rankedLeagueQueue\":\"" + selectedQueue + "\",\"rankedLeagueTier\":\"" + selectedRank +
                 "\",\"rankedLeagueDivision\":\"" + selectedTier + "\"}}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -208,7 +207,7 @@ public partial class ProfileEditor : Page
         try
         {
             var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me", "{\"availability\":\"away\"}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -220,12 +219,12 @@ public partial class ProfileEditor : Page
     {
         try
         {
-            var responseBody2 = await ExecuteCommand("league", "put", "/lol-summoner/v1/current-summoner/icon",
+            var responseBody2 = await ExecuteCommand("league", "put", "/lol-summoner/v1/current-summoner/icon/",
                 "{\"profileIconId\": " + SelectedIcon.ID + "}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
             responseBody2 =
                 await ExecuteCommand("league", "put", "/lol-chat/v1/me/", "{\"icon\": " + SelectedIcon.ID + "}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -240,7 +239,7 @@ public partial class ProfileEditor : Page
             var responseBody2 = await ExecuteCommand("league", "post",
                 "/lol-summoner/v1/current-summoner/summoner-profile/",
                 "{\"key\": \"backgroundSkinId\",\"value\": " + SelectedSkin.ID + "}");
-            //Console.Writeline(responseBody2);
+            DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)
         {
@@ -282,7 +281,11 @@ public partial class ProfileEditor : Page
 
                 foreach (var item in tmp)
                     list.Add(new IconData
-                        { Name = item["localizations"]["en_US"]["name"].ToString(), ID = item["itemId"].ToString() });
+                    {
+                        Name = item["localizations"]["en_US"]["name"].ToString(),
+                        ID = item["itemId"].ToString(),
+                        IconUrl = $"https://cdn.communitydragon.org/latest/profile-icon/{item["itemId"]}"
+                    });
 
                 Dispatcher.Invoke(() =>
                 {
@@ -316,8 +319,20 @@ public partial class ProfileEditor : Page
                 {
                     if (item["subInventoryType"].ToString() == "RECOLOR")
                         continue;
+
+                    var champReq = item["itemRequirements"]
+                        ?.FirstOrDefault(r => r["inventoryType"]?.ToString() == "CHAMPION");
+                    var champId = champReq != null ? champReq["itemId"]?.Value<int>() ?? 0 : 0;
+                    var skinItemId = item["itemId"].Value<int>();
+                    var skinShortId = skinItemId % 100;
                     listSkins.Add(new IconData
-                        { Name = item["localizations"]["en_US"]["name"].ToString(), ID = item["itemId"].ToString() });
+                    {
+                        Name = item["localizations"]["en_US"]["name"].ToString(),
+                        ID = skinItemId.ToString(),
+                        IconUrl = champId > 0
+                            ? $"https://cdn.communitydragon.org/latest/champion/{champId}/tile/skin/{skinShortId}"
+                            : null
+                    });
                 }
 
                 Dispatcher.Invoke(() =>
@@ -339,6 +354,12 @@ public partial class ProfileEditor : Page
     private void IconList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
         SelectedIcon = args.SelectedItem as IconData;
+        if (SelectedIcon != null)
+        {
+            IconList.Text = SelectedIcon.Name;
+            if (!string.IsNullOrWhiteSpace(SelectedIcon.IconUrl))
+                IconPreview.Source = new BitmapImage(new Uri(SelectedIcon.IconUrl));
+        }
     }
 
 
@@ -354,6 +375,12 @@ public partial class ProfileEditor : Page
     private void SkinList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
         SelectedSkin = args.SelectedItem as IconData;
+        if (SelectedSkin != null)
+        {
+            SkinList.Text = SelectedSkin.Name;
+            if (!string.IsNullOrWhiteSpace(SelectedSkin.IconUrl))
+                SkinPreview.Source = new BitmapImage(new Uri(SelectedSkin.IconUrl));
+        }
     }
 
 
@@ -373,5 +400,11 @@ public partial class ProfileEditor : Page
     {
         public string Name { get; set; }
         public string ID { get; set; }
+        public string IconUrl { get; set; }
+
+        public override string ToString()
+        {
+            return Name;
+        }
     }
 }

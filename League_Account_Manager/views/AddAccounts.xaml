@@ -8,15 +8,68 @@
     d:DesignHeight="749" d:DesignWidth="1216"
     Title="AddAccounts">
 
-    <Grid>
-        <ui:TextBox x:Name="Username" HorizontalAlignment="Left" Margin="23,79,0,0" Text="" MinWidth="300"
-                    VerticalAlignment="Top" Width="300" MaxLines="1" />
-        <ui:PasswordBox x:Name="Password" HorizontalAlignment="Left" Margin="23,168,0,0" Text="" MinWidth="300"
-                        VerticalAlignment="Top" MaxLines="1" Width="300" />
-        <Label Content="Password" HorizontalAlignment="Left" Margin="23,143,0,0" VerticalAlignment="Top" />
-        <Label Content="Username" HorizontalAlignment="Left" Margin="23,54,0,0" VerticalAlignment="Top" />
-        <Button Content="Add Account" Margin="23,225,0,0" VerticalAlignment="Top" Click="Button_Click" />
-        <ui:Button Content="Bulk add accounts" Margin="422,72,0,0" VerticalAlignment="Top" Height="144" Width="250"
-                   FontSize="20" Click="Button_Click_1" />
+    <Grid Background="Transparent" Margin="0,0,10,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.ColumnSpan="2" Padding="12" Background="#FF3A3A3A" CornerRadius="8" BorderBrush="#FF4C4C4C"
+                BorderThickness="1">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Add accounts" FontSize="20" FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Margin="12,0,0,0" Text="Add single accounts or import multiple at once."
+                           Foreground="#CCFFFFFF" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="0" Margin="0,12,8,0" Padding="12" Background="#FF2F2F2F"
+                CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Single account" FontSize="18" FontWeight="SemiBold" Foreground="White" />
+                <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                    <Label Content="Username" Foreground="White" />
+                    <ui:TextBox x:Name="Username" MinWidth="300" Width="300" MaxLines="1" />
+                </StackPanel>
+                <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                    <Label Content="Password" Foreground="White" />
+                    <ui:PasswordBox x:Name="Password" MinWidth="300" Width="300" MaxLines="1" />
+                </StackPanel>
+                <ui:Button Grid.Row="3" Margin="0,16,0,0" Content="Add account" Height="40" Width="160"
+                           Click="Button_Click" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="1" Margin="8,12,0,0" Padding="12" Background="#FF2F2F2F"
+                CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Bulk import" FontSize="18" FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Grid.Row="1" Text="Paste accounts (username:password) one per line." Foreground="#CCFFFFFF"
+                           Margin="0,6,0,8" TextWrapping="Wrap" />
+                <ui:TextBox Grid.Row="2" x:Name="BulkInput" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="140"
+                            VerticalScrollBarVisibility="Auto"
+                            Background="#FF1E1E1E" Foreground="White" />
+                <ui:Button Grid.Row="3" Margin="0,12,0,0" Content="Add all" Height="48" Width="200" FontSize="16"
+                           Click="Button_Click_1" />
+            </Grid>
+        </Border>
+
     </Grid>
 </Page>

@@ -19,7 +19,7 @@ public partial class ChampionSelect : Page
     }
 
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void PullTeamInfo_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -30,7 +30,7 @@ public partial class ChampionSelect : Page
             foreach (var player in players["myTeam"])
             {
                 var playerText = FindName($"Player{i + 1}") as TextBox;
-                playerText.Text = await pullrankedinfo(player["puuid"], i);
+                playerText.Text = await PullRankedInfo(player["puuid"], i);
                 i++;
             }
         }
@@ -41,7 +41,7 @@ public partial class ChampionSelect : Page
         }
     }
 
-    private async Task<string> pullrankedinfo(dynamic puuid, int I)
+    private async Task<string> PullRankedInfo(dynamic puuid, int I)
     {
         try
         {
@@ -76,7 +76,7 @@ public partial class ChampionSelect : Page
         return "Error loading data";
     }
 
-    private async Task<dynamic> pullrankedinfo2(dynamic puuid, int I)
+    private async Task<dynamic> PullRankedInfo2(dynamic puuid, int I)
     {
         try
         {
@@ -131,7 +131,7 @@ public partial class ChampionSelect : Page
                 {
                     var win = game["participants"][0]["stats"]["win"];
                     if (Convert.ToBoolean(win)) tmp.Wins++;
-                    else if (Convert.ToBoolean(win) == false) tmp.Losses++;
+                    else if (!Convert.ToBoolean(win)) tmp.Losses++;
 
                     try
                     {
@@ -192,7 +192,7 @@ public partial class ChampionSelect : Page
         }
     }
 
-    private async void Button_Click_6(object sender, RoutedEventArgs e)
+    private async void OpenMultiOpGg_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -209,7 +209,7 @@ public partial class ChampionSelect : Page
 
             foreach (var player in players["myTeam"])
             {
-                var playerTex = await pullrankedinfo2(player["puuid"], i);
+                var playerTex = await PullRankedInfo2(player["puuid"], i);
                 i++;
                 url += $"{playerTex["gameName"]}%23{playerTex["tagLine"]},";
             }
@@ -236,7 +236,7 @@ public partial class ChampionSelect : Page
 
             foreach (var player in players["myTeam"])
             {
-                var playerText = await pullrankedinfo2(player["puuid"], i);
+                var playerText = await PullRankedInfo2(player["puuid"], i);
                 i++;
                 url += $"{playerText["gameName"]} -{playerText["tagLine"]},";
             }

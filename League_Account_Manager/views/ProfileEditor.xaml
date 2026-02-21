@@ -9,11 +9,14 @@
       Title="ProfileEditor" Loaded="Page8_OnLoaded" Unloaded="Page8_OnUnloaded">
 
     <Grid>
-        <ui:Button Content="Disable Chat" Margin="10,15,0,0" Click="Button_Click" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Disable Chat" Margin="10,15,0,0" Click="DisableChat_Click" VerticalAlignment="Top"
+                   Height="77"
                    Width="168" />
-        <ui:Button Content="Enable Chat" Margin="10,102,0,0" Click="Button_Click_1" VerticalAlignment="Top" Height="78"
+        <ui:Button Content="Enable Chat" Margin="10,102,0,0" Click="EnableChat_Click" VerticalAlignment="Top"
+                   Height="78"
                    Width="168" />
-        <ui:Button Content="Get Chat settings" Margin="1011,15,0,0" Click="Button_Click_2" VerticalAlignment="Top"
+        <ui:Button Content="Get Chat settings" Margin="1011,15,0,0" Click="GetChatSettings_Click"
+                   VerticalAlignment="Top"
                    Height="77" Width="169" Visibility="Hidden" />
         <ui:Button Content="Set Chat Statusmessage" Margin="185,15,0,0" Click="Status" VerticalAlignment="Top"
                    Height="77" Width="311" />
@@ -34,26 +37,56 @@
         <ui:AutoSuggestBox IsEnabled="False" PlaceholderText="Loading!" MaxWidth="250" Margin="504,102,0,0"
                            Name="IconList" VerticalAlignment="Top" Width="245"
                            SuggestionChosen="IconList_OnSuggestionChosen" GotFocus="IconList_OnGotFocus"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" />
+                           HorizontalAlignment="Left">
+            <ui:AutoSuggestBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel LastChildFill="True">
+                        <Border Width="28" Height="28" CornerRadius="4" ClipToBounds="True" DockPanel.Dock="Left">
+                            <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
+                        </Border>
+                        <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </DockPanel>
+                </DataTemplate>
+            </ui:AutoSuggestBox.ItemTemplate>
+        </ui:AutoSuggestBox>
+        <Border Margin="504,143,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Width="245" Height="245"
+                BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6">
+            <Image x:Name="IconPreview" Stretch="UniformToFill" />
+        </Border>
         <ui:Button Content="set Background" Click="SetSkin" VerticalAlignment="Top" Height="77" Width="250"
                    Margin="756,15,0,0" />
         <ui:AutoSuggestBox IsEnabled="False" PlaceholderText="Loading!" MaxWidth="250" x:Name="SkinList"
                            VerticalAlignment="Top" SuggestionChosen="SkinList_OnSuggestionChosen"
-                           GotFocus="IconList_OnGotFocus" DisplayMemberPath="Name" Margin="761,102,0,0"
-                           HorizontalAlignment="Left" Width="245" />
-        <ui:Button Content="set Rank" Margin="501,146,0,0" Click="SetRank" VerticalAlignment="Top" Height="77"
+                           GotFocus="IconList_OnGotFocus" Margin="761,102,0,0"
+                           HorizontalAlignment="Left" Width="245">
+            <ui:AutoSuggestBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel LastChildFill="True">
+                        <Border Width="44" Height="28" CornerRadius="4" ClipToBounds="True" DockPanel.Dock="Left">
+                            <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
+                        </Border>
+                        <TextBlock Text="{Binding Name}" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </DockPanel>
+                </DataTemplate>
+            </ui:AutoSuggestBox.ItemTemplate>
+        </ui:AutoSuggestBox>
+        <Border Margin="761,143,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Width="245" Height="173"
+                BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6">
+            <Image x:Name="SkinPreview" Stretch="UniformToFill" />
+        </Border>
+        <ui:Button Content="set Rank" Margin="761,414,0,0" Click="SetRank" VerticalAlignment="Top" Height="76"
                    Width="250" />
-        <ComboBox Margin="504,252,0,0" ItemsSource="{Binding QueueList}" Name="Mode" VerticalAlignment="Top"
+        <ComboBox Margin="506,417,0,0" ItemsSource="{Binding QueueList}" Name="Mode" VerticalAlignment="Top"
                   HorizontalAlignment="Left" MinWidth="247" />
-        <ComboBox Margin="504,323,0,0" ItemsSource="{Binding RankList}" Name="Rank" VerticalAlignment="Top"
+        <ComboBox Margin="506,488,0,0" ItemsSource="{Binding RankList}" Name="Rank" VerticalAlignment="Top"
                   HorizontalAlignment="Left" MinWidth="247" />
-        <ComboBox Margin="504,389,0,0" ItemsSource="{Binding TierList}" Name="Division" HorizontalAlignment="Left"
+        <ComboBox Margin="506,560,0,0" ItemsSource="{Binding TierList}" Name="Division" HorizontalAlignment="Left"
                   MinWidth="247" VerticalAlignment="Top" />
-        <Label Content="Queue" HorizontalAlignment="Left" Margin="504,228,0,0" VerticalAlignment="Top" Height="24"
+        <Label Content="Queue" HorizontalAlignment="Left" Margin="506,393,0,0" VerticalAlignment="Top" Height="24"
                Width="245" />
-        <Label Content="Rank" HorizontalAlignment="Left" Margin="504,294,0,0" VerticalAlignment="Top" Height="24"
+        <Label Content="Rank" HorizontalAlignment="Left" Margin="506,459,0,0" VerticalAlignment="Top" Height="24"
                Width="245" />
-        <Label Content="Division" HorizontalAlignment="Left" Margin="504,365,0,0" VerticalAlignment="Top" Height="24"
+        <Label Content="Division" HorizontalAlignment="Left" Margin="506,530,0,0" VerticalAlignment="Top" Height="24"
                Width="245" />
 
 

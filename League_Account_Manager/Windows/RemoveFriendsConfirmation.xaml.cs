@@ -15,13 +15,13 @@ public partial class RemoveFriendsConfirmation : Window
 
     private void Button_Click(object sender, RoutedEventArgs e)
     {
-        MiscTools.yayornay = 1;
+        MiscTools.RemoveFriendsChoice = 1;
         Close();
     }
 
     private void Button_Click1(object sender, RoutedEventArgs e)
     {
-        MiscTools.yayornay = 2;
+        MiscTools.RemoveFriendsChoice = 2;
         Close();
     }
 }

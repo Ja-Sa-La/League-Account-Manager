@@ -8,20 +8,60 @@
       d:DesignHeight="749" d:DesignWidth="1216"
       Title="ReportTool">
 
-    <Grid>
-        <ui:Button Click="Button_Click" ContentControl.Content="Get reportable players"
-                   FrameworkElement.Margin="20,10,0,0"
-                   FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" Width="209" />
-        <DataGrid Margin="20,55,20,20" Name="Reportable" Width="auto" AutoGenerateColumns="False"
-                  SelectionMode="Single" CanUserResizeColumns="False"
-                  CanUserReorderColumns="False" CanUserResizeRows="False"
-                  CanUserDeleteRows="False" CanUserAddRows="False" HorizontalContentAlignment="Center"
-                  VerticalContentAlignment="Center">
-            <DataGrid.Columns>
-                <DataGridCheckBoxColumn Binding="{Binding report}" Header="Select for reporting" Width="auto">
-                    <DataGridCheckBoxColumn.CellStyle>
+    <Grid Margin="10" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Padding="12" Background="#FF3A3A3A" CornerRadius="8" BorderBrush="#FF4C4C4C"
+                BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Text="Report tool" FontSize="20" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock Text="Fetch reportable players and submit reports." Foreground="#CCFFFFFF" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:Button Content="Get reportable players" Click="LoadReportablePlayers_Click" Height="40"
+                               Margin="4,0,0,0" />
+                    <ui:Button Content="Select all" Click="ToggleSelectAll_Click" Height="40" Margin="4,0,0,0" />
+                    <ui:Button Content="Report selected" Click="sendReports" Height="40" Margin="4,0,0,0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Background="#FF2F2F2F" CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1"
+                Padding="10" Margin="0,8,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="Status" Text="Ready to load accounts" FontSize="14" Foreground="White"
+                           Margin="4,0,0,6" />
+                <DataGrid Grid.Row="1" Name="Reportable" AutoGenerateColumns="False"
+                          SelectionMode="Single" CanUserResizeColumns="False"
+                          CanUserReorderColumns="False" CanUserResizeRows="False"
+                          CanUserDeleteRows="False" CanUserAddRows="False" HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Center" Background="#FF202020" BorderBrush="#FF4C4C4C"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Binding="{Binding report}" Header="Select" Width="60" />
+                        <DataGridTextColumn Binding="{Binding riotID}" Header="Username" Width="*" />
+                        <DataGridTextColumn Binding="{Binding reported}" Header="Reported" Width="100" />
+                        <DataGridTextColumn Binding="{Binding summonerId}" Header="SummonerID" Width="150" />
+                        <DataGridTextColumn Binding="{Binding gameId}" Header="GameID" Width="150" />
+                        <DataGridTextColumn Binding="{Binding puuId}" Header="puuID" Width="*" />
+                    </DataGrid.Columns>
+                    <DataGrid.CellStyle>
                         <Style TargetType="DataGridCell">
-                            <Setter Property="Padding" Value="20" />
+                            <Setter Property="Padding" Value="10" />
+                            <Setter Property="Foreground" Value="White" />
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="{x:Type DataGridCell}">
@@ -35,52 +75,16 @@
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
-                            <Setter Property="Foreground" Value="White" />
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#00000000" />
-                                    <Setter Property="BorderBrush" Value="#00000000" />
+                                    <Setter Property="Background" Value="#FF313131" />
+                                    <Setter Property="BorderBrush" Value="#FF313131" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
-                    </DataGridCheckBoxColumn.CellStyle>
-                </DataGridCheckBoxColumn>
-                <DataGridTextColumn Binding="{Binding riotID}" Header="Username" Width="*" />
-                <DataGridTextColumn Binding="{Binding reported}" Header="Reported" Width="0.25*" />
-                <DataGridTextColumn Binding="{Binding summonerId}" Header="SummonerID" Width="0.75*" />
-                <DataGridTextColumn Binding="{Binding gameId}" Header="GameID" Width="0.75*" />
-                <DataGridTextColumn Binding="{Binding puuId}" Header="puuID" Width="*" />
-
-            </DataGrid.Columns>
-            <DataGrid.CellStyle>
-                <Style TargetType="DataGridCell">
-                    <Setter Property="Padding" Value="20" />
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="{x:Type DataGridCell}">
-                                <Border Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                                    <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
-                                </Border>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                    <Setter Property="Foreground" Value="White" />
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="{x:Null}" />
-                            <Setter Property="BorderBrush" Value="{x:Null}" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </DataGrid.CellStyle>
-        </DataGrid>
-        <Label Content="Ready to load accounts" Name="Status" FontSize="20" HorizontalAlignment="Left"
-               Margin="234,14,0,0" VerticalAlignment="Top" Height="32" Width="687" />
-        <ui:Button Content="Select all" Margin="926,14,0,0" VerticalAlignment="Top" Width="127" Click="Button_Click_1" />
-        <ui:Button Content="Report selected" Margin="1058,14,0,0" VerticalAlignment="Top" Width="127"
-                   Click="sendReports" />
-
+                    </DataGrid.CellStyle>
+                </DataGrid>
+            </Grid>
+        </Border>
     </Grid>
 </Page>

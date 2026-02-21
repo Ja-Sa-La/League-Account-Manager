@@ -31,7 +31,7 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.DisplayPasswords = true;
         else
             Misc.Settings.settingsloaded.DisplayPasswords = false;
-        if(AutoUpdateRanks.IsChecked != false)
+        if (AutoUpdateRanks.IsChecked != false)
             Misc.Settings.settingsloaded.UpdateRanks = true;
         else
             Misc.Settings.settingsloaded.UpdateRanks = false;
@@ -40,5 +40,4 @@ public partial class Settings : Page
         Process.Start(Process.GetCurrentProcess().MainModule.FileName);
         Application.Current.Shutdown();
     }
-
 }

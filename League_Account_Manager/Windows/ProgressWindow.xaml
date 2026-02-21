@@ -10,8 +10,8 @@
         ResizeMode="NoResize">
     <Border CornerRadius="6" Background="#DD333333" Padding="10">
         <StackPanel>
-            <TextBlock x:Name="StatusText" Foreground="White" FontWeight="Bold"/>
-            <ProgressBar x:Name="ProgressBar" Height="20" Minimum="0"/>
+            <TextBlock x:Name="StatusText" Foreground="White" FontWeight="Bold" />
+            <ProgressBar x:Name="ProgressBar" Height="20" Minimum="0" />
         </StackPanel>
     </Border>
 </Window>

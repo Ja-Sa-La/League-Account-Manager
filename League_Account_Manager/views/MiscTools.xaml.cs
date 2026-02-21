@@ -18,7 +18,8 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class MiscTools : Page
 {
-    public static int yayornay = new();
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    public static int RemoveFriendsChoice = new();
 
     private readonly string[] list =
     {
@@ -51,21 +52,21 @@ public partial class MiscTools : Page
         InitializeComponent();
     }
 
-    private void Button_Click(object sender, RoutedEventArgs e)
+    private void NukeLogs_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var championsbought = "Files \n";
-            Utils.killleaguefunc();
-            DeleteFilesAndFolders(list, championsbought);
+            var deletionLog = "Files \n";
+            Utils.KillLeagueFunc();
+            DeleteFilesAndFolders(list, deletionLog);
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed while cleaning logs");
         }
     }
 
-    public void DeleteFilesAndFolders(string[] paths, string championsbought)
+    public void DeleteFilesAndFolders(string[] paths, string deletionLog)
     {
         try
         {
@@ -76,45 +77,45 @@ public partial class MiscTools : Page
                     if (File.Exists(path))
                     {
                         File.Delete(path);
-                        championsbought = championsbought + "Deleted Item: " + path + "\n";
+                        deletionLog = deletionLog + "Deleted Item: " + path + "\n";
                     }
                     else if (Directory.Exists(path))
                     {
                         Directory.Delete(path, true);
-                        championsbought = championsbought + "Deleted Item: " + path + "\n";
+                        deletionLog = deletionLog + "Deleted Item: " + path + "\n";
                     }
                     else
                     {
-                        championsbought = championsbought + "Failed to delete item or item does not exist: " + path +
-                                          "\n";
+                        deletionLog = deletionLog + "Failed to delete item or item does not exist: " + path +
+                                      "\n";
                     }
                 }
                 catch (Exception e)
                 {
-                    championsbought = championsbought + "Failed to delete item or item does not exist: " + path +
-                                      " , make sure that LAM is running as admin\n";
+                    deletionLog = deletionLog + "Failed to delete item or item does not exist: " + path +
+                                  " , make sure that LAM is running as admin\n";
                 }
 
-                success.Text = championsbought;
+                success.Text = deletionLog;
             }
 
-            championsbought = championsbought + "LOGS HAVE BEEN CLEANED!!!";
-            success.Text = championsbought;
+            deletionLog = deletionLog + "LOGS HAVE BEEN CLEANED!!!";
+            success.Text = deletionLog;
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed deleting items during log cleanup");
         }
     }
 
-    private async void Button_Click1(object sender, RoutedEventArgs e)
+    private async void NukeFriends_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             new RemoveFriendsConfirmation().ShowDialog();
-            if (yayornay == 1)
+            if (RemoveFriendsChoice == 1)
             {
-                var championsbought = "Friends \n";
+                var deletionLog = "Friends \n";
                 var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
                 if (resp.ToString() == "0")
                 {
@@ -125,23 +126,22 @@ public partial class MiscTools : Page
 
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var rankedinfo = JArray.Parse(responseBody2);
-                //Console.Writeline(rankedinfo);
-                foreach (var VARIABLE in rankedinfo)
+                foreach (var friend in rankedinfo)
                 {
-                    resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + VARIABLE["id"], "");
-                    championsbought = championsbought + "Deleted Friend: " + VARIABLE["gameName"] + "\n";
-                    success.Text = championsbought;
+                    resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + friend["id"], "");
+                    deletionLog = deletionLog + "Deleted Friend: " + friend["gameName"] + "\n";
+                    success.Text = deletionLog;
                     Thread.Sleep(400);
                 }
             }
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to load friend list for deletion");
         }
     }
 
-    private async void Button_Click2(object sender, RoutedEventArgs e)
+    private async void GetFriends_Click(object sender, RoutedEventArgs e)
     {
         var friendlist = "";
         var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
@@ -154,42 +154,41 @@ public partial class MiscTools : Page
 
         var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
         JArray rankedinfo = JArray.Parse(responseBody2);
-        //Console.Writeline(rankedinfo);
-        foreach (var VARIABLE in rankedinfo)
+        foreach (var friend in rankedinfo)
             try
             {
                 var resp2 = await Connector("league", "get",
-                    "/lol-match-history/v1/products/lol/" + VARIABLE["puuid"] +
+                    "/lol-match-history/v1/products/lol/" + friend["puuid"] +
                     "/matches?begIndex=0&endIndex=0", "");
                 var Game = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var rankedinfo2 = JObject.Parse(Game);
                 if (rankedinfo2["games"]["gameCount"] == 0)
                 {
-                    friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " ,RiotID: " +
-                                 VARIABLE["gameName"] + "#" + VARIABLE["gameTag"] + " ,LastPlayed: " +
+                    friendlist = friendlist + "Friend name: " + friend["name"] + " ,RiotID: " +
+                                 friend["gameName"] + "#" + friend["gameTag"] + " ,LastPlayed: " +
                                  "Inactive account" + "\n";
                     success.Text = friendlist;
                 }
                 else
                 {
                     var date = (long)rankedinfo2["games"]["games"][0]["gameCreation"] / 1000;
-                    friendlist = friendlist + "Friend name: " + VARIABLE["name"] + " ,RiotID: " +
-                                 VARIABLE["gameName"] + "#" + VARIABLE["gameTag"] + " ,LastPlayed: " +
+                    friendlist = friendlist + "Friend name: " + friend["name"] + " ,RiotID: " +
+                                 friend["gameName"] + "#" + friend["gameTag"] + " ,LastPlayed: " +
                                  DateTimeOffset.FromUnixTimeSeconds(date).ToString("dd/MM/yyyy") + "\n";
                     success.Text = friendlist;
                 }
             }
             catch (Exception exception)
             {
-                LogManager.GetCurrentClassLogger().Error(exception, "Error");
+                Logger.Error(exception, "Failed to fetch last played info for friend {FriendName}", friend?["name"]);
             }
     }
 
-    private void Button_Click_1(object sender, RoutedEventArgs e)
+    private void UninstallLeague_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            Utils.killleaguefunc();
+            Utils.KillLeagueFunc();
             var installPath = (string)Registry.GetValue(
                 @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
                 "UninstallString", null);
@@ -207,15 +206,14 @@ public partial class MiscTools : Page
                 var arguments = installPath.Substring(match.Length).Trim();
                 Process.Start(pathInQuotes, arguments);
             }
-            //Console.Writeline("No match found.");
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to launch client from registry path");
         }
     }
 
-    private async void Button_Click_2(object sender, RoutedEventArgs e)
+    private async void DisableAutolaunch_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -223,11 +221,11 @@ public partial class MiscTools : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to disable auto launch");
         }
     }
 
-    private async void Button_Click_3(object sender, RoutedEventArgs e)
+    private async void GetRiotHwid_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -237,11 +235,11 @@ public partial class MiscTools : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to retrieve Riot HWID");
         }
     }
 
-    private async void Button_Click_4(object sender, RoutedEventArgs e)
+    private async void RestartLeagueUx_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -251,7 +249,7 @@ public partial class MiscTools : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to restart Riot UX");
         }
     }
 }

@@ -15,6 +15,7 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class ReportTool : Page
 {
+    private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly ObservableCollection<PlayersData> plaList = new();
     private bool selected;
 
@@ -24,16 +25,17 @@ public partial class ReportTool : Page
         Reportable.ItemsSource = plaList;
     }
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void LoadReportablePlayers_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             plaList.Clear();
+            _logger.Info("Loading reportable players for current summoner");
             await Task.Run(async () =>
             {
                 var resp = await Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Console.WriteLine(responseBody2);
+                _logger.Debug("Current summoner info: {Response}", responseBody2);
                 var summonerinfo = JObject.Parse(responseBody2);
 
                 var resp2 = await Connector("league", "get",
@@ -46,7 +48,7 @@ public partial class ReportTool : Page
                 var i = 0;
                 Dispatcher.Invoke(() =>
                 {
-                    Status.Content = $"pulling data from {rankedinfo2["games"]["games"].Count()} games";
+                    Status.Text = $"pulling data from {rankedinfo2["games"]["games"].Count()} games";
                 });
 
                 foreach (JObject jToken in rankedinfo2["games"]["games"])
@@ -76,20 +78,20 @@ public partial class ReportTool : Page
 
                     Dispatcher.Invoke(() =>
                     {
-                        Status.Content = $"{++i} / {rankedinfo2["games"]["games"].Count()} games parsed";
+                        Status.Text = $"{++i} / {rankedinfo2["games"]["games"].Count()} games parsed";
                     });
                 }
             });
-            Status.Content = $"Total {plaList.Count()} players available to report";
-            ////Console.Writeline(rankedinfo2);
+            _logger.Info("Loaded {Count} potential report targets", plaList.Count);
+            Status.Text = $"Total {plaList.Count()} players available to report";
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error");
+            _logger.Error(exception, "Failed to load reportable players");
         }
     }
 
-    private void Button_Click_1(object sender, RoutedEventArgs e)
+    private void ToggleSelectAll_Click(object sender, RoutedEventArgs e)
     {
         if (selected)
         {
@@ -115,7 +117,7 @@ public partial class ReportTool : Page
         {
             var totalreport = plaList.Count(item => item.report);
             var currentReports = 0;
-            Status.Content = $"{currentReports} / {totalreport} reports created";
+            Status.Text = $"{currentReports} / {totalreport} reports created";
             var tmp = plaList;
             Task.Run(async () =>
             {
@@ -133,13 +135,16 @@ public partial class ReportTool : Page
                                 "/lol-player-report-sender/v1/match-history-reports", reportstring);
 
                             var responseBody3 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                            //Console.Writeline(responseBody3);
+                            _logger.Debug("Report response for {GameId}/{SummonerId}: {Response}", item.gameId,
+                                item.summonerId, responseBody3);
 
                             if (resp.StatusCode == HttpStatusCode.TooManyRequests)
                             {
+                                _logger.Warn("Rate limited while sending reports. Processed {Processed} of {Total}",
+                                    currentReports, totalreport);
                                 Dispatcher.Invoke(() =>
                                 {
-                                    Status.Content =
+                                    Status.Text =
                                         $"Currently rate limited waiting! {currentReports} / {totalreport} reports created";
                                 });
                                 Thread.Sleep(50000);
@@ -158,7 +163,9 @@ public partial class ReportTool : Page
                                     .ForEach(thing => thing.reported = "yes");
                                 Reportable.ItemsSource = null;
                                 Reportable.ItemsSource = plaList;
-                                Status.Content = $"{++currentReports} / {totalreport} reports created";
+                                Status.Text = $"{++currentReports} / {totalreport} reports created";
+                                _logger.Info("Report submitted for {GameId}/{SummonerId} ({Current}/{Total})",
+                                    item.gameId, item.summonerId, currentReports, totalreport);
                             });
 
                         Thread.Sleep(1000);
@@ -167,7 +174,7 @@ public partial class ReportTool : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            _logger.Error(exception, "Failed while queuing report submissions");
         }
     }
 
@@ -184,8 +191,7 @@ public partial class ReportTool : Page
             }
             catch (Exception ex)
             {
-                // Log or handle the exception as needed
-                // Increment the retry count
+                _logger.Warn(ex, "Retry {Retry} of {MaxRetries} failed", currentRetry + 1, maxRetries);
                 currentRetry++;
                 // You might want to introduce a delay between retries
                 // e.g., await Task.Delay(TimeSpan.FromSeconds(1));

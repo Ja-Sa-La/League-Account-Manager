@@ -12,20 +12,21 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class DisEnchanter : Page
 {
-    private int champs;
+    private const string GenericIcon = "https://cdn.communitydragon.org/latest/champion/generic/square";
+    private bool champsSelected;
 
-    public List<LootChamps> LootChampsList = new();
-    public List<LootChamps> LootSkinsList = new();
-    private int skins;
+    public List<LootItem> LootChampsList = new();
+    public List<LootItem> LootSkinsList = new();
+    private bool skinsSelected;
 
     public DisEnchanter()
     {
         InitializeComponent();
-        UpdateShit();
+        UpdateLootAsync();
     }
 
 
-    private async void UpdateShit()
+    private async void UpdateLootAsync()
     {
         try
         {
@@ -38,33 +39,33 @@ public partial class DisEnchanter : Page
             foreach (var jtoken in responseBody)
             foreach (var thing in jtoken)
             {
-                Console.WriteLine(thing);
+                DebugConsole.WriteLine(thing.ToString());
                 if (thing["disenchantLootName"].ToString() == "CURRENCY_champion")
-                    LootChampsList.Add(new LootChamps
+                {
+                    var tilePath = thing["tilePath"]?.ToString();
+                    LootChampsList.Add(new LootItem
                     {
-                        name = thing["itemDesc"] + " x " + thing["count"] + " " + thing["disenchantValue"] + " BE",
-                        id = thing["lootId"].ToString(), count = Convert.ToInt32(thing["count"]),
-                        price = Convert.ToInt32(thing["count"]), value = Convert.ToInt32(thing["disenchantValue"]),
-                        disenchantRecipeName = thing["disenchantRecipeName"].ToString()
+                        Name = thing["itemDesc"] + " x " + thing["count"],
+                        Id = thing["lootId"].ToString(), Count = Convert.ToInt32(thing["count"]),
+                        Price = Convert.ToInt32(thing["count"]), Value = Convert.ToInt32(thing["disenchantValue"]),
+                        DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                        IconUrl = BuildTileIconUrl(tilePath)
                     });
+                }
                 else if (thing["disenchantLootName"].ToString() == "CURRENCY_cosmetic")
-                    if (thing["itemDesc"].ToString() != "")
-                        LootSkinsList.Add(new LootChamps
-                        {
-                            name = thing["itemDesc"] + " x " + thing["count"] + " " + thing["disenchantValue"] + " OE",
-                            id = thing["lootId"].ToString(), count = Convert.ToInt32(thing["count"]),
-                            price = Convert.ToInt32(thing["count"]), value = Convert.ToInt32(thing["disenchantValue"]),
-                            disenchantRecipeName = thing["disenchantRecipeName"].ToString()
-                        });
-                    else
-                        LootSkinsList.Add(new LootChamps
-                        {
-                            name = thing["localizedName"] + " x " + thing["count"] + " " + thing["disenchantValue"] +
-                                   " OE",
-                            id = thing["lootId"].ToString(), count = Convert.ToInt32(thing["count"]),
-                            price = Convert.ToInt32(thing["count"]), value = Convert.ToInt32(thing["disenchantValue"]),
-                            disenchantRecipeName = thing["disenchantRecipeName"].ToString()
-                        });
+                {
+                    var skinName = thing["itemDesc"].ToString();
+                    if (string.IsNullOrWhiteSpace(skinName)) skinName = thing["localizedName"].ToString();
+                    var tilePath = thing["tilePath"]?.ToString();
+                    LootSkinsList.Add(new LootItem
+                    {
+                        Name = skinName + " x " + thing["count"],
+                        Id = thing["lootId"].ToString(), Count = Convert.ToInt32(thing["count"]),
+                        Price = Convert.ToInt32(thing["count"]), Value = Convert.ToInt32(thing["disenchantValue"]),
+                        DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                        IconUrl = BuildTileIconUrl(tilePath)
+                    });
+                }
             }
 
             SkinLootTable.ItemsSource = null;
@@ -80,73 +81,98 @@ public partial class DisEnchanter : Page
         }
     }
 
-    private async void BuyShit()
+    private async void CraftSelectedLootAsync()
     {
-        foreach (LootChamps champ in ChampLootTable.SelectedItems)
+        foreach (LootItem champ in ChampLootTable.SelectedItems)
         {
             var resp = await Lcu.Connector("league", "post",
-                "/lol-loot/v1/recipes/" + champ.disenchantRecipeName + "/craft?repeat=1", "[\"" + champ.id + "\"]");
+                "/lol-loot/v1/recipes/" + champ.DisenchantRecipeName + "/craft?repeat=1", "[\"" + champ.Id + "\"]");
         }
 
-        foreach (LootChamps champ in SkinLootTable.SelectedItems)
+        foreach (LootItem champ in SkinLootTable.SelectedItems)
         {
             var resp = await Lcu.Connector("league", "post",
-                "/lol-loot/v1/recipes/" + champ.disenchantRecipeName + "/craft?repeat=1", "[\"" + champ.id + "\"]");
+                "/lol-loot/v1/recipes/" + champ.DisenchantRecipeName + "/craft?repeat=1", "[\"" + champ.Id + "\"]");
         }
 
-        UpdateShit();
+        UpdateLootAsync();
     }
 
     private void ButtonBase_OnClick1(object sender, RoutedEventArgs e)
     {
-        BuyShit();
+        CraftSelectedLootAsync();
     }
 
     private void SelectChamps(object sender, RoutedEventArgs e)
     {
-        if (champs == 0)
+        if (!champsSelected)
         {
             ChampLootTable.SelectAll();
-            champs = 1;
+            champsSelected = true;
         }
         else
         {
             ChampLootTable.UnselectAll();
-            champs = 0;
+            champsSelected = false;
         }
     }
 
     private void SelectSkins(object sender, RoutedEventArgs e)
     {
-        if (skins == 0)
+        if (!skinsSelected)
         {
             SkinLootTable.SelectAll();
-            skins = 1;
+            skinsSelected = true;
         }
         else
         {
             SkinLootTable.UnselectAll();
-            skins = 0;
+            skinsSelected = false;
         }
     }
 
     private void ChampLootTable_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         int oe = 0, be = 0;
-        foreach (LootChamps champ in ChampLootTable.SelectedItems) be += Convert.ToInt32(champ.value);
-        foreach (LootChamps champ in SkinLootTable.SelectedItems) oe += Convert.ToInt32(champ.value);
+        foreach (LootItem champ in ChampLootTable.SelectedItems) be += Convert.ToInt32(champ.Value);
+        foreach (LootItem champ in SkinLootTable.SelectedItems) oe += Convert.ToInt32(champ.Value);
 
         belabel.Content = "Blue essense to be gained: " + be;
         oelabel.Content = "Orange essense to be gained: " + oe;
     }
 
-    public class LootChamps
+
+    private static string BuildTileIconUrl(string? tilePath)
     {
-        public string? name { get; set; }
-        public string? id { get; set; }
-        public int? count { get; set; }
-        public int? price { get; set; }
-        public int? value { get; set; }
-        public string? disenchantRecipeName { get; set; }
+        if (string.IsNullOrWhiteSpace(tilePath)) return null;
+
+        var startIndex = tilePath.IndexOf("/Characters", StringComparison.OrdinalIgnoreCase);
+        if (startIndex < 0)
+        {
+            startIndex = tilePath.IndexOf("/assets", StringComparison.OrdinalIgnoreCase);
+            if (startIndex >= 0)
+                // move past "/assets" to keep path consistent
+                startIndex += "/assets".Length;
+        }
+
+        if (startIndex < 0 || startIndex >= tilePath.Length) return null;
+
+        var pathPart = tilePath[startIndex..].Trim();
+        var lowered = pathPart.ToLowerInvariant().TrimStart('/');
+        const string baseUrl =
+            "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets";
+        return baseUrl + "/" + lowered;
+    }
+
+
+    public class LootItem
+    {
+        public string? Name { get; set; }
+        public string? Id { get; set; }
+        public int? Count { get; set; }
+        public int? Price { get; set; }
+        public int? Value { get; set; }
+        public string? DisenchantRecipeName { get; set; }
+        public string? IconUrl { get; set; }
     }
 }

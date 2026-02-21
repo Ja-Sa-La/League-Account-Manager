@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Input;
 using League_Account_Manager.Misc;
 using NLog;
 using NLog.Config;
@@ -22,12 +22,16 @@ public class Notif
 
 public partial class MainWindow : Window
 {
+    private readonly double _aspectRatio;
     private readonly ILogger logger = LogManager.GetCurrentClassLogger();
+    private bool _isResizing;
 
     public MainWindow()
     {
         InitializeComponent();
-        AllocConsole();
+        _aspectRatio = Width / Height;
+        ContentRendered += (_, __) => DebugConsole.Initialize(this);
+        PreviewKeyDown += MainWindowOnPreviewKeyDown;
         InitializeLogging();
         InitializeUI();
         Task.Run(async () =>
@@ -45,17 +49,13 @@ public partial class MainWindow : Window
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    DebugConsole.WriteLine(e.ToString(), ConsoleColor.Red);
                 }
 
                 Thread.Sleep(30000);
             }
         });
     }
-
-    [DllImport("kernel32.dll", EntryPoint = "AllocConsole", SetLastError = true, CharSet = CharSet.Auto,
-        CallingConvention = CallingConvention.StdCall)]
-    private static extern int AllocConsole();
 
     private void InitializeLogging()
     {
@@ -86,7 +86,7 @@ public partial class MainWindow : Window
             if (Settings.settingsloaded.updates)
                 Updates.updatecheck();
 
-            Console.WriteLine(Settings.settingsloaded.LeaguePath);
+            DebugConsole.WriteLine(Settings.settingsloaded.LeaguePath);
             version.Content = "Version " + Assembly.GetExecutingAssembly().GetName().Version;
             installloc.Content = Settings.settingsloaded.riotPath;
             installloclea.Content = Settings.settingsloaded.LeaguePath;
@@ -109,8 +109,51 @@ public partial class MainWindow : Window
         return Process.GetCurrentProcess().MainModule.FileName.Contains("temp_update.exe");
     }
 
+    private void MainWindowOnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F12)
+        {
+            DebugConsole.ToggleVisibility();
+            e.Handled = true;
+        }
+    }
+
     private void RootNavigation_OnLoaded(object sender, RoutedEventArgs e)
     {
         RootNavigation.Navigate("home");
+    }
+
+    private void MainWindow_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_isResizing)
+            return;
+
+        try
+        {
+            _isResizing = true;
+
+            if (e.WidthChanged && !e.HeightChanged)
+            {
+                Height = Math.Max(MinHeight, e.NewSize.Width / _aspectRatio);
+            }
+            else if (e.HeightChanged && !e.WidthChanged)
+            {
+                Width = Math.Max(MinWidth, e.NewSize.Height * _aspectRatio);
+            }
+            else
+            {
+                var targetHeight = e.NewSize.Width / _aspectRatio;
+                var targetWidth = e.NewSize.Height * _aspectRatio;
+
+                if (targetHeight > e.NewSize.Height)
+                    Height = Math.Max(MinHeight, targetHeight);
+                else
+                    Width = Math.Max(MinWidth, targetWidth);
+            }
+        }
+        finally
+        {
+            _isResizing = false;
+        }
     }
 }

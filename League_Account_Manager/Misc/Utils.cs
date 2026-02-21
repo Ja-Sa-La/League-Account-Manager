@@ -5,6 +5,8 @@ namespace League_Account_Manager.Misc;
 
 public class Utils
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public static void RemoveDoubleQuotesFromList(List<AccountList> accountList)
     {
         foreach (var account in accountList)
@@ -29,7 +31,7 @@ public class Utils
         return input.Replace("\"", "");
     }
 
-    public static void killleaguefunc()
+    public static void KillLeagueFunc()
     {
         try
         {
@@ -64,11 +66,11 @@ public class Utils
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to kill Riot/League processes");
         }
     }
 
-    public static void killleaguefunc2()
+    public static void KillLeagueFunc2()
     {
         try
         {
@@ -101,7 +103,7 @@ public class Utils
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "Failed to kill LeagueClient processes");
         }
     }
 

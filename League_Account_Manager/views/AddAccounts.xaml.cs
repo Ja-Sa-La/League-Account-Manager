@@ -5,14 +5,12 @@ using System.Windows.Controls;
 using CsvHelper;
 using CsvHelper.Configuration;
 using League_Account_Manager.Misc;
-using League_Account_Manager.Windows;
 using Notification.Wpf;
 
 namespace League_Account_Manager.views;
 
 public partial class AddAccounts : Page
 {
-    public static List<UserNameList> BulkAdd = new();
     private readonly CsvConfiguration _config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
 
     public AddAccounts()
@@ -39,12 +37,24 @@ public partial class AddAccounts : Page
 
     private void Button_Click_1(object sender, RoutedEventArgs e)
     {
-        new BulkAdd().ShowDialog();
+        var lines = BulkInput.Text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+        var addedAny = false;
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var credentials = line.Split(":");
+            if (credentials.Length >= 2)
+            {
+                UpdateAccountList(credentials[0], credentials[1]);
+                addedAny = true;
+            }
+        }
 
-        if (BulkAdd.Count < 1)
-            return;
-
-        foreach (var item in BulkAdd) UpdateAccountList(item.Username, item.Password);
+        if (!addedAny)
+            Notif.notificationManager.Show("Info", "No valid username:password lines found.",
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(5), null, null, null, null, () => Notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
     }
 
     private async void UpdateAccountList(string username, string password)
