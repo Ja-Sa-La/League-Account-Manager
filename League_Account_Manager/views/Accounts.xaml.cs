@@ -39,10 +39,10 @@ public partial class Accounts : Page
     public static string? SelectedPassword;
     private readonly Dictionary<string, ListSortDirection?> _columnSortState = new();
     private readonly object _fileChangeLock = new();
+    private readonly AuthRouteLauncher _launcher = new();
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     private readonly OfflineLauncher offlineLauncher = new();
-    private readonly AuthRouteLauncher _launcher = new();
     private bool _initialized;
     private DateTime _lastFileChange = DateTime.MinValue;
     private INotification? _progressNotification;
@@ -57,6 +57,8 @@ public partial class Accounts : Page
         Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
     }
 
+    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
+
     private void Accounts_Unloaded(object sender, RoutedEventArgs e)
     {
         if (fileWatcher != null)
@@ -67,8 +69,6 @@ public partial class Accounts : Page
             fileWatcher = null;
         }
     }
-
-    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
 
     private async void Accounts_Loaded(object sender, RoutedEventArgs e)
     {
@@ -931,7 +931,6 @@ public partial class Accounts : Page
     }
 
 
-
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1239,6 +1238,7 @@ public partial class Accounts : Page
         var anyChanges = false;
 
         ProgressWindow progressWindow = null!;
+        DispatcherTimer? followTimer = null;
 
         // Show progress window
         Dispatcher.Invoke(() =>
@@ -1249,104 +1249,122 @@ public partial class Accounts : Page
             };
             progressWindow.Show();
             progressWindow.FollowOwner();
+
+            followTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(250)
+            };
+            followTimer.Tick += (_, _) => progressWindow.FollowOwner();
+            followTimer.Start();
         });
 
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
-
-        foreach (var account in ActualAccountlists)
+        try
         {
-            processed++;
-
-            // Keep window following main window
-            Dispatcher.Invoke(() => progressWindow.FollowOwner());
-
-            try
+            using var http = new HttpClient
             {
-                if (string.IsNullOrWhiteSpace(account.riotID) || string.IsNullOrWhiteSpace(account.server))
-                    continue;
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+            http.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
 
-                var formattedRiotId = account.riotID.Replace("#", "-");
-                var url = $"https://www.leagueofgraphs.com/summoner/{account.server}/{formattedRiotId}";
+            foreach (var account in ActualAccountlists)
+            {
+                processed++;
 
-                var html = await http.GetStringAsync(url);
-                if (string.IsNullOrWhiteSpace(html)) continue;
-
-                var doc = new HtmlDocument();
-                doc.LoadHtml(html);
-
-                var rankingBox = doc.DocumentNode.SelectSingleNode("//div[contains(@class,'summoner-rankings')]");
-                if (rankingBox == null) continue;
-
-                string? soloRank = null;
-                string? flexRank = null;
-
-                // Parse Soloqueue
-                var soloNode =
-                    rankingBox.SelectSingleNode(".//span[contains(@class,'queue') and contains(text(),'Soloqueue')]");
-                if (soloNode != null)
-                {
-                    var tier = rankingBox.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText.Trim();
-                    var lp = rankingBox.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText.Trim();
-                    var wins = rankingBox.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText.Trim();
-                    var losses = rankingBox.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText
-                        .Trim();
-
-                    if (!string.IsNullOrWhiteSpace(tier))
-                        soloRank = $"{tier} {lp} LP, {wins}W / {losses}L";
-                }
-
+                // Keep window following main window
                 Dispatcher.Invoke(() => progressWindow.FollowOwner());
-                // Parse Flex queue
-                var flexNode =
-                    rankingBox.SelectSingleNode(".//div[contains(@class,'queueName') and contains(text(),'Flex')]");
-                if (flexNode != null)
-                {
-                    var container = flexNode.SelectSingleNode("./ancestor::div[contains(@class,'img-align-block')]");
-                    var tier = container?.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText.Trim();
-                    var lp = container?.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText.Trim();
-                    var wins = container?.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText.Trim();
-                    var losses = container?.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText
-                        .Trim();
 
-                    if (!string.IsNullOrWhiteSpace(tier))
-                        flexRank = $"{tier} {lp} LP, {wins}W / {losses}L";
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(account.riotID) || string.IsNullOrWhiteSpace(account.server))
+                        continue;
+
+                    var formattedRiotId = account.riotID.Replace("#", "-");
+                    var url = $"https://www.leagueofgraphs.com/summoner/{account.server}/{formattedRiotId}";
+
+                    var html = await http.GetStringAsync(url);
+                    if (string.IsNullOrWhiteSpace(html)) continue;
+
+                    var doc = new HtmlDocument();
+                    doc.LoadHtml(html);
+
+                    var rankingBox = doc.DocumentNode.SelectSingleNode("//div[contains(@class,'summoner-rankings')]");
+                    if (rankingBox == null) continue;
+
+                    string? soloRank = null;
+                    string? flexRank = null;
+
+                    // Parse Soloqueue
+                    var soloNode =
+                        rankingBox.SelectSingleNode(".//span[contains(@class,'queue') and contains(text(),'Soloqueue')]");
+                    if (soloNode != null)
+                    {
+                        var tier = rankingBox.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText.Trim();
+                        var lp = rankingBox.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText.Trim();
+                        var wins = rankingBox.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText.Trim();
+                        var losses = rankingBox.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText
+                            .Trim();
+
+                        if (!string.IsNullOrWhiteSpace(tier))
+                            soloRank = $"{tier} {lp} LP, {wins}W / {losses}L";
+                    }
+
+                    Dispatcher.Invoke(() => progressWindow.FollowOwner());
+                    // Parse Flex queue
+                    var flexNode =
+                        rankingBox.SelectSingleNode(".//div[contains(@class,'queueName') and contains(text(),'Flex')]");
+                    if (flexNode != null)
+                    {
+                        var container = flexNode.SelectSingleNode("./ancestor::div[contains(@class,'img-align-block')]");
+                        var tier = container?.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText.Trim();
+                        var lp = container?.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText.Trim();
+                        var wins = container?.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText.Trim();
+                        var losses = container?.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText
+                            .Trim();
+
+                        if (!string.IsNullOrWhiteSpace(tier))
+                            flexRank = $"{tier} {lp} LP, {wins}W / {losses}L";
+                    }
+
+                    // Update ranks if parsed
+                    if (!string.IsNullOrWhiteSpace(soloRank))
+                    {
+                        account.rank = soloRank;
+                        anyChanges = true;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(flexRank))
+                    {
+                        account.rank2 = flexRank;
+                        anyChanges = true;
+                    }
+
+                    await Task.Delay(800); // prevent rate limiting
+                }
+                catch
+                {
+                    // ignore individual account errors
                 }
 
-                // Update ranks if parsed
-                if (!string.IsNullOrWhiteSpace(soloRank))
-                {
-                    account.rank = soloRank;
-                    anyChanges = true;
-                }
-
-                if (!string.IsNullOrWhiteSpace(flexRank))
-                {
-                    account.rank2 = flexRank;
-                    anyChanges = true;
-                }
-
-                await Task.Delay(800); // prevent rate limiting
+                // Update progress bar
+                Dispatcher.Invoke(() => progressWindow.UpdateProgress(processed));
             }
-            catch
+
+            // Save CSV if any changes
+            if (anyChanges)
             {
-                // ignore individual account errors
+                await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
+
+                Dispatcher.Invoke(() => AccountsDataGrid.Items.Refresh());
             }
-
-            // Update progress bar
-            Dispatcher.Invoke(() => progressWindow.UpdateProgress(processed));
         }
-
-        // Save CSV if any changes
-        if (anyChanges)
+        finally
         {
-            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
-
-            Dispatcher.Invoke(() => AccountsDataGrid.Items.Refresh());
+            Dispatcher.Invoke(() =>
+            {
+                followTimer?.Stop();
+                progressWindow?.Close();
+            });
         }
-
-        // Close progress window
-        Dispatcher.Invoke(() => progressWindow.Close());
     }
 
 
@@ -1681,115 +1699,119 @@ public partial class Accounts : Page
 
     private async void GenerateLoginToken_OnClick(object sender, RoutedEventArgs e)
     {
-        if (!await CheckLeague()) throw new Exception("League not installed");
-
-        if (AccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
-        var selectedColumn = AccountsDataGrid.SelectedCells[0].Column;
-
-        if (selectedColumn != null)
+        try
         {
-            var header = selectedColumn.Header?.ToString();
-            var selectedRow = AccountsDataGrid.SelectedItem as Utils.AccountList;
-            if (selectedRow == null || header == null) throw new Exception("Account not selected");
-            SelectedUsername = selectedRow.username;
-            SelectedPassword = selectedRow.password;
-        }
-        DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
+            if (!await CheckLeague()) throw new Exception("League not installed");
 
-        ProxyLoginTokenManager.ResetCaptureSignal();
+            if (AccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
+            var selectedColumn = AccountsDataGrid.SelectedCells[0].Column;
 
-        Utils.KillLeagueFunc();
-        Process[] leagueProcess;
-        Process riotProcess;
-        var num = 0;
-        var clickedButton = sender as Button;
-        if (clickedButton == null) return;
-
-        var loginAttempts = 0;
-
-        await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath);
-
-        var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
-        var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
-
-        var automationTask = Task.Run(async () =>
-        {
-            var riotval = string.Empty;
-            var attempts = 0;
-
-            while (string.IsNullOrEmpty(riotval))
+            if (selectedColumn != null)
             {
-                if (Process.GetProcessesByName("Riot Client").Length != 0)
-                    riotval = "Riot Client";
-                else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
-                    riotval = "RiotClientUx";
-
-                if (!string.IsNullOrEmpty(riotval) || attempts++ >= 20)
-                    break;
-
-                await Task.Delay(200);
+                var header = selectedColumn.Header?.ToString();
+                var selectedRow = AccountsDataGrid.SelectedItem as Utils.AccountList;
+                if (selectedRow == null || header == null) throw new Exception("Account not selected");
+                SelectedUsername = selectedRow.username;
+                SelectedPassword = selectedRow.password;
             }
 
-            if (string.IsNullOrEmpty(riotval))
-                return;
+            DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+            ProxyLoginTokenManager.ResetCaptureSignal();
 
-            while (!tokenDetectedTask.IsCompleted)
+            Utils.KillLeagueFunc();
+            Process[] leagueProcess;
+            Process riotProcess;
+            var num = 0;
+            var clickedButton = sender as Button;
+            if (clickedButton == null) return;
+
+            var loginAttempts = 0;
+
+            await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath, persist);
+
+            var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
+            var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
+
+            var automationTask = Task.Run(async () =>
             {
-                try
+                var riotval = string.Empty;
+                var attempts = 0;
+
+                while (string.IsNullOrEmpty(riotval))
                 {
-                    var app = Application.Attach(riotval);
+                    if (Process.GetProcessesByName("Riot Client").Length != 0)
+                        riotval = "Riot Client";
+                    else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+                        riotval = "RiotClientUx";
 
-                    using (var automation = new UIA3Automation())
-                    {
-                        AutomationElement window = app.GetMainWindow(automation);
-                        var riotcontent =
-                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 20)
+                        break;
 
-                        var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
-                            .AsTextBox();
-                        var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
-                            .AsTextBox();
-                        var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
-
-                        if (usernameField == null || passwordField == null || checkbox == null)
-                        {
-                            await Task.Delay(200);
-                            continue;
-                        }
-
-                        var siblings = riotcontent.FindAllChildren();
-                        var count = Array.IndexOf(siblings, checkbox) + 1;
-                        dynamic signInElement = null;
-                        while (siblings.Length >= count)
-                        {
-                            signInElement = siblings[count++].AsButton();
-                            if (signInElement != null && signInElement.ControlType == ControlType.Button)
-                                break;
-                        }
-
-                        usernameField.Text = SelectedUsername;
-                        passwordField.Text = SelectedPassword;
-
-                        if (signInElement != null)
-                        {
-                            while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
-                                await Task.Delay(200);
-
-                            if (!tokenDetectedTask.IsCompleted)
-                                signInElement.Invoke();
-                        }
-
-                        await Task.Delay(500);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn(ex, "Transient error during login automation");
-                    DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
                     await Task.Delay(200);
                 }
-            }
-        });
+
+                if (string.IsNullOrEmpty(riotval))
+                    return;
+
+                while (!tokenDetectedTask.IsCompleted)
+                    try
+                    {
+                        var app = Application.Attach(riotval);
+
+                        using (var automation = new UIA3Automation())
+                        {
+                            AutomationElement window = app.GetMainWindow(automation);
+                            var riotcontent =
+                                window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+
+                            var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
+                                .AsTextBox();
+                            var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
+                                .AsTextBox();
+                            var checkbox =
+                                riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
+
+                            if (usernameField == null || passwordField == null || checkbox == null)
+                            {
+                                await Task.Delay(200);
+                                continue;
+                            }
+
+                            var siblings = riotcontent.FindAllChildren();
+                            var count = Array.IndexOf(siblings, checkbox) + 1;
+                            dynamic signInElement = null;
+                            while (siblings.Length >= count)
+                            {
+                                signInElement = siblings[count++].AsButton();
+                                if (signInElement != null && signInElement.ControlType == ControlType.Button)
+                                    break;
+                            }
+
+                            usernameField.Text = SelectedUsername;
+                            passwordField.Text = SelectedPassword;
+
+                            if (signInElement != null)
+                            {
+                                while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
+                                    await Task.Delay(200);
+
+                                if (!tokenDetectedTask.IsCompleted)
+                                    signInElement.Invoke();
+                            }
+
+                            await Task.Delay(500);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn(ex, "Transient error during login automation");
+                        DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
+                        await Task.Delay(200);
+                    }
+            });
+        
+
 
         try
         {
@@ -1802,12 +1824,21 @@ public partial class Accounts : Page
         }
 
         await automationTask;
+        }
+        catch (Exception ex)
+        {
+            LogManager.GetCurrentClassLogger().Error(ex, "Error generating login token");
+            Notif.notificationManager.Show("Error", "An error occurred while generating the login token",
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+            return;
+        }
     }
 
-    private void UseLoginToken_OnClick(object sender, RoutedEventArgs e)
+    private async void UseLoginToken_OnClick(object sender, RoutedEventArgs e)
     {
+
         _ = ProxyLoginTokenManager.UseLoginTokenAsync();
     }
-
-
 }

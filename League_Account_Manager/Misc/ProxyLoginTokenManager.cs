@@ -1,21 +1,20 @@
-using System;
-using System.IO;
-using System.Security.Cryptography;
+using Microsoft.Win32;
+using Notification.Wpf;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using League_Account_Manager.Windows;
-using Microsoft.Win32;
 
 namespace League_Account_Manager.Misc;
 
 internal static class ProxyLoginTokenManager
 {
+    private const string LoginUriScheme = "leagueaccountmanager";
+    private const string LoginUriHost = "login";
+    private const string LoginRedirectBaseUrl = "https://redirect.leagueaccountmanager.xyz/login";
     private static int _captureInProgress;
     private static TaskCompletionSource<bool> _captureTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private static TaskCompletionSource<bool> _tokenDetectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -37,14 +36,73 @@ internal static class ProxyLoginTokenManager
     {
         return _captureTcs.Task.WaitAsync(cancellationToken);
     }
+    public static async Task<bool?> PromptPersistLoginAsync()
+    {
+        if (Application.Current?.Dispatcher == null)
+            return false;
 
-    public static async Task CaptureLoginTokenAsync(string responseText)
+        return await Application.Current.Dispatcher.InvokeAsync(() =>
+            MessageBox.Show("Allow user to stay logged in?", "Persist Login",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
+    }
+    public static void RegisterLoginUriScheme()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(exePath))
+                return;
+
+            using var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{LoginUriScheme}");
+            if (key == null)
+                return;
+
+            key.SetValue(string.Empty, "URL:League Account Manager Login");
+            key.SetValue("URL Protocol", string.Empty);
+
+            using var iconKey = key.CreateSubKey("DefaultIcon");
+            iconKey?.SetValue(string.Empty, $"\"{exePath}\",1");
+
+            using var commandKey = key.CreateSubKey(@"shell\open\command");
+            commandKey?.SetValue(string.Empty, $"\"{exePath}\" \"%1\"");
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[ProxyLoginToken] Failed to register URI scheme: {ex.Message}");
+        }
+    }
+
+    public static async Task TryHandleLoginUriAsync(string[]? args)
+    {
+        DebugConsole.WriteLine("[ProxyLoginToken] Handling Uri");
+        if (args == null || args.Length == 0)
+            return;
+
+        var uriArg = args.FirstOrDefault(arg =>
+            arg.StartsWith($"{LoginUriScheme}://", StringComparison.OrdinalIgnoreCase) ||
+            arg.StartsWith("https://redirect.leagueaccountmanager.xyz/", StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(uriArg))
+            return;
+
+        var token = ExtractTokenFromText(uriArg);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            DebugConsole.WriteLine("[ProxyLoginToken] Login URI missing token.");
+            return;
+        }
+
+        await UseLoginTokenAsync(token);
+    }
+
+    public static async Task CaptureLoginTokenAsync(string responseText, bool? persistLogin = false)
     {
         if (Interlocked.Exchange(ref _captureInProgress, 1) == 1)
             return;
 
         try
         {
+
+
             var loginToken = ExtractLoginToken(responseText);
             if (string.IsNullOrWhiteSpace(loginToken))
             {
@@ -54,18 +112,6 @@ internal static class ProxyLoginTokenManager
 
             _tokenDetectedTcs.TrySetResult(true);
 
-            var persistLogin = await PromptPersistLoginAsync();
-            if (persistLogin == null)
-                return;
-
-            var password = await PromptPasswordAsync("Enter a password to encrypt the login token file.");
-            if (string.IsNullOrWhiteSpace(password))
-                return;
-
-            var savePath = await PromptSavePathAsync();
-            if (string.IsNullOrWhiteSpace(savePath))
-                return;
-
             var payload = new LoginTokenPayload
             {
                 AuthenticationType = "RiotAuth",
@@ -74,9 +120,21 @@ internal static class ProxyLoginTokenManager
             };
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
-            var encrypted = Encrypt(Encoding.UTF8.GetBytes(json), password);
-            await File.WriteAllBytesAsync(savePath, encrypted);
-            DebugConsole.WriteLine($"[ProxyLoginToken] Encrypted login token saved to {savePath}");
+            var encodedToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            var loginUri = BuildLoginUri(encodedToken);
+            var clipboardText = loginUri == null ? encodedToken : FormatDiscordLoginLink(loginUri);
+            if (!await TrySetClipboardTextAsync(clipboardText))
+            {
+                DebugConsole.WriteLine("[ProxyLoginToken] Failed to copy login token to clipboard.");
+                return;
+            }
+
+            DebugConsole.WriteLine("[ProxyLoginToken] Encrypted login token copied to clipboard.");
+            if (loginUri != null)
+                DebugConsole.WriteLine($"[ProxyLoginToken] Login link: {loginUri}");
+            Notif.notificationManager.Show("Token Ready",
+                "Token copied to clipboard and can be pasted to Discord.",
+                NotificationType.Notification);
             _captureTcs.TrySetResult(true);
         }
         catch (Exception ex)
@@ -92,33 +150,80 @@ internal static class ProxyLoginTokenManager
 
     public static async Task<bool> UseLoginTokenAsync()
     {
+        var encodedToken = await TryGetLoginTokenFromClipboardAsync();
+        if (string.IsNullOrWhiteSpace(encodedToken))
+        {
+            DebugConsole.WriteLine("[ProxyLoginToken] Clipboard does not contain a login token.");
+            return false;
+        }
+
+        return await UseLoginTokenAsync(encodedToken);
+    }
+
+    private static async Task<bool> UseLoginTokenAsync(string encodedToken)
+    {
         try
         {
-            var riotRunning = Process.GetProcessesByName("Riot Client").Length != 0 ||
-                              Process.GetProcessesByName("RiotClientUx").Length != 0;
-            if (!riotRunning)
+            if (!await CheckLeague()) throw new Exception("League not installed");
+            Utils.KillLeagueFunc2();
+            Process riotProcess = Process.Start(Misc.Settings.settingsloaded.riotPath,
+                "--launch-product=league_of_legends --launch-patchline=live");
+            int num = 0;
+            while (true)
             {
-                DebugConsole.WriteLine("[ProxyLoginToken] Riot client is not running.");
+                if (Process.GetProcessesByName("Riot Client").Length != 0)
+                {
+                    break;
+                }
+
+                if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+                {
+                    break;
+                }
+
+
+                Thread.Sleep(200);
+                num++;
+                if (num == 20)
+                {
+                    DebugConsole.WriteLine("[ProxyLoginToken] Riot client is not running.");
+                    return false;
+                }
+            }
+
+            while (true)
+            {
+                var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
+                if (readyResp != null)
+                {
+                    var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    try
+                    {
+                        var node = JsonNode.Parse(readyBody);
+                        var ready = node?["ready"]?.GetValue<bool>() ?? false;
+                        if (ready)
+                            break;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                await Task.Delay(200);
+            }
+
+            byte[] encrypted;
+            try
+            {
+                encrypted = Convert.FromBase64String(encodedToken);
+            }
+            catch (FormatException)
+            {
+                DebugConsole.WriteLine("[ProxyLoginToken] Login token is not valid base64.");
                 return false;
             }
 
-            var openPath = await PromptOpenPathAsync();
-            if (string.IsNullOrWhiteSpace(openPath))
-                return false;
-
-            var password = await PromptPasswordAsync("Enter the password to decrypt the login token file.");
-            if (string.IsNullOrWhiteSpace(password))
-                return false;
-
-            var encrypted = await File.ReadAllBytesAsync(openPath);
-            var decrypted = Decrypt(encrypted, password);
-            if (decrypted == null)
-            {
-                DebugConsole.WriteLine("[ProxyLoginToken] Failed to decrypt login token file.");
-                return false;
-            }
-
-            var payload = JsonSerializer.Deserialize<LoginTokenPayload>(decrypted, JsonOptions);
+            var payload = JsonSerializer.Deserialize<LoginTokenPayload>(encrypted, JsonOptions);
             if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
             {
                 DebugConsole.WriteLine("[ProxyLoginToken] Login token payload missing or invalid.");
@@ -138,6 +243,19 @@ internal static class ProxyLoginTokenManager
             {
                 DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v1/session/login-token failed: {ex}");
                 return false;
+            }
+
+            if (credentialsResponse != null && (int)credentialsResponse.StatusCode == 400)
+            {
+                var errorBody = await credentialsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(errorBody) &&
+                    errorBody.Contains("auth_failure", StringComparison.OrdinalIgnoreCase))
+                {
+                    Notif.notificationManager.Show("Invalid Token",
+                        "The login token is not valid.",
+                        NotificationType.Error);
+                    return false;
+                }
             }
 
             await LogResponseAsync("/rso-auth/v1/session/login-token", credentialsResponse);
@@ -163,6 +281,24 @@ internal static class ProxyLoginTokenManager
 
             var success = credentialsResponse != null && authorizationResponse != null;
             DebugConsole.WriteLine($"[ProxyLoginToken] Token login completed: {success}");
+            while (true){
+            var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+            string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
+            if (status == "\"Accepted\"") break;
+            if (status == "\"AcceptanceRequired\"")
+            {
+                await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
+                Thread.Sleep(200);
+            }
+            else
+            {
+                Thread.Sleep(500);
+            }
+            }
+            await Lcu.Connector("riot", "post",
+                "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+
             return success;
         }
         catch (Exception ex)
@@ -191,7 +327,12 @@ internal static class ProxyLoginTokenManager
             DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response logging failed: {ex.Message}");
         }
     }
-
+    public static async Task<bool> CheckLeague()
+    {
+        if (File.Exists(Misc.Settings.settingsloaded.riotPath))
+            return true;
+        return false;
+    }
     private static string? ExtractLoginToken(string responseText)
     {
         if (string.IsNullOrWhiteSpace(responseText))
@@ -213,6 +354,96 @@ internal static class ProxyLoginTokenManager
         {
             return null;
         }
+    }
+
+    private static async Task<string?> TryGetLoginTokenFromClipboardAsync()
+    {
+        var text = await TryGetClipboardTextAsync();
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var tokenFromText = ExtractTokenFromText(text.Trim());
+        return string.IsNullOrWhiteSpace(tokenFromText) ? text.Trim() : tokenFromText;
+    }
+
+    private static string? ExtractTokenFromText(string text)
+    {
+        var tokenFromMarkdown = ExtractTokenFromMarkdown(text);
+        if (!string.IsNullOrWhiteSpace(tokenFromMarkdown))
+            return tokenFromMarkdown;
+
+        return ExtractTokenFromUri(text);
+    }
+
+    private static string? ExtractTokenFromMarkdown(string text)
+    {
+        var openParen = text.IndexOf('(');
+        if (openParen < 0)
+            return null;
+
+        var closeParen = text.LastIndexOf(')');
+        if (closeParen <= openParen)
+            return null;
+
+        var url = text.Substring(openParen + 1, closeParen - openParen - 1).Trim();
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        return ExtractTokenFromUri(url);
+    }
+
+    private static string? ExtractTokenFromUri(string uriText)
+    {
+        if (!Uri.TryCreate(uriText, UriKind.Absolute, out var uri))
+            return null;
+
+        if (uri.Scheme.Equals(LoginUriScheme, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!uri.Host.Equals(LoginUriHost, StringComparison.OrdinalIgnoreCase))
+                return null;
+        }
+        else if (uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!uri.Host.Equals("redirect.leagueaccountmanager.xyz", StringComparison.OrdinalIgnoreCase))
+                return null;
+        }
+        else
+        {
+            return null;
+        }
+
+        var query = uri.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+            return null;
+
+        foreach (var segment in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = segment.Split('=', 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+                continue;
+
+            if (!parts[0].Equals("token", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var value = parts.Length > 1 ? parts[1] : string.Empty;
+            return Uri.UnescapeDataString(value);
+        }
+
+        return null;
+    }
+
+    private static string? BuildLoginUri(string encodedToken)
+    {
+        if (string.IsNullOrWhiteSpace(encodedToken))
+            return null;
+
+        var escapedToken = Uri.EscapeDataString(encodedToken);
+        return $"{LoginRedirectBaseUrl}?token={escapedToken}";
+    }
+
+    private static string FormatDiscordLoginLink(string loginUri)
+    {
+        return $"[Click to login to account]({loginUri})";
     }
 
     private static string? FindLoginToken(JsonNode? node)
@@ -243,58 +474,78 @@ internal static class ProxyLoginTokenManager
         return null;
     }
 
-    private static async Task<bool?> PromptPersistLoginAsync()
+
+
+
+    private static async Task<bool> TrySetClipboardTextAsync(string text)
     {
-        if (Application.Current?.Dispatcher == null)
+        if (Application.Current?.Dispatcher != null)
+        {
+            return await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                Clipboard.SetText(text);
+                return true;
+            });
+        }
+
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                Clipboard.SetText(text);
+                tcs.TrySetResult(true);
+            }
+            catch (Exception ex)
+            {
+                tcs.TrySetException(ex);
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        try
+        {
+            return await tcs.Task;
+        }
+        catch
+        {
             return false;
-
-        return await Application.Current.Dispatcher.InvokeAsync(() =>
-            MessageBox.Show("Keep this token logged in on this PC?", "Persist Login",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
+        }
     }
 
-    private static async Task<string?> PromptPasswordAsync(string message)
+    private static async Task<string?> TryGetClipboardTextAsync()
     {
-        if (Application.Current?.Dispatcher == null)
-            return null;
-
-        return await Application.Current.Dispatcher.InvokeAsync(() =>
+        if (Application.Current?.Dispatcher != null)
         {
-            var prompt = new PasswordPrompt(message);
-            var result = prompt.ShowDialog();
-            return result == true ? prompt.Password : null;
-        });
-    }
+            return await Application.Current.Dispatcher.InvokeAsync(() =>
+                Clipboard.ContainsText() ? Clipboard.GetText() : null);
+        }
 
-    private static async Task<string?> PromptSavePathAsync()
-    {
-        if (Application.Current?.Dispatcher == null)
-            return null;
-
-        return await Application.Current.Dispatcher.InvokeAsync(() =>
+        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
         {
-            var dialog = new SaveFileDialog
+            try
             {
-                Filter = "Encrypted token (*.enc)|*.enc|All Files (*.*)|*.*",
-                FileName = "RiotLoginToken.enc"
-            };
-            return dialog.ShowDialog() == true ? dialog.FileName : null;
-        });
-    }
-
-    private static async Task<string?> PromptOpenPathAsync()
-    {
-        if (Application.Current?.Dispatcher == null)
-            return null;
-
-        return await Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            var dialog = new OpenFileDialog
+                var text = Clipboard.ContainsText() ? Clipboard.GetText() : null;
+                tcs.TrySetResult(text);
+            }
+            catch (Exception ex)
             {
-                Filter = "Encrypted token (*.enc)|*.enc|All Files (*.*)|*.*"
-            };
-            return dialog.ShowDialog() == true ? dialog.FileName : null;
+                tcs.TrySetException(ex);
+            }
         });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        try
+        {
+            return await tcs.Task;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -304,62 +555,6 @@ internal static class ProxyLoginTokenManager
         WriteIndented = true
     };
 
-    private static byte[] Encrypt(byte[] data, string password)
-    {
-        using var aes = Aes.Create();
-        aes.KeySize = 256;
-        aes.BlockSize = 128;
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.PKCS7;
-
-        var salt = RandomNumberGenerator.GetBytes(16);
-        using var key = new Rfc2898DeriveBytes(password, salt, 100_000, HashAlgorithmName.SHA256);
-        aes.Key = key.GetBytes(32);
-        aes.GenerateIV();
-
-        using var encryptor = aes.CreateEncryptor();
-        var cipher = encryptor.TransformFinalBlock(data, 0, data.Length);
-
-        var result = new byte[salt.Length + aes.IV.Length + cipher.Length];
-        Buffer.BlockCopy(salt, 0, result, 0, salt.Length);
-        Buffer.BlockCopy(aes.IV, 0, result, salt.Length, aes.IV.Length);
-        Buffer.BlockCopy(cipher, 0, result, salt.Length + aes.IV.Length, cipher.Length);
-        return result;
-    }
-
-    private static byte[]? Decrypt(byte[] data, string password)
-    {
-        if (data.Length < 32)
-            return null;
-
-        var salt = new byte[16];
-        var iv = new byte[16];
-        Buffer.BlockCopy(data, 0, salt, 0, salt.Length);
-        Buffer.BlockCopy(data, salt.Length, iv, 0, iv.Length);
-
-        using var aes = Aes.Create();
-        aes.KeySize = 256;
-        aes.BlockSize = 128;
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.PKCS7;
-
-        using var key = new Rfc2898DeriveBytes(password, salt, 100_000, HashAlgorithmName.SHA256);
-        aes.Key = key.GetBytes(32);
-        aes.IV = iv;
-
-        var cipher = new byte[data.Length - salt.Length - iv.Length];
-        Buffer.BlockCopy(data, salt.Length + iv.Length, cipher, 0, cipher.Length);
-
-        using var decryptor = aes.CreateDecryptor();
-        try
-        {
-            return decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
-        }
-        catch
-        {
-            return null;
-        }
-    }
 
     private sealed class LoginTokenPayload
     {

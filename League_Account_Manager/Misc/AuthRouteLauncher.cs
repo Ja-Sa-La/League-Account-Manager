@@ -23,13 +23,14 @@ internal sealed class AuthRouteLauncher
     private long _configRequestCounter;
 
     public async Task<Process> LaunchRiotClientWithTokenCapture(string riotClientPath,
+        bool? persistLogin = false,
         bool launchLeague = true,
         string patchline = "live",
         string? extraRiotClientArgs = null,
         CancellationToken cancellationToken = default)
     {
         var rsoAuthenticatorProxy = new AuthProxy(RsoAuthenticatorPort, "rso-authenticator");
-        await rsoAuthenticatorProxy.StartAsync(cancellationToken);
+        await rsoAuthenticatorProxy.StartAsync(cancellationToken, persistLogin);
 
         var configProxy = await StartClientConfigProxyAsync(SharedHttpClient, rsoAuthenticatorProxy, cancellationToken);
 
@@ -216,7 +217,7 @@ internal sealed class AuthRouteLauncher
                 _upstreamBase ??= uri;
         }
 
-        public Task StartAsync(CancellationToken token)
+        public Task StartAsync(CancellationToken token, bool? persistLogin = false)
         {
             _listener.Start();
             DebugConsole.WriteLine($"[AuthRouteLauncher] {_name} proxy listening on {_listener.Prefixes.First()}");
@@ -267,10 +268,8 @@ internal sealed class AuthRouteLauncher
                             Utils.KillLeagueFunc();
                             DebugConsole.WriteLine(
                                 $"[AuthRouteLauncher] {_name} /api/v1/login response decoded: {responseText}");
-                            _ = ProxyLoginTokenManager.CaptureLoginTokenAsync(responseText);
+                            _ = ProxyLoginTokenManager.CaptureLoginTokenAsync(responseText, persistLogin);
                             Utils.KillLeagueFunc();
-                            ctx.Response.StatusCode = 200;
-                            ctx.Response.ContentLength64 = 0;
                             ctx.Response.Close();
                             continue;
                         }

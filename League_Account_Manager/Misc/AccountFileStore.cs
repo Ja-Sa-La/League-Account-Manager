@@ -20,7 +20,7 @@ internal static class AccountFileStore
 
     public static string GetAccountsFilePath()
     {
-        return Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv");
+        return Path.Combine(AppContext.BaseDirectory, $"{Settings.settingsloaded.filename}.csv");
     }
 
     public static bool IsEncryptionEnabled => Settings.settingsloaded.AccountFileEncryptionEnabled;
