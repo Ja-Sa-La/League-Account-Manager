@@ -74,7 +74,7 @@ A WPF utility for managing League of Legends accounts from one place. It uses th
 
 ## Install & Run (binary)
 
-1) [Download]([https://pages.github.com/](https://github.com/Ja-Sa-La/League-Account-Manager/releases)) the latest release build
+1) [Download](https://github.com/Ja-Sa-La/League-Account-Manager/releases) the latest release build
 2) Ensure .NET 8 Desktop Runtime is installed
 3) Run `League Account Manager.exe`
 4) If League permissions block some operations, start the app as Administrator
