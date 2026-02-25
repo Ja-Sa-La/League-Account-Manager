@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using CsvHelper;
 using CsvHelper.Configuration;
 using FlaUI.Core.AutomationElements;
@@ -41,6 +42,7 @@ public partial class Accounts : Page
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     private readonly OfflineLauncher offlineLauncher = new();
+    private readonly AuthRouteLauncher _launcher = new();
     private bool _initialized;
     private DateTime _lastFileChange = DateTime.MinValue;
     private INotification? _progressNotification;
@@ -51,8 +53,20 @@ public partial class Accounts : Page
     {
         InitializeComponent();
         Loaded += Accounts_Loaded;
+        Unloaded += Accounts_Unloaded;
+        Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
     }
 
+    private void Accounts_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (fileWatcher != null)
+        {
+            fileWatcher.EnableRaisingEvents = false;
+            fileWatcher.Changed -= OnChanged;
+            fileWatcher.Dispose();
+            fileWatcher = null;
+        }
+    }
 
     public static List<Utils.AccountList>? ActualAccountlists { get; set; }
 
@@ -92,6 +106,18 @@ public partial class Accounts : Page
         {
             _logger.Error(ex, "Error during Accounts_Loaded");
             DebugConsole.WriteLine($"[Accounts] ERROR during Accounts_Loaded: {ex.Message}", ConsoleColor.Red);
+        }
+    }
+
+    private async void OnAccountPasswordSupplied()
+    {
+        try
+        {
+            // Refresh account list when password is entered at startup
+            await Dispatcher.InvokeAsync(async () => { await LoadDataAsync(); });
+        }
+        catch
+        {
         }
     }
 
@@ -211,20 +237,18 @@ public partial class Accounts : Page
     {
         lock (_fileChangeLock)
         {
-            // debounce spam events
-            if ((DateTime.Now - _lastFileChange).TotalMilliseconds < 500)
-                return;
-
+            if ((DateTime.Now - _lastFileChange).TotalMilliseconds < 500) return;
             _lastFileChange = DateTime.Now;
         }
 
         await LoadDataAsync();
 
-        Dispatcher.Invoke(() =>
+        if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true) return;
+        await Dispatcher.InvokeAsync(() =>
         {
             AccountsDataGrid.Items.SortDescriptions.Clear();
             AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-        });
+        }, DispatcherPriority.Background, CancellationToken.None);
     }
 
 
@@ -234,17 +258,16 @@ public partial class Accounts : Page
         {
             await Task.Run(async () =>
             {
-                var filePath = Path.Combine(Directory.GetCurrentDirectory(),
-                    $"{Misc.Settings.settingsloaded.filename}.csv");
+                var filePath = AccountFileStore.GetAccountsFilePath();
 
                 if (File.Exists(filePath))
                 {
-                    ActualAccountlists = await LoadCSV(filePath);
+                    ActualAccountlists = await AccountFileStore.LoadAsync(filePath, config);
                 }
                 else
                 {
-                    File.Create(filePath).Dispose();
                     ActualAccountlists = new List<Utils.AccountList>();
+                    await AccountFileStore.SaveAsync(filePath, ActualAccountlists, config);
                 }
 
                 ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
@@ -284,12 +307,7 @@ public partial class Accounts : Page
 
             ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
 
-            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                       $"{Misc.Settings.settingsloaded.filename}.csv")))
-            using (var csv = new CsvWriter(writer, config))
-            {
-                csv.WriteRecords(ActualAccountlists);
-            }
+            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
             AccountsDataGrid.ItemsSource = null;
             AccountsDataGrid.ItemsSource = ActualAccountlists;
@@ -912,6 +930,8 @@ public partial class Accounts : Page
         return (false, "");
     }
 
+
+
     private async void Button_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1109,13 +1129,8 @@ public partial class Accounts : Page
                                             });
 
                                             // persist immediately
-                                            using (var writer = new StreamWriter(Path.Combine(
-                                                       Directory.GetCurrentDirectory(),
-                                                       $"{Misc.Settings.settingsloaded.filename}.csv")))
-                                            using (var csvw = new CsvWriter(writer, config))
-                                            {
-                                                csvw.WriteRecords(ActualAccountlists);
-                                            }
+                                            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(),
+                                                ActualAccountlists, config);
 
                                             // update UI and stop login flow
                                             Dispatcher.Invoke(() =>
@@ -1325,10 +1340,7 @@ public partial class Accounts : Page
         // Save CSV if any changes
         if (anyChanges)
         {
-            using var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                $"{Misc.Settings.settingsloaded.filename}.csv"));
-            using var csv = new CsvWriter(writer, config);
-            csv.WriteRecords(ActualAccountlists);
+            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
             Dispatcher.Invoke(() => AccountsDataGrid.Items.Refresh());
         }
@@ -1338,7 +1350,7 @@ public partial class Accounts : Page
     }
 
 
-    private void ChampionList_OnKeyDown(object sender, KeyEventArgs e)
+    private async void ChampionList_OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete) return;
 
@@ -1352,12 +1364,7 @@ public partial class Accounts : Page
                 r.password == selectedrow.password &&
                 r.server == selectedrow.server);
 
-            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                       $"{Misc.Settings.settingsloaded.filename}.csv")))
-            using (var csv = new CsvWriter(writer, config))
-            {
-                csv.WriteRecords(ActualAccountlists);
-            }
+            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
             AccountsDataGrid.ItemsSource = null;
             AccountsDataGrid.ItemsSource = ActualAccountlists;
@@ -1669,11 +1676,138 @@ public partial class Accounts : Page
             .GroupBy(x => (x.username ?? "").Trim().ToLower() + "|" + (x.password ?? "").Trim())
             .Select(g => g.First())
             .ToList();
-        using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                   $"{Misc.Settings.settingsloaded.filename}.csv")))
-        using (var csv = new CsvWriter(writer, config))
-        {
-            csv.WriteRecords(ActualAccountlists);
-        }
+        AccountFileStore.Save(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
     }
+
+    private async void GenerateLoginToken_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (!await CheckLeague()) throw new Exception("League not installed");
+
+        if (AccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
+        var selectedColumn = AccountsDataGrid.SelectedCells[0].Column;
+
+        if (selectedColumn != null)
+        {
+            var header = selectedColumn.Header?.ToString();
+            var selectedRow = AccountsDataGrid.SelectedItem as Utils.AccountList;
+            if (selectedRow == null || header == null) throw new Exception("Account not selected");
+            SelectedUsername = selectedRow.username;
+            SelectedPassword = selectedRow.password;
+        }
+        DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
+
+        ProxyLoginTokenManager.ResetCaptureSignal();
+
+        Utils.KillLeagueFunc();
+        Process[] leagueProcess;
+        Process riotProcess;
+        var num = 0;
+        var clickedButton = sender as Button;
+        if (clickedButton == null) return;
+
+        var loginAttempts = 0;
+
+        await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath);
+
+        var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
+        var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
+
+        var automationTask = Task.Run(async () =>
+        {
+            var riotval = string.Empty;
+            var attempts = 0;
+
+            while (string.IsNullOrEmpty(riotval))
+            {
+                if (Process.GetProcessesByName("Riot Client").Length != 0)
+                    riotval = "Riot Client";
+                else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+                    riotval = "RiotClientUx";
+
+                if (!string.IsNullOrEmpty(riotval) || attempts++ >= 20)
+                    break;
+
+                await Task.Delay(200);
+            }
+
+            if (string.IsNullOrEmpty(riotval))
+                return;
+
+            while (!tokenDetectedTask.IsCompleted)
+            {
+                try
+                {
+                    var app = Application.Attach(riotval);
+
+                    using (var automation = new UIA3Automation())
+                    {
+                        AutomationElement window = app.GetMainWindow(automation);
+                        var riotcontent =
+                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+
+                        var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
+                            .AsTextBox();
+                        var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
+                            .AsTextBox();
+                        var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
+
+                        if (usernameField == null || passwordField == null || checkbox == null)
+                        {
+                            await Task.Delay(200);
+                            continue;
+                        }
+
+                        var siblings = riotcontent.FindAllChildren();
+                        var count = Array.IndexOf(siblings, checkbox) + 1;
+                        dynamic signInElement = null;
+                        while (siblings.Length >= count)
+                        {
+                            signInElement = siblings[count++].AsButton();
+                            if (signInElement != null && signInElement.ControlType == ControlType.Button)
+                                break;
+                        }
+
+                        usernameField.Text = SelectedUsername;
+                        passwordField.Text = SelectedPassword;
+
+                        if (signInElement != null)
+                        {
+                            while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
+                                await Task.Delay(200);
+
+                            if (!tokenDetectedTask.IsCompleted)
+                                signInElement.Invoke();
+                        }
+
+                        await Task.Delay(500);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Transient error during login automation");
+                    DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
+                    await Task.Delay(200);
+                }
+            }
+        });
+
+        try
+        {
+            await captureTask;
+            DebugConsole.WriteLine("[Accounts] Token capture completed.");
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[Accounts] Token capture failed or canceled: {ex.Message}");
+        }
+
+        await automationTask;
+    }
+
+    private void UseLoginToken_OnClick(object sender, RoutedEventArgs e)
+    {
+        _ = ProxyLoginTokenManager.UseLoginTokenAsync();
+    }
+
+
 }

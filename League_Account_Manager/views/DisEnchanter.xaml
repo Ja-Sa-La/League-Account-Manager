@@ -52,10 +52,10 @@
                 <ListBox SelectionChanged="ChampLootTable_OnSelectionChanged" Name="ChampLootTable" Grid.Row="1"
                          SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
                          Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel IsItemsHost="True" Orientation="Horizontal" ItemWidth="200" />
+                            <WrapPanel IsItemsHost="True" Orientation="Horizontal" ItemWidth="189" ItemHeight="97" />
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
                     <ListBox.ItemContainerStyle>
@@ -64,7 +64,7 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
+                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
                                                 CornerRadius="6" Background="#FF303030">
                                             <ContentPresenter />
                                         </Border>
@@ -84,7 +84,7 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Width="180" Padding="8" Background="Transparent">
+                            <Border Width="177" Height="85" Padding="8" Background="Transparent">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="60" />
@@ -118,10 +118,10 @@
                 <ListBox SelectionChanged="ChampLootTable_OnSelectionChanged" x:Name="SkinLootTable" Grid.Row="1"
                          SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
                          Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel IsItemsHost="True" Orientation="Horizontal" ItemWidth="200" />
+                            <WrapPanel IsItemsHost="True" Orientation="Horizontal" ItemWidth="189" ItemHeight="97" />
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
                     <ListBox.ItemContainerStyle>
@@ -130,7 +130,7 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
+                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
                                                 CornerRadius="6" Background="#FF303030">
                                             <ContentPresenter />
                                         </Border>
@@ -150,7 +150,7 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Width="180" Padding="8" Background="Transparent">
+                            <Border Width="177" Height="85" Padding="8" Background="Transparent">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="60" />

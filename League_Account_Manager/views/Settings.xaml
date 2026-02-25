@@ -22,5 +22,9 @@
 
         <CheckBox x:Name="AutoUpdateRanks" Content="Update Ranks automatically on startup" Margin="10,167,0,0"
                   VerticalAlignment="Top" Width="297" />
+
+        <CheckBox x:Name="AccountFileEncryption" Content="Encrypt account file with a password" Margin="10,205,0,0"
+                  VerticalAlignment="Top" Width="297" Checked="AccountFileEncryption_Checked"
+                  Unchecked="AccountFileEncryption_Checked" />
     </Grid>
 </Page>

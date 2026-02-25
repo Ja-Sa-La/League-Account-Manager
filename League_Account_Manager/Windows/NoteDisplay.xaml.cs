@@ -48,25 +48,7 @@ public partial class NoteDisplay : Window
         ActualAccountlists.RemoveAll(r => r.username == dataholder.username && r.password == dataholder.password);
         ActualAccountlists.Add(dataholder);
         Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
-
-        FileStream? fileStream = null;
-        while (fileStream == null)
-            try
-            {
-                fileStream = File.Open(
-                    Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"),
-                    FileMode.Open, FileAccess.Read, FileShare.None);
-                fileStream.Close();
-            }
-            catch (IOException)
-            {
-                await Task.Delay(1000);
-            }
-
-        using var writer = new StreamWriter(
-            Path.Combine(Directory.GetCurrentDirectory(), $"{Settings.settingsloaded.filename}.csv"));
-        using var csvWriter = new CsvWriter(writer, _config);
-        csvWriter.WriteRecords(ActualAccountlists);
+        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, _config);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

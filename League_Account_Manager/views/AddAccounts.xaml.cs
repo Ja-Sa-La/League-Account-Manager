@@ -62,27 +62,7 @@ public partial class AddAccounts : Page
         Accounts.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
         Accounts.ActualAccountlists.Add(new Utils.AccountList { username = username, password = password });
         Utils.RemoveDoubleQuotesFromList(Accounts.ActualAccountlists);
-        FileStream? fileStream = null;
-        while (fileStream == null)
-            try
-            {
-                fileStream =
-                    File.Open(
-                        Path.Combine(Directory.GetCurrentDirectory(), $"{Misc.Settings.settingsloaded.filename}.csv"),
-                        FileMode.Open, FileAccess.Read, FileShare.None);
-                fileStream.Close();
-            }
-            catch (IOException)
-            {
-                // The file is in use by another process. Wait and try again.
-                await Task.Delay(1000);
-            }
-
-        using var writer =
-            new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                $"{Misc.Settings.settingsloaded.filename}.csv"));
-        using var csvWriter = new CsvWriter(writer, _config);
-        csvWriter.WriteRecords(Accounts.ActualAccountlists);
+        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), Accounts.ActualAccountlists, _config);
     }
 
     public class UserNameList

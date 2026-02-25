@@ -57,15 +57,63 @@ public partial class DisEnchanter : Page
                     var skinName = thing["itemDesc"].ToString();
                     if (string.IsNullOrWhiteSpace(skinName)) skinName = thing["localizedName"].ToString();
                     var tilePath = thing["tilePath"]?.ToString();
-                    LootSkinsList.Add(new LootItem
+                    if (thing["displayCategories"].ToString() == "SKIN" || thing["displayCategories"].ToString() == "ETERNALS")
                     {
-                        Name = skinName + " x " + thing["count"],
-                        Id = thing["lootId"].ToString(), Count = Convert.ToInt32(thing["count"]),
-                        Price = Convert.ToInt32(thing["count"]), Value = Convert.ToInt32(thing["disenchantValue"]),
-                        DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
-                        IconUrl = BuildTileIconUrl(tilePath)
-                    });
-                }
+                        LootSkinsList.Add(new LootItem
+                        {
+                            Name = skinName + " x " + thing["count"],
+                            Id = thing["lootId"].ToString(),
+                            Count = Convert.ToInt32(thing["count"]),
+                            Price = Convert.ToInt32(thing["count"]),
+                            Value = Convert.ToInt32(thing["disenchantValue"]),
+                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            IconUrl = BuildTileIconUrl(tilePath)
+                        });
+                    }
+                    else if (thing["displayCategories"].ToString() == "WARDSKIN")
+                    {
+                        DebugConsole.WriteLine(BuildTileIconUrlWards(tilePath));
+                        LootSkinsList.Add(new LootItem
+                        {
+                            Name = skinName + " x " + thing["count"],
+                            Id = thing["lootId"].ToString(),
+                            Count = Convert.ToInt32(thing["count"]),
+                            Price = Convert.ToInt32(thing["count"]),
+                            Value = Convert.ToInt32(thing["disenchantValue"]),
+                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            IconUrl = BuildTileIconUrlWards(tilePath)
+                        });
+
+                    }
+                    else if (thing["displayCategories"].ToString() == "SUMMONERICON")
+                    {
+                        LootSkinsList.Add(new LootItem
+                        {
+                            Name = skinName + " x " + thing["count"],
+                            Id = thing["lootId"].ToString(),
+                            Count = Convert.ToInt32(thing["count"]),
+                            Price = Convert.ToInt32(thing["count"]),
+                            Value = Convert.ToInt32(thing["disenchantValue"]),
+                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            IconUrl = BuildTileIconUrlSummonerIcon(tilePath)
+                        });
+
+                    }
+                    else if (thing["displayCategories"].ToString() == "EMOTE")
+                    {
+                        LootSkinsList.Add(new LootItem
+                        {
+                            Name = skinName + " x " + thing["count"],
+                            Id = thing["lootId"].ToString(),
+                            Count = Convert.ToInt32(thing["count"]),
+                            Price = Convert.ToInt32(thing["count"]),
+                            Value = Convert.ToInt32(thing["disenchantValue"]),
+                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            IconUrl = BuildTileIconUrlEmotes(tilePath)
+                        });
+
+                    }
+                    }
             }
 
             SkinLootTable.ItemsSource = null;
@@ -163,7 +211,47 @@ public partial class DisEnchanter : Page
             "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets";
         return baseUrl + "/" + lowered;
     }
+    private static string BuildTileIconUrlWards(string? tilePath)
+    {
+        if (string.IsNullOrWhiteSpace(tilePath)) return null;
 
+        var startIndex = tilePath.IndexOf("/content", StringComparison.OrdinalIgnoreCase);
+
+        if (startIndex < 0 || startIndex >= tilePath.Length) return null;
+
+        var pathPart = tilePath[startIndex..].Trim();
+        var lowered = pathPart.ToLowerInvariant().TrimStart('/');
+        const string baseUrl =
+            "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default";
+        return baseUrl + "/" + lowered;
+    }
+    private static string BuildTileIconUrlEmotes(string? tilePath)
+    {
+        if (string.IsNullOrWhiteSpace(tilePath)) return null;
+
+        var startIndex = tilePath.IndexOf("/assets", StringComparison.OrdinalIgnoreCase);
+        if (startIndex < 0 || startIndex >= tilePath.Length) return null;
+
+        var pathPart = tilePath[(startIndex + "/assets".Length)..].Trim();
+        var lowered = pathPart.ToLowerInvariant().TrimStart('/');
+        const string baseUrl = "https://raw.communitydragon.org/latest/game";
+        return baseUrl + "/" + lowered;
+    }
+
+    private static string BuildTileIconUrlSummonerIcon(string? tilePath)
+    {
+        if (string.IsNullOrWhiteSpace(tilePath)) return null;
+
+        var startIndex = tilePath.IndexOf("/assets", StringComparison.OrdinalIgnoreCase);
+
+        if (startIndex < 0 || startIndex >= tilePath.Length) return null;
+
+        var pathPart = tilePath[(startIndex + "/assets".Length)..].Trim();
+        var lowered = pathPart.ToLowerInvariant().TrimStart('/');
+        const string baseUrl =
+            "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default";
+        return baseUrl + "/" + lowered;
+    }
 
     public class LootItem
     {
