@@ -10,7 +10,27 @@ namespace League_Account_Manager.views;
 
 public partial class ChampionSelect : Page
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private JObject region;
+
+    private static string BuildRankString(JToken? queue, bool highest)
+    {
+        if (queue == null) return "Unranked";
+
+        var tierKey = highest ? "highestTier" : "tier";
+        var divKey = highest ? "highestDivision" : "division";
+
+        var tier = queue[tierKey]?.ToString() ?? string.Empty;
+        var div = queue[divKey]?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(tier) || tier.Equals("NA", StringComparison.OrdinalIgnoreCase))
+            return "Unranked";
+
+        if (string.IsNullOrWhiteSpace(div) || div.Equals("NA", StringComparison.OrdinalIgnoreCase))
+            return tier;
+
+        return $"{tier} {div}";
+    }
 
 
     public ChampionSelect()
@@ -24,20 +44,31 @@ public partial class ChampionSelect : Page
         try
         {
             var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
-            var players = JObject.Parse(await GetResponseBody(resp));
-            Console.WriteLine(players);
-            var i = 0;
-            foreach (var player in players["myTeam"])
+            if (!resp.IsSuccessStatusCode)
             {
+                DebugConsole.WriteLine($"Champ select not available: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+                return;
+            }
+
+            var players = JObject.Parse(await GetResponseBody(resp));
+            var team = players["myTeam"] as JArray;
+            if (team == null)
+            {
+                DebugConsole.WriteLine("No team data in session.");
+                return;
+            }
+
+            for (var i = 0; i < team.Count; i++)
+            {
+                var player = team[i];
                 var playerText = FindName($"Player{i + 1}") as TextBox;
                 playerText.Text = await PullRankedInfo(player["puuid"], i);
-                i++;
             }
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            DebugConsole.WriteLine(exception.ToString());
+            Logger.Error(exception, "Error loading data");
         }
     }
 
@@ -47,30 +78,49 @@ public partial class ChampionSelect : Page
         {
             var resp = await Lcu.Connector("league", "get", $"/lol-ranked/v1/ranked-stats/{puuid}", "");
             var rankedinfo = JObject.Parse(await GetResponseBody(resp));
+            DebugConsole.WriteLine(rankedinfo.ToString());
             resp = await Lcu.Connector("league", "get",
                 $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
             var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
 
-            Gamestats gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
-            var wr = (double)(gameStats.Wins / (gameStats.Wins + gameStats.Losses));
-            var kda = (double)((gameStats.Kills + gameStats.Assists) / gameStats.Deaths);
+            var games = rankedinfo2["games"]?["games"];
+            if (games == null)
+            {
+                var warn = $"No match history returned for puuid {puuid} at index {I}: payload={rankedinfo2}";
+                Logger.Warn(warn);
+                DebugConsole.WriteLine(warn);
+            }
 
-            var playerPeak = FindName($"player{I + 1}peak") as ContentControl;
-            var playerRank = FindName($"player{I + 1}rank") as ContentControl;
-            var playerWr = FindName($"player{I + 1}wr") as ContentControl;
+            Gamestats gameStats = CalculateGameStats(games);
+            var wr = gameStats.Wins + gameStats.Losses > 0 ? gameStats.Wins / (gameStats.Wins + gameStats.Losses) : 0;
+            var kdaDen = gameStats.Deaths <= 0 ? 1 : gameStats.Deaths;
+            var kda = (gameStats.Kills + gameStats.Assists) / kdaDen;
 
-            playerPeak.Content =
-                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestTier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestDivision"]}";
-            playerRank.Content =
-                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
-            playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+            var solo = rankedinfo["queueMap"]?["RANKED_SOLO_5x5"];
+            if (solo == null)
+            {
+                var warn = $"Solo queue data missing for puuid {puuid} at index {I}: queueMap={rankedinfo["queueMap"]}";
+                Logger.Warn(warn);
+                DebugConsole.WriteLine(warn);
+            }
+
+            var border = RanksList.ItemContainerGenerator.ContainerFromIndex(I) as FrameworkElement;
+
+            var playerPeak = border?.FindName($"player{I + 1}peak") as TextBlock;
+            var playerRank = border?.FindName($"player{I + 1}rank") as TextBlock;
+            var playerWr   = border?.FindName($"player{I + 1}wr")   as TextBlock;
+
+            if (playerPeak != null) playerPeak.Text = BuildRankString(solo, true);
+            if (playerRank != null) playerRank.Text = BuildRankString(solo, false);
+            if (playerWr != null)   playerWr.Text   = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
             resp = await Lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
             var playerinfo = JObject.Parse(await GetResponseBody(resp));
             return playerinfo["gameName"] + "#" + playerinfo["tagLine"];
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "PullRankedInfo failed for puuid {Puuid} at index {Index}", puuid, I);
+            DebugConsole.WriteLine(exception.ToString());
         }
 
         return "Error loading data";
@@ -86,26 +136,49 @@ public partial class ChampionSelect : Page
                 $"/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=40", "");
             var rankedinfo2 = JObject.Parse(await GetResponseBody(resp));
 
-            Gamestats gameStats = CalculateGameStats(rankedinfo2["games"]["games"]);
-            var wr = (double)(gameStats.Wins / (gameStats.Wins + gameStats.Losses));
-            var kda = (double)((gameStats.Kills + gameStats.Assists) / gameStats.Deaths);
+            var solo = rankedinfo["queueMap"]?["RANKED_SOLO_5x5"];
+            if (solo == null)
+            {
+                var warn = $"Solo queue data missing for puuid {puuid} at index {I}: queueMap={rankedinfo["queueMap"]}";
+                Logger.Warn(warn);
+                DebugConsole.WriteLine(warn);
+            }
 
-            var playerPeak = FindName($"player{I + 1}peak") as ContentControl;
-            var playerRank = FindName($"player{I + 1}rank") as ContentControl;
-            var playerWr = FindName($"player{I + 1}wr") as ContentControl;
+            var games = rankedinfo2["games"]?["games"];
+            if (games == null)
+            {
+                var warn = $"No match history returned for puuid {puuid} at index {I}: payload={rankedinfo2}";
+                Logger.Warn(warn);
+                DebugConsole.WriteLine(warn);
+            }
 
-            playerPeak.Content =
-                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestTier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["highestDivision"]}";
-            playerRank.Content =
-                $"{rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["tier"]} {rankedinfo["queueMap"]["RANKED_SOLO_5x5"]["division"]}";
-            playerWr.Content = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+            Gamestats gameStats = CalculateGameStats(games);
+            var wins = gameStats?.Wins ?? 0;
+            var losses = gameStats?.Losses ?? 0;
+            var kills = gameStats?.Kills ?? 0;
+            var deaths = gameStats?.Deaths ?? 0;
+            var assists = gameStats?.Assists ?? 0;
+
+            var wr = wins + losses > 0 ? wins / (wins + losses) : 0;
+            var kdaDen = deaths <= 0 ? 1 : deaths;
+            var kda = (kills + assists) / kdaDen;
+
+            var border = RanksList.ItemContainerGenerator.ContainerFromIndex(I) as FrameworkElement;
+
+            var playerPeak = border?.FindName($"player{I + 1}peak") as TextBlock;
+            var playerRank = border?.FindName($"player{I + 1}rank") as TextBlock;
+            var playerWr   = border?.FindName($"player{I + 1}wr")   as TextBlock;
+            if (playerPeak != null) playerPeak.Text = BuildRankString(solo, true);
+            if (playerRank != null) playerRank.Text = BuildRankString(solo, false);
+            if (playerWr != null) playerWr.Text = $"{wins} / {losses} / {wr:P2} kda {kda:F2}";
             resp = await Lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
             var playerinfo = JObject.Parse(await GetResponseBody(resp));
             return playerinfo;
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            Logger.Error(exception, "PullRankedInfo2 failed for puuid {Puuid} at index {Index}", puuid, I);
+            DebugConsole.WriteLine(exception.ToString());
         }
 
         return "Error loading data";
@@ -122,6 +195,12 @@ public partial class ChampionSelect : Page
     {
         try
         {
+            if (games == null)
+            {
+                Logger.Warn("CalculateGameStats called with null games list");
+                return new Gamestats();
+            }
+
             int wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0;
             var tmp = new Gamestats { Assists = 0, Deaths = 0, Kills = 0, Losses = 0, Wins = 0 };
 
@@ -159,13 +238,20 @@ public partial class ChampionSelect : Page
     {
         try
         {
+            // Ensure region is loaded before building the URL
+            EnsureRegionAsync().GetAwaiter().GetResult();
+            if (region == null) throw new InvalidOperationException("Region not available");
+
             var playerNumber = ((Button)sender).Name.Last();
             var playerName = FindName($"Player{playerNumber}") as TextBox;
-            OpenUrl($"https://www.op.gg/summoners/{region["region"]}/{playerName.Text.Replace("#", "-")}");
+            var reg = region["region"]?.ToString();
+            if (string.IsNullOrWhiteSpace(reg) || playerName == null) return;
+            OpenUrl($"https://www.op.gg/summoners/{reg}/{playerName.Text.Replace("#", "-")}");
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error");
+            DebugConsole.WriteLine(exception.ToString());
+            Logger.Error(exception, "Error");
             Notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
                 NotificationType.Notification,
                 "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
@@ -173,22 +259,31 @@ public partial class ChampionSelect : Page
         }
     }
 
-    private void Button_Click_OpenUrlLeagueOfGraphs(object sender, RoutedEventArgs e)
+    private async Task EnsureRegionAsync()
+    {
+        if (region != null) return;
+        var resp = await Lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
+        region = JObject.Parse(await GetResponseBody(resp));
+    }
+
+    private async void Button_Click_OpenUrlLeagueOfGraphs(object sender, RoutedEventArgs e)
     {
         try
         {
+            await EnsureRegionAsync();
+            if (region == null) throw new InvalidOperationException("Region not available");
             var playerNumber = ((Button)sender).Name.Last();
-            //Console.Writeline($"Player{playerNumber}");
             var playerName = FindName($"Player{playerNumber}") as TextBox;
-            OpenUrl(
-                $"https://www.leagueofgraphs.com/summoner/{region["region"].ToString().ToLower()}/{playerName.Text.Replace("#", "-")}");
+            var reg = region["region"]?.ToString()?.ToLower();
+            if (string.IsNullOrWhiteSpace(reg) || playerName == null) return;
+            OpenUrl($"https://www.leagueofgraphs.com/summoner/{reg}/{playerName.Text.Replace("#", "-")}");
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error");
+            DebugConsole.WriteLine(exception.ToString());
+            Logger.Error(exception, "Error");
             Notif.notificationManager.Show("Error", "Error occurred! make sure you pulled data",
-                NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null,
-                () => Notif.donothing(), "OK", NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+                NotificationType.Notification, "WindowArea", TimeSpan.FromSeconds(10));
         }
     }
 
@@ -198,7 +293,7 @@ public partial class ChampionSelect : Page
         {
             var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
-            Console.WriteLine(players);
+            DebugConsole.WriteLine(players);
             var i = 0;
             resp = await Lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
@@ -218,7 +313,8 @@ public partial class ChampionSelect : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            DebugConsole.WriteLine(exception.ToString());
+            Logger.Error(exception, "PullTeamInfo failed while loading team info");
         }
     }
 
@@ -230,7 +326,7 @@ public partial class ChampionSelect : Page
             region = JObject.Parse(await GetResponseBody(resp));
             resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
             var players = JObject.Parse(await GetResponseBody(resp));
-            Console.WriteLine(players);
+            DebugConsole.WriteLine(players);
             var i = 0;
             var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
 
@@ -246,7 +342,8 @@ public partial class ChampionSelect : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            DebugConsole.WriteLine(exception.ToString());
+            Logger.Error(exception, "OpenPoroProfessor failed while building url");
         }
     }
 
@@ -260,7 +357,7 @@ public partial class ChampionSelect : Page
         var resp = await Lcu.Connector("league", "post",
             "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",
             "");
-        Console.WriteLine(GetResponseBody(resp));
+        DebugConsole.WriteLine(GetResponseBody(resp));
     }
 }
 

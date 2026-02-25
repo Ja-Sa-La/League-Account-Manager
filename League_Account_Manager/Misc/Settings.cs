@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
+using League_Account_Manager.Windows;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,6 +15,15 @@ namespace League_Account_Manager.Misc;
 public class Settings
 {
     public static settings1 settingsloaded;
+    public static event Action? AccountPasswordSupplied;
+
+    public static void Save()
+    {
+        var copy = settingsloaded;
+        copy.AccountFileEncryptionPassword = null;
+        var json = JsonSerializer.Serialize(copy);
+        File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+    }
 
     public static async
         Task
@@ -26,31 +36,59 @@ public class Settings
             settingsloaded.updates = true;
             settingsloaded.DisplayPasswords = true;
             settingsloaded.UpdateRanks = true;
+            settingsloaded.AccountFileEncryptionEnabled = false;
+            settingsloaded.AccountFileEncryptionPassword = null;
             settingsloaded = JsonConvert.DeserializeObject<settings1>(settingstemp);
+            if (settingsloaded.AccountFileEncryptionEnabled)
+            {
+                AccountFileStore.SetPassword(null);
+                string? password = null;
+
+                // Always prompt on startup when encryption is enabled.
+                if (Application.Current?.Dispatcher != null)
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        password = PromptForAccountFilePassword(
+                            "Enter the password to decrypt your account list.");
+                    });
+                else
+                {
+                    password = PromptForAccountFilePassword(
+                        "Enter the password to decrypt your account list.");
+                }
+
+                if (string.IsNullOrWhiteSpace(password))
+                {
+                    MessageBox.Show("Account file password is required to load encrypted accounts. The application will now close.",
+                        "Password Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Application.Current?.Shutdown();
+                    Environment.Exit(0);
+                    return;
+                }
+
+                AccountFileStore.SetPassword(password);
+                AccountPasswordSupplied?.Invoke();
+            }
             if (settingsloaded.riotPath == null)
             {
                 settingsloaded.riotPath = findriot();
-                var json = JsonSerializer.Serialize(settingsloaded);
-                File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+                Save();
             }
 
             if (settingsloaded.riotPath != null &&
                 (settingsloaded.LeaguePath == null || settingsloaded.LeaguePath == ""))
             {
                 settingsloaded.LeaguePath = await findleague();
-                var json = JsonSerializer.Serialize(settingsloaded);
-                File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+                Save();
             }
 
             if (settingsloaded.settingsLocation == null)
             {
                 settingsloaded.settingsLocation = await findSettings();
-                var json = JsonSerializer.Serialize(settingsloaded);
-                File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+                Save();
             }
 
-            File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json",
-                JsonSerializer.Serialize(settingsloaded));
+            Save();
         }
         else
         {
@@ -58,12 +96,23 @@ public class Settings
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
             settingsloaded.DisplayPasswords = true;
+            settingsloaded.AccountFileEncryptionEnabled = false;
+            settingsloaded.AccountFileEncryptionPassword = null;
             settingsloaded.riotPath = findriot();
             settingsloaded.LeaguePath = await findleague();
             settingsloaded.settingsLocation = await findSettings();
-            var json = JsonSerializer.Serialize(settingsloaded);
-            File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+            Save();
         }
+    }
+
+    private static string? PromptForAccountFilePassword(string message)
+    {
+        var prompt = new PasswordPrompt(message);
+        var owner = Application.Current?.MainWindow;
+        if (owner != null && owner.IsLoaded)
+            prompt.Owner = owner;
+        var result = prompt.ShowDialog();
+        return result == true ? prompt.Password : null;
     }
 
     private static string findriot()
@@ -211,5 +260,7 @@ public class Settings
         public bool DisplayPasswords { get; set; }
         public string settingsLocation { get; set; }
         public bool UpdateRanks { get; set; }
+        public bool AccountFileEncryptionEnabled { get; set; }
+        public string? AccountFileEncryptionPassword { get; set; }
     }
 }
