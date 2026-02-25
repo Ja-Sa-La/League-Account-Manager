@@ -90,6 +90,8 @@ public partial class MainWindow : Window
             version.Content = "Version " + Assembly.GetExecutingAssembly().GetName().Version;
             installloc.Content = Settings.settingsloaded.riotPath;
             installloclea.Content = Settings.settingsloaded.LeaguePath;
+
+            await ProxyLoginTokenManager.TryHandleLoginUriAsync(App.StartupArgs);
         }
         catch (Exception e)
         {

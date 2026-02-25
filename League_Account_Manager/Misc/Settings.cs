@@ -22,16 +22,17 @@ public class Settings
         var copy = settingsloaded;
         copy.AccountFileEncryptionPassword = null;
         var json = JsonSerializer.Serialize(copy);
-        File.WriteAllText(Directory.GetCurrentDirectory() + "/Settings.json", json);
+        File.WriteAllText(GetSettingsPath(), json);
     }
 
     public static async
         Task
         loadsettings()
     {
-        if (File.Exists(Directory.GetCurrentDirectory() + "/Settings.json"))
+        var settingsPath = GetSettingsPath();
+        if (File.Exists(settingsPath))
         {
-            var settingstemp = File.ReadAllText(Directory.GetCurrentDirectory() + "/Settings.json");
+            var settingstemp = File.ReadAllText(settingsPath);
             settingsloaded.filename = "List";
             settingsloaded.updates = true;
             settingsloaded.DisplayPasswords = true;
@@ -103,6 +104,11 @@ public class Settings
             settingsloaded.settingsLocation = await findSettings();
             Save();
         }
+    }
+
+    private static string GetSettingsPath()
+    {
+        return Path.Combine(AppContext.BaseDirectory, "Settings.json");
     }
 
     private static string? PromptForAccountFilePassword(string message)
