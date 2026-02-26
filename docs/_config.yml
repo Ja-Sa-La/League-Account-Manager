@@ -1,2 +1,4 @@
 title: League Account Manager
 theme: minima
+minima:
+  skin: dark

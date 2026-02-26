@@ -7,10 +7,25 @@
   max-width: 100%;
 }
 
+.page-content .wrapper,
+.site-footer .wrapper {
+  max-width: 90;
+}
+
+.site-header .wrapper {
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
 .site-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
+  float: none;
+  margin-left: auto;
 }
 
 .site-nav .page-link {
