@@ -16,11 +16,13 @@
       </label>
 
       <div class="trigger">
-        {%- for path in site.header_pages -%}
-          {%- assign my_page = site.pages | where: "path", path | first -%}
-          {%- if my_page.title -%}
-            <a class="page-link" href="{{ my_page.url | relative_url }}">{{ my_page.title | escape }}</a>
+        {%- assign nav_pages = site.pages | where_exp: "page", "page.path == 'index.md' or page.path contains 'pages/'" | sort: "path" -%}
+        {%- for my_page in nav_pages -%}
+          {%- assign page_title = my_page.title | default: my_page.name | replace: '.md', '' | replace: '-', ' ' | capitalize -%}
+          {%- if my_page.path == 'index.md' -%}
+            {%- assign page_title = my_page.title | default: 'Home' -%}
           {%- endif -%}
+          <a class="page-link" href="{{ my_page.url | relative_url }}">{{ page_title | escape }}</a>
         {%- endfor -%}
       </div>
     </nav>
