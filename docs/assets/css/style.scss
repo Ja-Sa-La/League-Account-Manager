@@ -46,15 +46,15 @@
   margin: 0 0 1rem 0;
 }
 
-.header-download {
-  margin: 0 0 0 1rem;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.9rem;
-}
-
 .download-button:hover,
 .download-button:focus {
   background: #388bfd;
   color: #ffffff;
   text-decoration: none;
+}
+
+.header-download {
+  margin: 0 0 0 1rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
 }
