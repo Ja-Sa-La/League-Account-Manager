@@ -1,5 +1,3 @@
-# League Account Manager
-
 This site documents the app, its features, and the WPF pages in the UI.
 
 ## Features
