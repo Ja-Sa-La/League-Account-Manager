@@ -1,0 +1,20 @@
+---
+---
+
+@import "minima";
+
+.site-header {
+  max-width: 100%;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.site-nav .page-link {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
