@@ -33,3 +33,27 @@
   padding: 0.25rem 0.5rem;
   white-space: nowrap;
 }
+
+.download-button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  background: #1f6feb;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+  margin: 0 0 1rem 0;
+}
+
+.header-download {
+  margin: 0 0 0 1rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.download-button:hover,
+.download-button:focus {
+  background: #388bfd;
+  color: #ffffff;
+  text-decoration: none;
+}

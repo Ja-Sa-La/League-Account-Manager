@@ -81,6 +81,8 @@ This site documents the app, its features, and the WPF pages in the UI.
 
 ## Install & Run (binary)
 
+<a href="https://github.com/Ja-Sa-La/League-Account-Manager/releases" class="download-button">Download Latest Release</a>
+
 1. [Download](https://github.com/Ja-Sa-La/League-Account-Manager/releases) the latest release build
 2. Ensure .NET 8 Desktop Runtime is installed
 3. Run `League Account Manager.exe`
