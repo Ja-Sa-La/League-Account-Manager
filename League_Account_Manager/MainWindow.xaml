@@ -123,6 +123,18 @@
                     <Label Height="20" x:Name="Credits" Content="By Ja-Sa-La" HorizontalAlignment="Left"
                            Foreground="#80FFFFFF"
                            Padding="15,0,0,4" />
+                    <ui:NavigationViewItem Click="Discord_OnClick" >
+                        <ui:NavigationViewItem.Icon>
+                            <ui:SymbolIcon Symbol="Chat20" />
+                        </ui:NavigationViewItem.Icon>
+                        <ui:NavigationViewItem.Content>
+                            <TextBlock>
+                                <Run Text="Join Discord" />
+                                <LineBreak />
+                                <Run Text="for Support" />
+                            </TextBlock>
+                        </ui:NavigationViewItem.Content>
+                    </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Settings" TargetPageType="{x:Type Page:Settings}">
                         <ui:NavigationViewItem.Icon>
                             <ui:SymbolIcon Symbol="Settings24" />

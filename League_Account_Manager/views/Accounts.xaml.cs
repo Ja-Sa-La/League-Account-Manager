@@ -897,6 +897,7 @@ public partial class Accounts : Page
                 if (penalties == null) continue;
 
                 var permanentBanFound = false;
+                var relevantBanTypeFound = false;
                 var banDetails = new List<string>();
 
                 foreach (var penalty in penalties)
@@ -905,11 +906,14 @@ public partial class Accounts : Page
                     var permanent = penalty["isPermanent"]?.ToObject<bool>() ?? false;
 
                     if (type == "PERMANENT_BAN" || permanent) permanentBanFound = true;
+                    if (type.Equals("AC_SCRIPTING", StringComparison.OrdinalIgnoreCase) ||
+                        type.Equals("RANKED_MANIPULATION", StringComparison.OrdinalIgnoreCase))
+                        relevantBanTypeFound = true;
 
                     banDetails.Add($"{type} (Permanent: {permanent})");
                 }
 
-                if (permanentBanFound)
+                if (permanentBanFound && relevantBanTypeFound)
                 {
                     // Collect localized info
                     var localized = data["localizedTexts"];
