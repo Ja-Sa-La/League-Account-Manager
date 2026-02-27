@@ -125,6 +125,11 @@ public partial class MainWindow : Window
         RootNavigation.Navigate("home");
     }
 
+    private void Discord_OnClick(object sender, RoutedEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo("https://discord.gg/tjQVcc9SGP") { UseShellExecute = true });
+    }
+
     private void MainWindow_OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_isResizing)
