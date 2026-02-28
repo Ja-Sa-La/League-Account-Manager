@@ -2,7 +2,7 @@
 
 For support join [Discord](https://discord.gg/tjQVcc9SGP)
 
-A WPF utility for managing League of Legends accounts from one place. It uses the League Client API (LCU) only and does not perform exploits.
+A WPF utility for managing League of Legends accounts from one place. It uses the League Client API (LCU) only and does not perform exploits. Now with support for Valorant too!
 
 ## Features
 
