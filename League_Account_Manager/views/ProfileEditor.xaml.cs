@@ -40,7 +40,7 @@ public partial class ProfileEditor : Page
                 if (!loaded) break;
                 await LoadIcons();
                 await LoadSkins();
-                loadranks();
+                LoadRankLists();
                 if (list.Count < 1)
                 {
                     await Task.Delay(5000);
@@ -84,7 +84,7 @@ public partial class ProfileEditor : Page
         return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
-    private async void DisableChat_Click(object sender, RoutedEventArgs e)
+    private async void OnDisableChatClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -97,7 +97,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void EnableChat_Click(object sender, RoutedEventArgs e)
+    private async void OnEnableChatClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -110,7 +110,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void GetChatSettings_Click(object sender, RoutedEventArgs e)
+    private async void OnGetChatSettingsClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -123,7 +123,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void Status(object sender, RoutedEventArgs e)
+    private async void OnSetStatusMessageClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -141,7 +141,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void ChatOnline(object sender, RoutedEventArgs e)
+    private async void OnSetChatOnlineClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -155,7 +155,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void ChatOffline(object sender, RoutedEventArgs e)
+    private async void OnSetChatOfflineClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -169,7 +169,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void ChatRiotMobile(object sender, RoutedEventArgs e)
+    private async void OnSetChatMobileClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -183,7 +183,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void SetRank(object sender, RoutedEventArgs e)
+    private async void OnSetRankClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -202,7 +202,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void ChatAway(object sender, RoutedEventArgs e)
+    private async void OnSetChatAwayClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -215,7 +215,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void SetIcon(object sender, RoutedEventArgs e)
+    private async void OnSetIconClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -232,7 +232,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void SetSkin(object sender, RoutedEventArgs e)
+    private async void OnSetBackgroundClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -247,7 +247,7 @@ public partial class ProfileEditor : Page
         }
     }
 
-    private async void loadranks()
+    private void LoadRankLists()
     {
         QueueList = new List<string>
         {
@@ -351,7 +351,7 @@ public partial class ProfileEditor : Page
     }
 
 
-    private void IconList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    private void OnIconSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
         SelectedIcon = args.SelectedItem as IconData;
         if (SelectedIcon != null)
@@ -363,7 +363,7 @@ public partial class ProfileEditor : Page
     }
 
 
-    private void IconList_OnGotFocus(object sender, RoutedEventArgs e)
+    private void OnIconListGotFocus(object sender, RoutedEventArgs e)
     {
         SkinList.Text = "";
         IconList.Text = "";
@@ -372,7 +372,7 @@ public partial class ProfileEditor : Page
         IconList.Text = "";
     }
 
-    private void SkinList_OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    private void OnSkinSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
         SelectedSkin = args.SelectedItem as IconData;
         if (SelectedSkin != null)
@@ -384,13 +384,13 @@ public partial class ProfileEditor : Page
     }
 
 
-    private void Page8_OnLoaded(object sender, RoutedEventArgs e)
+    private void OnProfileEditorLoaded(object sender, RoutedEventArgs e)
     {
         loaded = true;
         LoadDataAsync();
     }
 
-    private void Page8_OnUnloaded(object sender, RoutedEventArgs e)
+    private void OnProfileEditorUnloaded(object sender, RoutedEventArgs e)
     {
         loaded = false;
     }

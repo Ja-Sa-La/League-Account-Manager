@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using CsvHelper.Configuration.Attributes;
 using NLog;
 
 namespace League_Account_Manager.Misc;
@@ -21,6 +22,16 @@ public class Utils
             account.Loot = RemoveDoubleQuotes(account.Loot);
             account.rank2 = RemoveDoubleQuotes(account.rank2);
             account.note = RemoveDoubleQuotes(account.note);
+            account.valorantAgents = RemoveDoubleQuotes(account.valorantAgents);
+            account.valorantContracts = RemoveDoubleQuotes(account.valorantContracts);
+            account.valorantSprays = RemoveDoubleQuotes(account.valorantSprays);
+            account.valorantGunBuddies = RemoveDoubleQuotes(account.valorantGunBuddies);
+            account.valorantCards = RemoveDoubleQuotes(account.valorantCards);
+            account.valorantSkins = RemoveDoubleQuotes(account.valorantSkins);
+            account.valorantSkinVariants = RemoveDoubleQuotes(account.valorantSkinVariants);
+            account.valorantTitles = RemoveDoubleQuotes(account.valorantTitles);
+            account.valorantRank = RemoveDoubleQuotes(account.valorantRank);
+            account.valorantServer = RemoveDoubleQuotes(account.valorantServer);
         }
     }
 
@@ -39,7 +50,7 @@ public class Utils
             {
                 "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
                 "LeagueCrashHandler",
-                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient"
+                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient","VALORANT-Win64-Shipping","VALORANT"
             };
 
             var allProcessesKilled = false;
@@ -125,6 +136,50 @@ public class Utils
         public int Loots { get; set; }
         public string? rank2 { get; set; }
         public string? note { get; set; }
+        public string? valorantAgents { get; set; }
+        public string? valorantContracts { get; set; }
+        public string? valorantSprays { get; set; }
+        public string? valorantGunBuddies { get; set; }
+        public string? valorantCards { get; set; }
+        public string? valorantSkins { get; set; }
+        public string? valorantSkinVariants { get; set; }
+        public string? valorantTitles { get; set; }
+        public int? valorantVp { get; set; }
+        public int? valorantRp { get; set; }
+        public int? valorantKc { get; set; }
+        public int? valorantLevel { get; set; }
+        public string? valorantRank { get; set; }
+        public string? valorantServer { get; set; }
+        public int? valorantXp { get; set; }
+
+        [Ignore]
+        public int ValorantAgentsCount => CountTokens(valorantAgents);
+
+        [Ignore]
+        public int ValorantContractsCount => CountTokens(valorantContracts);
+
+        [Ignore]
+        public int ValorantSpraysCount => CountTokens(valorantSprays);
+
+        [Ignore]
+        public int ValorantGunBuddiesCount => CountTokens(valorantGunBuddies);
+
+        [Ignore]
+        public int ValorantCardsCount => CountTokens(valorantCards);
+
+        [Ignore]
+        public int ValorantSkinsCount => CountTokens(valorantSkins) + CountTokens(valorantSkinVariants);
+
+        [Ignore]
+        public int ValorantTitlesCount => CountTokens(valorantTitles);
+
+        private static int CountTokens(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return 0;
+
+            return value.Split(':', StringSplitOptions.RemoveEmptyEntries).Length;
+        }
     }
 
     public class Wallet

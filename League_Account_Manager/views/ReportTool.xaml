@@ -26,10 +26,10 @@
                     <TextBlock Text="Fetch reportable players and submit reports." Foreground="#CCFFFFFF" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <ui:Button Content="Get reportable players" Click="LoadReportablePlayers_Click" Height="40"
+                    <ui:Button Content="Get reportable players" Click="OnLoadReportablePlayersClick" Height="40"
                                Margin="4,0,0,0" />
-                    <ui:Button Content="Select all" Click="ToggleSelectAll_Click" Height="40" Margin="4,0,0,0" />
-                    <ui:Button Content="Report selected" Click="sendReports" Height="40" Margin="4,0,0,0" />
+                    <ui:Button Content="Select all" Click="OnToggleSelectAllClick" Height="40" Margin="4,0,0,0" />
+                    <ui:Button Content="Report selected" Click="OnSendReportsClick" Height="40" Margin="4,0,0,0" />
                 </StackPanel>
             </Grid>
         </Border>

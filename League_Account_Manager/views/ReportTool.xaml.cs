@@ -25,7 +25,7 @@ public partial class ReportTool : Page
         Reportable.ItemsSource = plaList;
     }
 
-    private async void LoadReportablePlayers_Click(object sender, RoutedEventArgs e)
+    private async void OnLoadReportablePlayersClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -91,7 +91,7 @@ public partial class ReportTool : Page
         }
     }
 
-    private void ToggleSelectAll_Click(object sender, RoutedEventArgs e)
+    private void OnToggleSelectAllClick(object sender, RoutedEventArgs e)
     {
         if (selected)
         {
@@ -111,7 +111,7 @@ public partial class ReportTool : Page
         }
     }
 
-    private void sendReports(object sender, RoutedEventArgs e)
+    private void OnSendReportsClick(object sender, RoutedEventArgs e)
     {
         try
         {

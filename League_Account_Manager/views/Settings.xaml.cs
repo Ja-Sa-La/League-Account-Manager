@@ -30,7 +30,7 @@ public partial class Settings : Page
         _initializing = false;
     }
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)
     {
         var currentPassword = AccountFileStore.GetPassword();
         var encryptionEnabled = AccountFileEncryption.IsChecked == true;
@@ -93,7 +93,7 @@ public partial class Settings : Page
         Application.Current.Shutdown();
     }
 
-    private void AccountFileEncryption_Checked(object sender, RoutedEventArgs e)
+    private void OnAccountFileEncryptionChecked(object sender, RoutedEventArgs e)
     {
         if (_initializing)
             return;

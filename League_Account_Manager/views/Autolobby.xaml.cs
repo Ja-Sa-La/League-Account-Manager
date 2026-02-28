@@ -303,22 +303,22 @@ public partial class Autolobby : Page
     // BUTTON TOGGLES
     // =====================================================
 
-    private void ToggleAutoAccept(object sender, RoutedEventArgs e)
+    private void OnToggleAutoAcceptClick(object sender, RoutedEventArgs e)
     {
         ToggleTask("AutoAcceptQueue", StartAutoAcceptTask, sender);
     }
 
-    private void ToggleAutoPick(object sender, RoutedEventArgs e)
+    private void OnToggleAutoPickClick(object sender, RoutedEventArgs e)
     {
         ToggleTask("AutoAcceptPick", StartAutoPickTask, sender);
     }
 
-    private void ToggleAutoBan(object sender, RoutedEventArgs e)
+    private void OnToggleAutoBanClick(object sender, RoutedEventArgs e)
     {
         ToggleTask("AutoAcceptBan", StartAutoBanTask, sender);
     }
 
-    private void ToggleAutoMessage(object sender, RoutedEventArgs e)
+    private void OnToggleAutoMessageClick(object sender, RoutedEventArgs e)
     {
         ToggleTask("AutoAcceptMessage", StartAutoMessageTask, sender);
     }

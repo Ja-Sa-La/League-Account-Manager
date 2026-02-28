@@ -9,7 +9,7 @@
     Title="Settings">
 
     <Grid>
-        <ui:Button Content="Save settings" Margin="0,0,10,10" VerticalAlignment="Bottom" Click="Button_Click"
+        <ui:Button Content="Save settings" Margin="0,0,10,10" VerticalAlignment="Bottom" Click="OnSaveSettingsClick"
                    HorizontalAlignment="Right" Width="153" Height="45" />
         <CheckBox Name="savesettingsupdates" Content="Check for updates automatically" Margin="10,10,0,0"
                   VerticalAlignment="Top" Width="241" />
@@ -24,7 +24,7 @@
                   VerticalAlignment="Top" Width="297" />
 
         <CheckBox x:Name="AccountFileEncryption" Content="Encrypt account file with a password" Margin="10,205,0,0"
-                  VerticalAlignment="Top" Width="297" Checked="AccountFileEncryption_Checked"
-                  Unchecked="AccountFileEncryption_Checked" />
+                  VerticalAlignment="Top" Width="297" Checked="OnAccountFileEncryptionChecked"
+                  Unchecked="OnAccountFileEncryptionChecked" />
     </Grid>
 </Page>

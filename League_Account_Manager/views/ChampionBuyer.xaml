@@ -26,7 +26,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Click="BuySelectedChampions_Click" ContentControl.Content="Buy selected champions"
+                <ui:Button Click="OnBuySelectedChampionsClick" ContentControl.Content="Buy selected champions"
                            Height="48" Width="220" />
                 <Label Name="StatusMessageLabel" Grid.Column="1" Content="Currently buying: "
                        VerticalAlignment="Center" FontSize="20" Foreground="White" Margin="10,0,0,0" />

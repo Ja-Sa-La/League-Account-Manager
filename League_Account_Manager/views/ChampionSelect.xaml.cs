@@ -39,7 +39,7 @@ public partial class ChampionSelect : Page
     }
 
 
-    private async void PullTeamInfo_Click(object sender, RoutedEventArgs e)
+    private async void OnPullTeamInfoClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -234,7 +234,7 @@ public partial class ChampionSelect : Page
         return null;
     }
 
-    private void Button_Click_OpenUrl(object sender, RoutedEventArgs e)
+    private void OnOpenOpGgClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -266,7 +266,7 @@ public partial class ChampionSelect : Page
         region = JObject.Parse(await GetResponseBody(resp));
     }
 
-    private async void Button_Click_OpenUrlLeagueOfGraphs(object sender, RoutedEventArgs e)
+    private async void OnOpenLeagueOfGraphsClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -287,7 +287,7 @@ public partial class ChampionSelect : Page
         }
     }
 
-    private async void OpenMultiOpGg_Click(object sender, RoutedEventArgs e)
+    private async void OnOpenMultiOpGgClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -318,7 +318,7 @@ public partial class ChampionSelect : Page
         }
     }
 
-    private async void OpenPoroProfessor(object sender, RoutedEventArgs e)
+    private async void OnOpenPoroProfessorClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -352,7 +352,7 @@ public partial class ChampionSelect : Page
         Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
     }
 
-    private async void DODGE(object sender, RoutedEventArgs e)
+    private async void OnDodgeClick(object sender, RoutedEventArgs e)
     {
         var resp = await Lcu.Connector("league", "post",
             "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",

@@ -13,13 +13,13 @@
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                <Button Content="Reset" Click="ResetButton_Click" Margin="5" />
-                <Button Content="Export" Click="ExportButton_Click" Margin="5" />
-                <Button Content="Import" Click="ImportButton_Click" Margin="5" />
-                <Button Content="Apply to Client" Click="ApplyButton_Click" Margin="5" />
-                <Button Content="Apply to Account" Click="ApplyButton2_Click" Margin="5" />
-                <Button Content="Lock" Click="LockButton_Click" Margin="5" />
-                <Button Content="Unlock" Click="UnlockButton_Click" Margin="5" />
+                <Button Content="Reset" Click="OnResetClick" Margin="5" />
+                <Button Content="Export" Click="OnExportClick" Margin="5" />
+                <Button Content="Import" Click="OnImportClick" Margin="5" />
+                <Button Content="Apply to Client" Click="OnApplyToClientClick" Margin="5" />
+                <Button Content="Apply to Account" Click="OnApplyToAccountClick" Margin="5" />
+                <Button Content="Lock" Click="OnLockClick" Margin="5" />
+                <Button Content="Unlock" Click="OnUnlockClick" Margin="5" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

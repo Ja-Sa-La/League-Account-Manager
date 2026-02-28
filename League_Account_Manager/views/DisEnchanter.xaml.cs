@@ -146,12 +146,12 @@ public partial class DisEnchanter : Page
         UpdateLootAsync();
     }
 
-    private void ButtonBase_OnClick1(object sender, RoutedEventArgs e)
+    private void OnDisenchantSelectedClick(object sender, RoutedEventArgs e)
     {
         CraftSelectedLootAsync();
     }
 
-    private void SelectChamps(object sender, RoutedEventArgs e)
+    private void OnToggleSelectChampionsClick(object sender, RoutedEventArgs e)
     {
         if (!champsSelected)
         {
@@ -165,7 +165,7 @@ public partial class DisEnchanter : Page
         }
     }
 
-    private void SelectSkins(object sender, RoutedEventArgs e)
+    private void OnToggleSelectSkinsClick(object sender, RoutedEventArgs e)
     {
         if (!skinsSelected)
         {
@@ -179,7 +179,7 @@ public partial class DisEnchanter : Page
         }
     }
 
-    private void ChampLootTable_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void OnLootSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         int oe = 0, be = 0;
         foreach (LootItem champ in ChampLootTable.SelectedItems) be += Convert.ToInt32(champ.Value);

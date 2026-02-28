@@ -193,14 +193,37 @@ public partial class SettingsEditor : Page
             var iniPath = Misc.Settings.settingsloaded.settingsLocation;
             var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(),
                 "PersistedSettings.json");
+            var inputPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(), "Input.ini");
 
             SettingsIngame loaded = null;
+            _extraSections.Clear();
+
+            if (File.Exists(iniPath))
+            {
+                loaded = LoadSettings(iniPath);
+                AppendExtraSectionsFromIni(iniPath, "Game.cfg");
+            }
+            else
+            {
+                Logger.Warn("Game.cfg not found at {0}", iniPath);
+            }
+
+            if (File.Exists(inputPath))
+            {
+                AppendExtraSectionsFromIni(inputPath, "Input.ini");
+            }
+            else
+            {
+                Logger.Warn("Input.ini not found at {0}", inputPath);
+            }
 
             if (File.Exists(persistedPath))
                 try
                 {
-                    loaded = LoadPersistedSettingsFromJson(persistedPath);
-                    Logger.Info("Loaded settings from persisted JSON at {0}", persistedPath);
+                    var persisted = LoadPersistedSettingsFromJson(persistedPath);
+                    if (loaded == null)
+                        loaded = persisted;
+                    Logger.Info("Loaded persisted settings JSON at {0}", persistedPath);
                 }
                 catch (Exception ex)
                 {
@@ -217,6 +240,34 @@ public partial class SettingsEditor : Page
         {
             Logger.Error(ex, "Failed to load initial settings");
             MessageBox.Show("Error loading settings: " + ex.Message);
+        }
+    }
+
+    private void AppendExtraSectionsFromIni(string iniPath, string fileName)
+    {
+        var parser = new FileIniDataParser();
+        var data = parser.ReadFile(iniPath);
+        var knownSections = new HashSet<string>(
+            typeof(SettingsIngame).GetProperties().Select(p => p.Name),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var section in data.Sections)
+        {
+            if (fileName.Equals("Game.cfg", StringComparison.OrdinalIgnoreCase) &&
+                knownSections.Contains(section.SectionName))
+                continue;
+
+            var extra = _extraSections.FirstOrDefault(x =>
+                x.Name.Equals(section.SectionName, StringComparison.OrdinalIgnoreCase) &&
+                x.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+            if (extra == null)
+            {
+                extra = new ExtraSection { Name = section.SectionName, FileName = fileName };
+                _extraSections.Add(extra);
+            }
+
+            foreach (var key in section.Keys)
+                extra.Settings.Add(new ExtraSetting { Name = key.KeyName, Value = key.Value ?? string.Empty });
         }
     }
 
@@ -668,14 +719,14 @@ public partial class SettingsEditor : Page
 
     #region Button Handlers
 
-    private void ResetButton_Click(object sender, RoutedEventArgs e)
+    private void OnResetClick(object sender, RoutedEventArgs e)
     {
         settings = CloneSettings(originalSettings);
         DataContext = null;
         DataContext = settings;
     }
 
-    private void ExportButton_Click(object sender, RoutedEventArgs e)
+    private void OnExportClick(object sender, RoutedEventArgs e)
     {
         var sfd = new SaveFileDialog
         {
@@ -687,7 +738,7 @@ public partial class SettingsEditor : Page
                 JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    private void ImportButton_Click(object sender, RoutedEventArgs e)
+    private void OnImportClick(object sender, RoutedEventArgs e)
     {
         var ofd = new OpenFileDialog
         {
@@ -701,7 +752,7 @@ public partial class SettingsEditor : Page
         DataContext = settings;
     }
 
-    private async void ApplyButton_Click(object sender, RoutedEventArgs e)
+    private async void OnApplyToClientClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -725,7 +776,7 @@ public partial class SettingsEditor : Page
         }
     }
 
-    private async void ApplyButton2_Click(object sender, RoutedEventArgs e)
+    private async void OnApplyToAccountClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -750,12 +801,12 @@ public partial class SettingsEditor : Page
         }
     }
 
-    private void LockButton_Click(object sender, RoutedEventArgs e)
+    private void OnLockClick(object sender, RoutedEventArgs e)
     {
         SetReadOnly(true);
     }
 
-    private void UnlockButton_Click(object sender, RoutedEventArgs e)
+    private void OnUnlockClick(object sender, RoutedEventArgs e)
     {
         SetReadOnly(false);
     }

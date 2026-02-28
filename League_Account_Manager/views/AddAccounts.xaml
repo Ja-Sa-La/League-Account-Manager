@@ -47,7 +47,7 @@
                     <ui:PasswordBox x:Name="Password" MinWidth="300" Width="300" MaxLines="1" />
                 </StackPanel>
                 <ui:Button Grid.Row="3" Margin="0,16,0,0" Content="Add account" Height="40" Width="160"
-                           Click="Button_Click" />
+                           Click="OnAddSingleAccountClick" />
             </Grid>
         </Border>
 
@@ -67,7 +67,7 @@
                             VerticalScrollBarVisibility="Auto"
                             Background="#FF1E1E1E" Foreground="White" />
                 <ui:Button Grid.Row="3" Margin="0,12,0,0" Content="Add all" Height="48" Width="200" FontSize="16"
-                           Click="Button_Click_1" />
+                           Click="OnAddBulkAccountsClick" />
             </Grid>
         </Border>
 
