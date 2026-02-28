@@ -26,11 +26,11 @@
                     <TextBlock Text="Fill player names, open stats sites, and view ranks." Foreground="#CCFFFFFF" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Pull info" Click="PullTeamInfo_Click" Height="40" Width="110" Margin="4,0,0,0" />
-                    <Button Content="Open multi.op.gg" Click="OpenMultiOpGg_Click" Height="40" Width="150"
+                    <Button Content="Pull info" Click="OnPullTeamInfoClick" Height="40" Width="110" Margin="4,0,0,0" />
+                    <Button Content="Open multi.op.gg" Click="OnOpenMultiOpGgClick" Height="40" Width="150"
                             Margin="4,0,0,0" />
-                    <Button Content="DODGE" Click="DODGE" Height="40" Width="100" Margin="4,0,0,0" />
-                    <Button Content="Open PoroProfessor" Click="OpenPoroProfessor" Height="40" Width="160"
+                    <Button Content="DODGE" Click="OnDodgeClick" Height="40" Width="100" Margin="4,0,0,0" />
+                    <Button Content="Open PoroProfessor" Click="OnOpenPoroProfessorClick" Height="40" Width="160"
                             Margin="4,0,0,0" />
                 </StackPanel>
             </Grid>
@@ -74,10 +74,10 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Vertical" Margin="12,0,0,0"
                                             VerticalAlignment="Center">
-                                    <Button Name="opgg1" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="32"
+                                    <Button Name="opgg1" Content="Open op.gg" Click="OnOpenOpGgClick" Height="32"
                                             Width="120" Margin="0,0,0,6" />
                                     <Button Name="leagueofgraphs1" Content="Open League of Graphs"
-                                            Click="Button_Click_OpenUrlLeagueOfGraphs" Height="32" Width="140" />
+                                            Click="OnOpenLeagueOfGraphsClick" Height="32" Width="140" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -93,10 +93,10 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Vertical" Margin="12,0,0,0"
                                             VerticalAlignment="Center">
-                                    <Button Name="opgg2" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="32"
+                                    <Button Name="opgg2" Content="Open op.gg" Click="OnOpenOpGgClick" Height="32"
                                             Width="120" Margin="0,0,0,6" />
                                     <Button Name="leagueofgraphs2" Content="Open League of Graphs"
-                                            Click="Button_Click_OpenUrlLeagueOfGraphs" Height="32" Width="140" />
+                                            Click="OnOpenLeagueOfGraphsClick" Height="32" Width="140" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -112,10 +112,10 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Vertical" Margin="12,0,0,0"
                                             VerticalAlignment="Center">
-                                    <Button Name="opgg3" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="32"
+                                    <Button Name="opgg3" Content="Open op.gg" Click="OnOpenOpGgClick" Height="32"
                                             Width="120" Margin="0,0,0,6" />
                                     <Button Name="leagueofgraphs3" Content="Open League of Graphs"
-                                            Click="Button_Click_OpenUrlLeagueOfGraphs" Height="32" Width="140" />
+                                            Click="OnOpenLeagueOfGraphsClick" Height="32" Width="140" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -131,10 +131,10 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Vertical" Margin="12,0,0,0"
                                             VerticalAlignment="Center">
-                                    <Button Name="opgg4" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="32"
+                                    <Button Name="opgg4" Content="Open op.gg" Click="OnOpenOpGgClick" Height="32"
                                             Width="120" Margin="0,0,0,6" />
                                     <Button Name="leagueofgraphs4" Content="Open League of Graphs"
-                                            Click="Button_Click_OpenUrlLeagueOfGraphs" Height="32" Width="140" />
+                                            Click="OnOpenLeagueOfGraphsClick" Height="32" Width="140" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -150,10 +150,10 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Vertical" Margin="12,0,0,0"
                                             VerticalAlignment="Center">
-                                    <Button Name="opgg5" Content="Open op.gg" Click="Button_Click_OpenUrl" Height="32"
+                                    <Button Name="opgg5" Content="Open op.gg" Click="OnOpenOpGgClick" Height="32"
                                             Width="120" Margin="0,0,0,6" />
                                     <Button Name="leagueofgraphs5" Content="Open League of Graphs"
-                                            Click="Button_Click_OpenUrlLeagueOfGraphs" Height="32" Width="140" />
+                                            Click="OnOpenLeagueOfGraphsClick" Height="32" Width="140" />
                                 </StackPanel>
                             </Grid>
                         </Border>

@@ -11,12 +11,15 @@ public partial class DisplayDataWithSearch : Window
 {
     private readonly string dataholder = "";
 
-    public DisplayDataWithSearch(string Data)
+    public DisplayDataWithSearch(string? Data)
     {
         InitializeComponent();
         Datathing.Clear();
+        if (string.IsNullOrWhiteSpace(Data))
+            return;
+
         dataholder = Data.Replace(":", Environment.NewLine).Trim();
-        Datathing.AppendText(Data.Replace(":", Environment.NewLine).Trim());
+        Datathing.AppendText(dataholder);
     }
 
 

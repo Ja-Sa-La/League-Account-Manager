@@ -7,7 +7,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Accounts"
     mc:Ignorable="d"
     d:DesignHeight="749" d:DesignWidth="1216"
-    Title="Accounts" KeyUp="ChampionList_OnKeyDown" KeyDown="ChampionList_OnKeyDown"
+    Title="Accounts" KeyUp="Accounts_OnKeyDown" KeyDown="Accounts_OnKeyDown"
     PreviewKeyDown="Accounts_OnPreviewKeyDown"
     ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
 
@@ -39,26 +39,26 @@
                                        Foreground="#CCFFFFFF" />
                         </StackPanel>
                         <ui:Button Margin="4" Padding="6,1" x:Name="killleague" Content="Kill client" FontSize="12"
-                                   Click="KillLeague_Click" Width="130" />
+                                   Click="OnKillClientClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="openleague1" Content="Open League" FontSize="12"
-                                   Click="OpenLeague1_Click" Width="130" />
+                                   Click="OnOpenLeagueClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="PullData" Content="PullData" FontSize="12"
-                                   Click="PullData_Click" Width="130" />
+                                   Click="OnPullDataClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="Delete" Content="Delete" FontSize="12"
-                                   Click="Delete_Click" Width="130" />
+                                   Click="OnDeleteClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="Login" Content="Login" FontSize="12"
-                                   Click="Button_Click" Width="130" />
+                                   Click="OnLoginClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="Stealthlogin" Content="Stealth Login" FontSize="12"
-                                   Click="Button_Click" Width="130" />
+                                   Click="OnLoginClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="SecondaryClient" Content="Second client"
                                    FontSize="10"
-                                   Click="SecondaryClient_OnClick" Width="140" />
+                                   Click="OnSecondaryClientClick" Width="140" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="DuplicateRemover" Content="Remove duplicates"
                                    FontSize="10"
-                                   Click="DuplicateRemover_OnClick" Width="130" />
+                                   Click="OnRemoveDuplicatesClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="openleague1_Copy" Content="Name Change"
                                    FontSize="12"
-                                   Click="OpenLeague1_Copy_Click" Width="130" />
+                                   Click="OnNameChangeClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="GenerateLoginToken" Content="Generate token"
                         FontSize="12"
                         Click="GenerateLoginToken_OnClick" Width="130" />
@@ -70,7 +70,7 @@
                     <ui:TextBox x:Name="FilterTextBox" Margin="870,50,62,0"
                                 PlaceholderText="Champion, skin, loot or server name"
                                 TextWrapping="NoWrap" Padding="8,6" FontSize="12"
-                                TextChanged="TextBox_TextChanged" VerticalAlignment="Top" />
+                                TextChanged="OnFilterTextChanged" VerticalAlignment="Top" />
                 </Grid>
             </Grid>
         </Border>
@@ -78,8 +78,9 @@
         <Grid Height="605" Margin="10,124,10,0"  VerticalAlignment="Top" Grid.RowSpan="2">
             <Border Background="#FF2F2F2F" CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
                 <DataGrid x:Name="AccountsDataGrid" SelectionUnit="FullRow"
-                          MouseLeftButtonDown="ChampionList_MouseLeftButtonDown"
-                          Sorting="AccountsDataGrid_Sorting"
+                          KeyDown="Accounts_OnKeyDown"
+                          MouseLeftButtonDown="OnAccountsMouseLeftButtonDown"
+                          Sorting="OnAccountsDataGridSorting"
                           IsReadOnly="True"
                           HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
                           SelectionMode="Single" Background="#FF202020" BorderBrush="#FF4C4C4C" Margin="0"

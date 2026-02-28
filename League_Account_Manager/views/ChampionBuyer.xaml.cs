@@ -22,10 +22,10 @@ public partial class ChampionBuyer : Page
     public ChampionBuyer()
     {
         InitializeComponent();
-        LoadBuyableData();
+        LoadBuyableChampionsAsync();
     }
 
-    private async void BuySelectedChampions_Click(object sender, RoutedEventArgs e)
+    private async void OnBuySelectedChampionsClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -73,7 +73,7 @@ public partial class ChampionBuyer : Page
             }
 
             StatusMessageLabel.Content = "All champions bought! Total BE used: " + totalcost;
-            LoadBuyableData();
+            LoadBuyableChampionsAsync();
         }
         catch (Exception exception)
         {
@@ -81,7 +81,7 @@ public partial class ChampionBuyer : Page
         }
     }
 
-    private async void LoadBuyableData()
+    private async void LoadBuyableChampionsAsync()
     {
         try
         {

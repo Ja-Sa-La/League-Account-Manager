@@ -59,10 +59,16 @@
             <ui:NavigationView Grid.Row="1" OpenPaneLength="175" IsBackButtonVisible="Collapsed" MinWidth="50"
                                x:Name="RootNavigation" Grid.Column="0" Loaded="RootNavigation_OnLoaded">
                 <ui:NavigationView.MenuItems>
-                    <ui:NavigationViewItem NavigationCacheMode="Required" Content="Dashboard" TargetPageTag="home"
+                    <ui:NavigationViewItem NavigationCacheMode="Required" Content="League" TargetPageTag="home"
                                            TargetPageType="{x:Type Page:Accounts}">
                         <ui:NavigationViewItem.Icon>
                             <ui:SymbolIcon Symbol="Home20" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
+                    <ui:NavigationViewItem NavigationCacheMode="Required" Content="Valorant"
+                                           TargetPageType="{x:Type Page:ValorantAccounts}">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:SymbolIcon Symbol="Alert20" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Add accounts" TargetPageType="{x:Type Page:AddAccounts}">

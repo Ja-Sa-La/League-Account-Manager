@@ -3,10 +3,8 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using CsvHelper;
 using CsvHelper.Configuration;
 using League_Account_Manager.Misc;
-using static League_Account_Manager.views.Accounts;
 
 namespace League_Account_Manager.Windows;
 
@@ -45,10 +43,28 @@ public partial class NoteDisplay : Window
         if (Datathing.Text == dataholder.note) return;
 
         dataholder.note = Datathing.Text;
-        ActualAccountlists.RemoveAll(r => r.username == dataholder.username && r.password == dataholder.password);
-        ActualAccountlists.Add(dataholder);
-        Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
-        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, _config);
+        var filePath = AccountFileStore.GetAccountsFilePath();
+        var records = await AccountFileStore.LoadAsync(filePath, _config);
+
+        var updated = false;
+        foreach (var record in records)
+        {
+            if (!IsSameAccount(record, dataholder)) continue;
+            record.note = dataholder.note;
+            updated = true;
+        }
+
+        if (!updated)
+            records.Add(dataholder);
+
+        Utils.RemoveDoubleQuotesFromList(records);
+        await AccountFileStore.SaveAsync(filePath, records, _config);
+    }
+
+    private static bool IsSameAccount(Utils.AccountList left, Utils.AccountList right)
+    {
+        return string.Equals(left.username, right.username, StringComparison.Ordinal) &&
+               string.Equals(left.password, right.password, StringComparison.Ordinal);
     }
 
     private void Close_Click(object sender, RoutedEventArgs e)

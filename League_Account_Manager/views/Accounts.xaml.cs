@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Windows; // Added for MessageBox
 using CsvHelper;
 using CsvHelper.Configuration;
 using FlaUI.Core.AutomationElements;
@@ -44,6 +45,8 @@ public partial class Accounts : Page
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     private readonly OfflineLauncher offlineLauncher = new();
     private bool _initialized;
+    private bool _pendingReload;
+    private DateTime _lastKnownFileWrite = DateTime.MinValue;
     private DateTime _lastFileChange = DateTime.MinValue;
     private INotification? _progressNotification;
     private bool Executing;
@@ -54,7 +57,23 @@ public partial class Accounts : Page
         InitializeComponent();
         Loaded += Accounts_Loaded;
         Unloaded += Accounts_Unloaded;
+        IsVisibleChanged += Accounts_IsVisibleChanged;
         Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
+        AccountFileStore.AccountsFileUpdated += OnAccountsFileUpdated;
+    }
+
+    private async void Accounts_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!IsVisible) return;
+        var filePath = AccountFileStore.GetAccountsFilePath();
+        if (File.Exists(filePath))
+        {
+            var lastWrite = File.GetLastWriteTimeUtc(filePath);
+            if (lastWrite <= _lastKnownFileWrite && !_pendingReload) return;
+        }
+
+        _pendingReload = false;
+        await LoadDataAsync();
     }
 
     public static List<Utils.AccountList>? ActualAccountlists { get; set; }
@@ -70,6 +89,20 @@ public partial class Accounts : Page
         }
     }
 
+    private async void OnAccountsFileUpdated(object? sender, EventArgs e)
+    {
+        _pendingReload = true;
+        if (!IsLoaded) return;
+        try
+        {
+            _pendingReload = false;
+            await Dispatcher.InvokeAsync(async () => { await LoadDataAsync(); });
+        }
+        catch
+        {
+        }
+    }
+
     private async void Accounts_Loaded(object sender, RoutedEventArgs e)
     {
         if (_initialized) return;
@@ -80,6 +113,18 @@ public partial class Accounts : Page
             DebugConsole.WriteLine("[Accounts] Page loaded");
 
             await LoadDataAsync();
+            var accountsFilePath = AccountFileStore.GetAccountsFilePath();
+            if (File.Exists(accountsFilePath))
+            {
+                var lastWrite = File.GetLastWriteTimeUtc(accountsFilePath);
+                if (lastWrite > _lastKnownFileWrite)
+                    await LoadDataAsync();
+            }
+            if (_pendingReload)
+            {
+                _pendingReload = false;
+                await LoadDataAsync();
+            }
 
             DebugConsole.WriteLine("[Accounts] LoadData completed. Starting rank update...");
 
@@ -121,7 +166,7 @@ public partial class Accounts : Page
         }
     }
 
-    private void AccountsDataGrid_Sorting(object? sender, DataGridSortingEventArgs e)
+    private void OnAccountsDataGridSorting(object? sender, DataGridSortingEventArgs e)
     {
         try
         {
@@ -263,11 +308,13 @@ public partial class Accounts : Page
                 if (File.Exists(filePath))
                 {
                     ActualAccountlists = await AccountFileStore.LoadAsync(filePath, config);
+                    _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
                 }
                 else
                 {
                     ActualAccountlists = new List<Utils.AccountList>();
                     await AccountFileStore.SaveAsync(filePath, ActualAccountlists, config);
+                    _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
                 }
 
                 ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
@@ -293,34 +340,9 @@ public partial class Accounts : Page
     }
 
 
-    private async void Delete_Click(object sender, RoutedEventArgs e)
+    private async void OnDeleteClick(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            var selectedrow = AccountsDataGrid.SelectedItem as Utils.AccountList;
-            if (selectedrow == null) return;
-
-            ActualAccountlists?.RemoveAll(r =>
-                r.username == selectedrow.username &&
-                r.password == selectedrow.password &&
-                r.server == selectedrow.server);
-
-            ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
-
-            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
-
-            AccountsDataGrid.ItemsSource = null;
-            AccountsDataGrid.ItemsSource = ActualAccountlists;
-
-            AccountsDataGrid.Items.SortDescriptions.Clear();
-            AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
-
-            AccountsDataGrid.Items.Refresh();
-        }
-        catch (Exception exception)
-        {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error deleting account");
-        }
+        await DeleteSelectedAccountAsync();
     }
 
 
@@ -367,7 +389,7 @@ public partial class Accounts : Page
         });
     }
 
-    private async void PullData_Click(object sender, RoutedEventArgs e)
+    private async void OnPullDataClick(object sender, RoutedEventArgs e)
     {
         // Fire-and-forget wrapper for async Task
         _ = PullDataAsync();
@@ -935,7 +957,7 @@ public partial class Accounts : Page
     }
 
 
-    private async void Button_Click(object sender, RoutedEventArgs e)
+    private async void OnLoginClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -1372,19 +1394,29 @@ public partial class Accounts : Page
     }
 
 
-    private async void ChampionList_OnKeyDown(object sender, KeyEventArgs e)
+    private async void Accounts_OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete) return;
+        await DeleteSelectedAccountAsync();
+    }
 
+    private async Task DeleteSelectedAccountAsync()
+    {
         try
         {
             var selectedrow = AccountsDataGrid.SelectedItem as Utils.AccountList;
             if (selectedrow == null) return;
 
+            var confirm = MessageBox.Show("Delete the selected account?", "Confirm delete",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.Yes) return;
+
             ActualAccountlists?.RemoveAll(r =>
                 r.username == selectedrow.username &&
                 r.password == selectedrow.password &&
                 r.server == selectedrow.server);
+
+            ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
 
             await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
@@ -1398,7 +1430,7 @@ public partial class Accounts : Page
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error deleting account with delete key");
+            LogManager.GetCurrentClassLogger().Error(exception, "Error deleting account");
         }
     }
 
@@ -1411,12 +1443,12 @@ public partial class Accounts : Page
     }
 
 
-    private void KillLeague_Click(object sender, RoutedEventArgs e)
+    private void OnKillClientClick(object sender, RoutedEventArgs e)
     {
         Utils.KillLeagueFunc();
     }
 
-    private async void OpenLeague1_Click(object sender, RoutedEventArgs e)
+    private async void OnOpenLeagueClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -1436,7 +1468,7 @@ public partial class Accounts : Page
             "--launch-product=league_of_legends --launch-patchline=live");
     }
 
-    private async void TextBox_TextChanged(object sender, TextChangedEventArgs e)
+    private async void OnFilterTextChanged(object sender, TextChangedEventArgs e)
     {
         try
         {
@@ -1500,6 +1532,34 @@ public partial class Accounts : Page
 
                 // Read header if exists
                 csv.ReadHeader();
+                var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                if (csv.HeaderRecord != null)
+                    for (var i = 0; i < csv.HeaderRecord.Length; i++)
+                        if (!string.IsNullOrWhiteSpace(csv.HeaderRecord[i]) && !headerMap.ContainsKey(csv.HeaderRecord[i]))
+                            headerMap[csv.HeaderRecord[i]] = i;
+
+                string? GetField(string headerName, int fallbackIndex)
+                {
+                    if (headerMap.TryGetValue(headerName, out var index))
+                        return csv.TryGetField(index, out string? value) ? value : null;
+
+                    if (fallbackIndex < 0)
+                        return null;
+
+                    return csv.TryGetField(fallbackIndex, out string? fallbackValue) ? fallbackValue : null;
+                }
+
+                string? GetFieldAny(int fallbackIndex, params string[] headerNames)
+                {
+                    foreach (var headerName in headerNames)
+                        if (headerMap.TryGetValue(headerName, out var index))
+                            return csv.TryGetField(index, out string? value) ? value : null;
+
+                    if (fallbackIndex < 0)
+                        return null;
+
+                    return csv.TryGetField(fallbackIndex, out string? fallbackValue) ? fallbackValue : null;
+                }
 
                 while (true)
                     try
@@ -1509,22 +1569,37 @@ public partial class Accounts : Page
 
                         var record = new Utils.AccountList
                         {
-                            username = csv.GetField(0) ?? "",
-                            password = csv.GetField(1) ?? "",
-                            riotID = csv.GetField(2) ?? "",
-                            level = TryParseInt(csv.GetField(3)),
-                            server = csv.GetField(4) ?? "",
-                            be = TryParseInt(csv.GetField(5)),
-                            rp = TryParseInt(csv.GetField(6)),
-                            rank = csv.GetField(7) ?? "",
-                            champions = csv.GetField(8) ?? "",
-                            skins = csv.GetField(9) ?? "",
-                            Champions = TryParseInt(csv.GetField(10)),
-                            Skins = TryParseInt(csv.GetField(11)),
-                            Loot = csv.GetField(12) ?? "",
-                            Loots = TryParseInt(csv.GetField(13)),
-                            rank2 = csv.GetField(14) ?? "",
-                            note = csv.GetField(15) ?? ""
+                            username = GetField("username", 0) ?? "",
+                            password = GetField("password", 1) ?? "",
+                            riotID = GetField("riotID", 2) ?? "",
+                            level = TryParseInt(GetField("level", 3)),
+                            server = GetField("server", 4) ?? "",
+                            be = TryParseInt(GetField("be", 5)),
+                            rp = TryParseInt(GetField("rp", 6)),
+                            rank = GetField("rank", 7) ?? "",
+                            champions = GetField("champions", 8) ?? "",
+                            skins = GetField("skins", 9) ?? "",
+                            Champions = TryParseInt(GetField("Champions", 10)),
+                            Skins = TryParseInt(GetField("Skins", 11)),
+                            Loot = GetField("Loot", 12) ?? "",
+                            Loots = TryParseInt(GetField("Loots", 13)),
+                            rank2 = GetField("rank2", 14) ?? "",
+                            note = GetField("note", 15) ?? "",
+                            valorantAgents = GetField("valorantAgents", 16) ?? "",
+                            valorantContracts = GetField("valorantContracts", 17) ?? "",
+                            valorantSprays = GetField("valorantSprays", 18) ?? "",
+                            valorantGunBuddies = GetField("valorantGunBuddies", 19) ?? "",
+                            valorantCards = GetField("valorantCards", 20) ?? "",
+                            valorantSkins = GetField("valorantSkins", 21) ?? "",
+                            valorantSkinVariants = GetField("valorantSkinVariants", 22) ?? "",
+                            valorantTitles = GetField("valorantTitles", 23) ?? "",
+                            valorantVp = TryParseInt(GetField("valorantVp", 24)),
+                            valorantRp = TryParseInt(GetFieldAny(25, "valorantRp", "valorantRpKc")),
+                            valorantKc = TryParseInt(GetFieldAny(-1, "valorantKc")),
+                            valorantLevel = TryParseInt(GetField("valorantLevel", 27)),
+                            valorantRank = GetField("valorantRank", 28) ?? "",
+                            valorantServer = GetField("valorantServer", -1) ?? "",
+                            valorantXp = TryParseInt(GetField("valorantXp", -1))
                         };
 
                         records.Add(record);
@@ -1561,7 +1636,7 @@ public partial class Accounts : Page
     }
 
 
-    private async void ChampionList_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private async void OnAccountsMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         var dataGrid = sender as DataGrid;
         if (!Executing)
@@ -1637,13 +1712,13 @@ public partial class Accounts : Page
         dataGrid.SelectedItem = null;
     }
 
-    private void OpenLeague1_Copy_Click(object sender, RoutedEventArgs e)
+    private void OnNameChangeClick(object sender, RoutedEventArgs e)
     {
         var namechanger = new ChangeName();
         namechanger.Show();
     }
 
-    private void SecondaryClient_OnClick(object sender, RoutedEventArgs e)
+    private void OnSecondaryClientClick(object sender, RoutedEventArgs e)
     {
         Process.Start(Misc.Settings.settingsloaded.riotPath,
             "--launch-product=league_of_legends --launch-patchline=live --allow-multiple-clients");
@@ -1690,7 +1765,7 @@ public partial class Accounts : Page
         }
     }
 
-    private void DuplicateRemover_OnClick(object sender, RoutedEventArgs e)
+    private void OnRemoveDuplicatesClick(object sender, RoutedEventArgs e)
     {
         if (ActualAccountlists == null) return;
 

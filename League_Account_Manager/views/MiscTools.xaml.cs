@@ -52,7 +52,7 @@ public partial class MiscTools : Page
         InitializeComponent();
     }
 
-    private void NukeLogs_Click(object sender, RoutedEventArgs e)
+    private void OnNukeLogsClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -108,7 +108,7 @@ public partial class MiscTools : Page
         }
     }
 
-    private async void NukeFriends_Click(object sender, RoutedEventArgs e)
+    private async void OnNukeFriendsClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -141,7 +141,7 @@ public partial class MiscTools : Page
         }
     }
 
-    private async void GetFriends_Click(object sender, RoutedEventArgs e)
+    private async void OnGetFriendsClick(object sender, RoutedEventArgs e)
     {
         var friendlist = "";
         var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
@@ -184,7 +184,7 @@ public partial class MiscTools : Page
             }
     }
 
-    private void UninstallLeague_Click(object sender, RoutedEventArgs e)
+    private void OnUninstallLeagueClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -213,7 +213,7 @@ public partial class MiscTools : Page
         }
     }
 
-    private async void DisableAutolaunch_Click(object sender, RoutedEventArgs e)
+    private async void OnDisableAutolaunchClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -225,7 +225,7 @@ public partial class MiscTools : Page
         }
     }
 
-    private async void GetRiotHwid_Click(object sender, RoutedEventArgs e)
+    private async void OnGetRiotHwidClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -239,7 +239,7 @@ public partial class MiscTools : Page
         }
     }
 
-    private async void RestartLeagueUx_Click(object sender, RoutedEventArgs e)
+    private async void OnRestartLeagueUxClick(object sender, RoutedEventArgs e)
     {
         try
         {

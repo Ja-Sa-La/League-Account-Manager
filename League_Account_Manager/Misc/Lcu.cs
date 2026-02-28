@@ -3,11 +3,14 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 
 namespace League_Account_Manager.Misc;
 
 internal class Lcu
 {
+    private const string ValorantClientPlatformHeader =
+        "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
     public static Vals Riot = new() { path = "", port = "", token = "", Value = "", version = null };
     public static Vals League;
 
@@ -148,6 +151,50 @@ internal class Lcu
         }
 
         return await SendRequest(client, mode, endpoint, data, portSplit[1]);
+    }
+
+    public static async Task<(HttpClient Client, string AccessToken, string EntitlementsToken, string Puuid, string IdToken)>
+        CreateValorantClientAsync()
+    {
+        var entitlementsResponse = await Connector("riot", "get", "/entitlements/v1/token", "") as HttpResponseMessage;
+        if (entitlementsResponse == null)
+            throw new InvalidOperationException("Failed to get entitlements token.");
+
+        var entitlementsBody = await entitlementsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var entitlementsJson = JObject.Parse(entitlementsBody);
+        var accessToken = entitlementsJson["accessToken"]?.ToString();
+        var entitlementsToken = entitlementsJson["token"]?.ToString();
+        if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(entitlementsToken))
+            throw new InvalidOperationException("Missing entitlement or access token.");
+
+        var authResponse = await Connector("riot", "get", "/riot-client-auth/v1/authorization", "") as HttpResponseMessage;
+        if (authResponse == null)
+            throw new InvalidOperationException("Failed to get authorization details.");
+
+        var authBody = await authResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var authJson = JObject.Parse(authBody);
+        var puuid = authJson["puuid"]?.ToString();
+        var idToken = authJson["idToken"]?["token"]?.ToString();
+        if (string.IsNullOrWhiteSpace(puuid) || string.IsNullOrWhiteSpace(idToken))
+            throw new InvalidOperationException("Missing PUUID or id token.");
+
+        using var versionClient = new HttpClient();
+        var versionBody = await versionClient.GetStringAsync("https://valorant-api.com/v1/version")
+            .ConfigureAwait(false);
+        var versionJson = JObject.Parse(versionBody);
+        var clientVersion = versionJson["data"]?["version"]?.ToString();
+        if (string.IsNullOrWhiteSpace(clientVersion))
+            throw new InvalidOperationException("Missing Valorant client version.");
+
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        client.DefaultRequestHeaders.Add("X-Riot-Entitlements-JWT", entitlementsToken);
+        client.DefaultRequestHeaders.Add("X-Riot-ClientPlatform", ValorantClientPlatformHeader);
+        client.DefaultRequestHeaders.Add("X-Riot-ClientVersion", clientVersion);
+        client.DefaultRequestHeaders.Add("Accept", "*/*");
+
+        return (client, accessToken, entitlementsToken, puuid, idToken);
     }
 
     private static void SetRiotValues(Process process, string value, bool isLeagueClient = false)

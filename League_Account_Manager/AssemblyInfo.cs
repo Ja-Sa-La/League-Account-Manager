@@ -15,7 +15,7 @@ using System.Runtime.Versioning;
 [assembly: SupportedOSPlatform("windows")]
 
 // Version information
-[assembly: AssemblyVersion("2.3.0.14")]
-[assembly: AssemblyFileVersion("2.3.0.14")]
+[assembly: AssemblyVersion("2.4.0.1")]
+[assembly: AssemblyFileVersion("2.4.0.1")]
 [assembly: NeutralResourcesLanguageAttribute( "en-US" )]
 

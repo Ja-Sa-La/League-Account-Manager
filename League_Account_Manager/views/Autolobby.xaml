@@ -15,14 +15,14 @@
                     Name="MessageContainer" FontSize="11"
                     Text="" HorizontalAlignment="Left" Width="306" MinWidth="311" />
 
-        <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top" Click="ToggleAutoAccept"
+        <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoAcceptClick"
                 Height="67" Width="300" />
-        <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top" Click="ToggleAutoPick"
+        <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoPickClick"
                 Height="67" Width="290" />
-        <Button Content="Enable AutoAcceptBan" Margin="614,10,0,0" VerticalAlignment="Top" Click="ToggleAutoBan"
+        <Button Content="Enable AutoAcceptBan" Margin="614,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoBanClick"
                 Height="67" Width="279" />
         <Button Content="Enable AutoAcceptMessage" Margin="900,10,0,0" VerticalAlignment="Top"
-                Click="ToggleAutoMessage"
+                Click="OnToggleAutoMessageClick"
                 Height="67" Width="306" />
         <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,118,0,0"
                            Name="blindPickChampion" VerticalAlignment="Top" Width="290"

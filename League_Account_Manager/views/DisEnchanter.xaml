@@ -29,11 +29,11 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Content="Disenchant selected" Height="40" Width="170" Click="ButtonBase_OnClick1" />
+                <ui:Button Content="Disenchant selected" Height="40" Width="170" Click="OnDisenchantSelectedClick" />
                 <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Select all champs" Height="40" Width="150"
-                           Click="SelectChamps" />
+                           Click="OnToggleSelectChampionsClick" />
                 <ui:Button Grid.Column="2" Margin="8,0,0,0" Content="Select all skins" Height="40" Width="150"
-                           Click="SelectSkins" />
+                           Click="OnToggleSelectSkinsClick" />
                 <StackPanel Grid.Column="4" Orientation="Vertical" Margin="12,0,0,0" VerticalAlignment="Center">
                     <Label Content="Blue essense to be gained: 0" Name="belabel" Foreground="White" />
                     <Label Content="Orange essense to be gained: 0" Name="oelabel" Foreground="White" />
@@ -49,7 +49,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="White" Text="Blue essence sources" />
-                <ListBox SelectionChanged="ChampLootTable_OnSelectionChanged" Name="ChampLootTable" Grid.Row="1"
+                <ListBox SelectionChanged="OnLootSelectionChanged" Name="ChampLootTable" Grid.Row="1"
                          SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
                          Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
@@ -115,7 +115,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <TextBlock Text="Orange essence sources" FontSize="18" FontWeight="SemiBold" Foreground="White" />
-                <ListBox SelectionChanged="ChampLootTable_OnSelectionChanged" x:Name="SkinLootTable" Grid.Row="1"
+                <ListBox SelectionChanged="OnLootSelectionChanged" x:Name="SkinLootTable" Grid.Row="1"
                          SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
                          Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="520">

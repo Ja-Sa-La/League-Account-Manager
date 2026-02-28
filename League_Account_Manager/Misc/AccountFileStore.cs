@@ -18,6 +18,8 @@ internal static class AccountFileStore
     private const int KeySize = 32;
     private const int Pbkdf2Iterations = 100_000;
 
+    public static event EventHandler? AccountsFileUpdated;
+
     public static string GetAccountsFilePath()
     {
         return Path.Combine(AppContext.BaseDirectory, $"{Settings.settingsloaded.filename}.csv");
@@ -88,10 +90,12 @@ internal static class AccountFileStore
                 throw new InvalidOperationException("Account file encryption password not set.");
 
             await SaveEncryptedAsync(filePath, records, config, password);
+            AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
             return;
         }
 
         await SavePlaintextAsync(filePath, records, config);
+        AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
     }
 
     public static void Save(string filePath, IEnumerable<Utils.AccountList> records, CsvConfiguration config)
@@ -240,6 +244,34 @@ internal static class AccountFileStore
         if (!csv.Read()) return records;
 
         csv.ReadHeader();
+        var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (csv.HeaderRecord != null)
+            for (var i = 0; i < csv.HeaderRecord.Length; i++)
+                if (!string.IsNullOrWhiteSpace(csv.HeaderRecord[i]) && !headerMap.ContainsKey(csv.HeaderRecord[i]))
+                    headerMap[csv.HeaderRecord[i]] = i;
+
+        string? GetField(string headerName, int fallbackIndex)
+        {
+            if (headerMap.TryGetValue(headerName, out var index))
+                return csv.TryGetField(index, out string? value) ? value : null;
+
+            if (fallbackIndex < 0)
+                return null;
+
+            return csv.TryGetField(fallbackIndex, out string? fallbackValue) ? fallbackValue : null;
+        }
+
+        string? GetFieldAny(int fallbackIndex, params string[] headerNames)
+        {
+            foreach (var headerName in headerNames)
+                if (headerMap.TryGetValue(headerName, out var index))
+                    return csv.TryGetField(index, out string? value) ? value : null;
+
+            if (fallbackIndex < 0)
+                return null;
+
+            return csv.TryGetField(fallbackIndex, out string? fallbackValue) ? fallbackValue : null;
+        }
 
         while (true)
             try
@@ -249,22 +281,37 @@ internal static class AccountFileStore
 
                 var record = new Utils.AccountList
                 {
-                    username = csv.GetField(0) ?? "",
-                    password = csv.GetField(1) ?? "",
-                    riotID = csv.GetField(2) ?? "",
-                    level = TryParseInt(csv.GetField(3)),
-                    server = csv.GetField(4) ?? "",
-                    be = TryParseInt(csv.GetField(5)),
-                    rp = TryParseInt(csv.GetField(6)),
-                    rank = csv.GetField(7) ?? "",
-                    champions = csv.GetField(8) ?? "",
-                    skins = csv.GetField(9) ?? "",
-                    Champions = TryParseInt(csv.GetField(10)),
-                    Skins = TryParseInt(csv.GetField(11)),
-                    Loot = csv.GetField(12) ?? "",
-                    Loots = TryParseInt(csv.GetField(13)),
-                    rank2 = csv.GetField(14) ?? "",
-                    note = csv.GetField(15) ?? ""
+                    username = GetField("username", 0) ?? "",
+                    password = GetField("password", 1) ?? "",
+                    riotID = GetField("riotID", 2) ?? "",
+                    level = TryParseInt(GetField("level", 3)),
+                    server = GetField("server", 4) ?? "",
+                    be = TryParseInt(GetField("be", 5)),
+                    rp = TryParseInt(GetField("rp", 6)),
+                    rank = GetField("rank", 7) ?? "",
+                    champions = GetField("champions", 8) ?? "",
+                    skins = GetField("skins", 9) ?? "",
+                    Champions = TryParseInt(GetField("Champions", 10)),
+                    Skins = TryParseInt(GetField("Skins", 11)),
+                    Loot = GetField("Loot", 12) ?? "",
+                    Loots = TryParseInt(GetField("Loots", 13)),
+                    rank2 = GetField("rank2", 14) ?? "",
+                    note = GetField("note", 15) ?? "",
+                    valorantAgents = GetField("valorantAgents", 16) ?? "",
+                    valorantContracts = GetField("valorantContracts", 17) ?? "",
+                    valorantSprays = GetField("valorantSprays", 18) ?? "",
+                    valorantGunBuddies = GetField("valorantGunBuddies", 19) ?? "",
+                    valorantCards = GetField("valorantCards", 20) ?? "",
+                    valorantSkins = GetField("valorantSkins", 21) ?? "",
+                    valorantSkinVariants = GetField("valorantSkinVariants", 22) ?? "",
+                    valorantTitles = GetField("valorantTitles", 23) ?? "",
+                    valorantVp = TryParseInt(GetField("valorantVp", 24)),
+                    valorantRp = TryParseInt(GetFieldAny(25, "valorantRp", "valorantRpKc")),
+                    valorantKc = TryParseInt(GetFieldAny(-1, "valorantKc")),
+                    valorantLevel = TryParseInt(GetField("valorantLevel", 27)),
+                    valorantRank = GetField("valorantRank", 28) ?? "",
+                    valorantServer = GetField("valorantServer", -1) ?? "",
+                    valorantXp = TryParseInt(GetField("valorantXp", -1))
                 };
 
                 records.Add(record);

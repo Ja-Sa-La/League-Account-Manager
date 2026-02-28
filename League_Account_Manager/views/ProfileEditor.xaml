@@ -6,29 +6,29 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       mc:Ignorable="d"
       d:DesignHeight="749" d:DesignWidth="1216"
-      Title="ProfileEditor" Loaded="Page8_OnLoaded" Unloaded="Page8_OnUnloaded">
+    Title="ProfileEditor" Loaded="OnProfileEditorLoaded" Unloaded="OnProfileEditorUnloaded">
 
     <Grid>
-        <ui:Button Content="Disable Chat" Margin="10,15,0,0" Click="DisableChat_Click" VerticalAlignment="Top"
+        <ui:Button Content="Disable Chat" Margin="10,15,0,0" Click="OnDisableChatClick" VerticalAlignment="Top"
                    Height="77"
                    Width="168" />
-        <ui:Button Content="Enable Chat" Margin="10,102,0,0" Click="EnableChat_Click" VerticalAlignment="Top"
+        <ui:Button Content="Enable Chat" Margin="10,102,0,0" Click="OnEnableChatClick" VerticalAlignment="Top"
                    Height="78"
                    Width="168" />
-        <ui:Button Content="Get Chat settings" Margin="1011,15,0,0" Click="GetChatSettings_Click"
+        <ui:Button Content="Get Chat settings" Margin="1011,15,0,0" Click="OnGetChatSettingsClick"
                    VerticalAlignment="Top"
                    Height="77" Width="169" Visibility="Hidden" />
-        <ui:Button Content="Set Chat Statusmessage" Margin="185,15,0,0" Click="Status" VerticalAlignment="Top"
+        <ui:Button Content="Set Chat Statusmessage" Margin="185,15,0,0" Click="OnSetStatusMessageClick" VerticalAlignment="Top"
                    Height="77" Width="311" />
-        <ui:Button Content="Show Offline" Margin="10,190,0,0" Click="ChatOffline" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Show Offline" Margin="10,190,0,0" Click="OnSetChatOfflineClick" VerticalAlignment="Top" Height="77"
                    Width="168" />
-        <ui:Button Content="Show Away" Margin="10,277,0,0" Click="ChatAway" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Show Away" Margin="10,277,0,0" Click="OnSetChatAwayClick" VerticalAlignment="Top" Height="77"
                    Width="168" />
-        <ui:Button Content="Show Mobile" Margin="10,364,0,0" Click="ChatRiotMobile" VerticalAlignment="Top" Height="78"
+        <ui:Button Content="Show Mobile" Margin="10,364,0,0" Click="OnSetChatMobileClick" VerticalAlignment="Top" Height="78"
                    Width="168" />
-        <ui:Button Content="Show Online" Margin="10,452,0,0" Click="ChatOnline" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Show Online" Margin="10,452,0,0" Click="OnSetChatOnlineClick" VerticalAlignment="Top" Height="77"
                    Width="168" />
-        <ui:Button Content="set Icon" Margin="501,15,0,0" Click="SetIcon" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="set Icon" Margin="501,15,0,0" Click="OnSetIconClick" VerticalAlignment="Top" Height="77"
                    Width="250" />
         <ui:TextBox ClearButtonEnabled="False" PlaceholderText="Status message" AcceptsReturn="True"
                     Margin="185,102,0,220" TextWrapping="Wrap"
@@ -36,7 +36,7 @@
                     Text="" HorizontalAlignment="Left" Width="311" MinWidth="311" />
         <ui:AutoSuggestBox IsEnabled="False" PlaceholderText="Loading!" MaxWidth="250" Margin="504,102,0,0"
                            Name="IconList" VerticalAlignment="Top" Width="245"
-                           SuggestionChosen="IconList_OnSuggestionChosen" GotFocus="IconList_OnGotFocus"
+                           SuggestionChosen="OnIconSuggestionChosen" GotFocus="OnIconListGotFocus"
                            HorizontalAlignment="Left">
             <ui:AutoSuggestBox.ItemTemplate>
                 <DataTemplate>
@@ -53,11 +53,11 @@
                 BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6">
             <Image x:Name="IconPreview" Stretch="UniformToFill" />
         </Border>
-        <ui:Button Content="set Background" Click="SetSkin" VerticalAlignment="Top" Height="77" Width="250"
+        <ui:Button Content="set Background" Click="OnSetBackgroundClick" VerticalAlignment="Top" Height="77" Width="250"
                    Margin="756,15,0,0" />
         <ui:AutoSuggestBox IsEnabled="False" PlaceholderText="Loading!" MaxWidth="250" x:Name="SkinList"
-                           VerticalAlignment="Top" SuggestionChosen="SkinList_OnSuggestionChosen"
-                           GotFocus="IconList_OnGotFocus" Margin="761,102,0,0"
+                           VerticalAlignment="Top" SuggestionChosen="OnSkinSuggestionChosen"
+                           GotFocus="OnIconListGotFocus" Margin="761,102,0,0"
                            HorizontalAlignment="Left" Width="245">
             <ui:AutoSuggestBox.ItemTemplate>
                 <DataTemplate>
@@ -74,7 +74,7 @@
                 BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6">
             <Image x:Name="SkinPreview" Stretch="UniformToFill" />
         </Border>
-        <ui:Button Content="set Rank" Margin="761,414,0,0" Click="SetRank" VerticalAlignment="Top" Height="76"
+        <ui:Button Content="set Rank" Margin="761,414,0,0" Click="OnSetRankClick" VerticalAlignment="Top" Height="76"
                    Width="250" />
         <ComboBox Margin="506,417,0,0" ItemsSource="{Binding QueueList}" Name="Mode" VerticalAlignment="Top"
                   HorizontalAlignment="Left" MinWidth="247" />
