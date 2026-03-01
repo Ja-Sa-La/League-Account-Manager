@@ -193,7 +193,8 @@ public partial class SettingsEditor : Page
             var iniPath = Misc.Settings.settingsloaded.settingsLocation;
             var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(),
                 "PersistedSettings.json");
-            var inputPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(), "Input.ini");
+            var inputPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(),
+                "Input.ini");
 
             SettingsIngame loaded = null;
             _extraSections.Clear();
@@ -209,13 +210,9 @@ public partial class SettingsEditor : Page
             }
 
             if (File.Exists(inputPath))
-            {
                 AppendExtraSectionsFromIni(inputPath, "Input.ini");
-            }
             else
-            {
                 Logger.Warn("Input.ini not found at {0}", inputPath);
-            }
 
             if (File.Exists(persistedPath))
                 try

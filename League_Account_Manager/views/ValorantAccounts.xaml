@@ -80,13 +80,20 @@
                         <DataGridTextColumn Width="Auto" MinWidth="50" Header="VP" Binding="{Binding valorantVp}" />
                         <DataGridTextColumn Width="Auto" MinWidth="50" Header="RP" Binding="{Binding valorantRp}" />
                         <DataGridTextColumn Width="Auto" MinWidth="50" Header="KC" Binding="{Binding valorantKc}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Agents" Binding="{Binding ValorantAgentsCount}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Contracts" Binding="{Binding ValorantContractsCount}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Sprays" Binding="{Binding ValorantSpraysCount}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="90" Header="Gun Buddies" Binding="{Binding ValorantGunBuddiesCount}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Cards" Binding="{Binding ValorantCardsCount}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Skins" Binding="{Binding ValorantSkinsCount}" />
-                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Titles" Binding="{Binding ValorantTitlesCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Agents"
+                                            Binding="{Binding ValorantAgentsCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Contracts"
+                                            Binding="{Binding ValorantContractsCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Sprays"
+                                            Binding="{Binding ValorantSpraysCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="90" Header="Gun Buddies"
+                                            Binding="{Binding ValorantGunBuddiesCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Cards"
+                                            Binding="{Binding ValorantCardsCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Skins"
+                                            Binding="{Binding ValorantSkinsCount}" />
+                        <DataGridTextColumn Width="Auto" MinWidth="80" Header="Titles"
+                                            Binding="{Binding ValorantTitlesCount}" />
                         <DataGridTextColumn MinWidth="50" Header="Notes">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">

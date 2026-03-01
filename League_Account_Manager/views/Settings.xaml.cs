@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using CsvHelper.Configuration;
@@ -15,7 +13,7 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Settings : Page
 {
-    private bool _initializing;
+    private readonly bool _initializing;
     private string? _pendingEncryptionPassword;
 
     public Settings()

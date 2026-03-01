@@ -50,7 +50,7 @@ public class Utils
             {
                 "RiotClientUxRender", "RiotClientUx", "RiotClientServices", "RiotClientCrashHandler",
                 "LeagueCrashHandler",
-                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient","VALORANT-Win64-Shipping","VALORANT"
+                "LeagueClientUxRender", "LeagueClientUx", "LeagueClient", "VALORANT-Win64-Shipping", "VALORANT"
             };
 
             var allProcessesKilled = false;
@@ -130,13 +130,15 @@ public class Utils
         public string? rank { get; set; }
         public string? champions { get; set; }
         public string? skins { get; set; }
-        [Ignore]
-        public int Champions { get; set; }
-        [Ignore]
-        public int Skins { get; set; }
+
+        [Ignore] public int Champions { get; set; }
+
+        [Ignore] public int Skins { get; set; }
+
         public string? Loot { get; set; }
-        [Ignore]
-        public int Loots { get; set; }
+
+        [Ignore] public int Loots { get; set; }
+
         public string? rank2 { get; set; }
         public string? note { get; set; }
         public string? valorantAgents { get; set; }
@@ -155,26 +157,19 @@ public class Utils
         public string? valorantServer { get; set; }
         public int? valorantXp { get; set; }
 
-        [Ignore]
-        public int ValorantAgentsCount => CountTokens(valorantAgents);
+        [Ignore] public int ValorantAgentsCount => CountTokens(valorantAgents);
 
-        [Ignore]
-        public int ValorantContractsCount => CountTokens(valorantContracts);
+        [Ignore] public int ValorantContractsCount => CountTokens(valorantContracts);
 
-        [Ignore]
-        public int ValorantSpraysCount => CountTokens(valorantSprays);
+        [Ignore] public int ValorantSpraysCount => CountTokens(valorantSprays);
 
-        [Ignore]
-        public int ValorantGunBuddiesCount => CountTokens(valorantGunBuddies);
+        [Ignore] public int ValorantGunBuddiesCount => CountTokens(valorantGunBuddies);
 
-        [Ignore]
-        public int ValorantCardsCount => CountTokens(valorantCards);
+        [Ignore] public int ValorantCardsCount => CountTokens(valorantCards);
 
-        [Ignore]
-        public int ValorantSkinsCount => CountTokens(valorantSkins) + CountTokens(valorantSkinVariants);
+        [Ignore] public int ValorantSkinsCount => CountTokens(valorantSkins) + CountTokens(valorantSkinVariants);
 
-        [Ignore]
-        public int ValorantTitlesCount => CountTokens(valorantTitles);
+        [Ignore] public int ValorantTitlesCount => CountTokens(valorantTitles);
 
         private static int CountTokens(string? value)
         {

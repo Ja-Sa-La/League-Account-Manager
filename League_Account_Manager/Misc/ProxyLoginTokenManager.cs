@@ -1,5 +1,3 @@
-using Microsoft.Win32;
-using Notification.Wpf;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -7,6 +5,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Windows;
+using Microsoft.Win32;
+using Notification.Wpf;
 
 namespace League_Account_Manager.Misc;
 
@@ -17,7 +17,16 @@ internal static class ProxyLoginTokenManager
     private const string LoginRedirectBaseUrl = "https://redirect.leagueaccountmanager.xyz/login";
     private static int _captureInProgress;
     private static TaskCompletionSource<bool> _captureTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private static TaskCompletionSource<bool> _tokenDetectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private static TaskCompletionSource<bool> _tokenDetectedTcs =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = null,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        WriteIndented = true
+    };
 
     public static void ResetCaptureSignal()
     {
@@ -36,6 +45,7 @@ internal static class ProxyLoginTokenManager
     {
         return _captureTcs.Task.WaitAsync(cancellationToken);
     }
+
     public static async Task<bool?> PromptPersistLoginAsync()
     {
         if (Application.Current?.Dispatcher == null)
@@ -45,6 +55,7 @@ internal static class ProxyLoginTokenManager
             MessageBox.Show("Allow user to stay logged in?", "Persist Login",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
     }
+
     public static void RegisterLoginUriScheme()
     {
         try
@@ -101,8 +112,6 @@ internal static class ProxyLoginTokenManager
 
         try
         {
-
-
             var loginToken = ExtractLoginToken(responseText);
             if (string.IsNullOrWhiteSpace(loginToken))
             {
@@ -166,20 +175,14 @@ internal static class ProxyLoginTokenManager
         {
             if (!await CheckLeague()) throw new Exception("League not installed");
             Utils.KillLeagueFunc2();
-            Process riotProcess = Process.Start(Misc.Settings.settingsloaded.riotPath,
+            var riotProcess = Process.Start(Settings.settingsloaded.riotPath,
                 "--launch-product=league_of_legends --launch-patchline=live");
-            int num = 0;
+            var num = 0;
             while (true)
             {
-                if (Process.GetProcessesByName("Riot Client").Length != 0)
-                {
-                    break;
-                }
+                if (Process.GetProcessesByName("Riot Client").Length != 0) break;
 
-                if (Process.GetProcessesByName("RiotClientUx").Length != 0)
-                {
-                    break;
-                }
+                if (Process.GetProcessesByName("RiotClientUx").Length != 0) break;
 
 
                 Thread.Sleep(200);
@@ -230,14 +233,16 @@ internal static class ProxyLoginTokenManager
                 return false;
             }
 
-            DebugConsole.WriteLine($"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
+            DebugConsole.WriteLine(
+                $"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
 
             var loginPayload = JsonSerializer.Serialize(payload, JsonOptions);
             DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v1/session/login-token payload.");
             dynamic? credentialsResponse;
             try
             {
-                credentialsResponse = await Lcu.Connector("riot", "put", "/rso-auth/v1/session/login-token", loginPayload);
+                credentialsResponse =
+                    await Lcu.Connector("riot", "put", "/rso-auth/v1/session/login-token", loginPayload);
             }
             catch (Exception ex)
             {
@@ -269,7 +274,8 @@ internal static class ProxyLoginTokenManager
             dynamic? authorizationResponse;
             try
             {
-                authorizationResponse = await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
+                authorizationResponse =
+                    await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
             }
             catch (Exception ex)
             {
@@ -281,21 +287,23 @@ internal static class ProxyLoginTokenManager
 
             var success = credentialsResponse != null && authorizationResponse != null;
             DebugConsole.WriteLine($"[ProxyLoginToken] Token login completed: {success}");
-            while (true){
-            var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
-            string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
-            if (status == "\"Accepted\"") break;
-            if (status == "\"AcceptanceRequired\"")
+            while (true)
             {
-                await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                Thread.Sleep(200);
+                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
+                if (status == "\"Accepted\"") break;
+                if (status == "\"AcceptanceRequired\"")
+                {
+                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
+                    Thread.Sleep(200);
+                }
+                else
+                {
+                    Thread.Sleep(500);
+                }
             }
-            else
-            {
-                Thread.Sleep(500);
-            }
-            }
+
             await Lcu.Connector("riot", "post",
                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
 
@@ -327,12 +335,14 @@ internal static class ProxyLoginTokenManager
             DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response logging failed: {ex.Message}");
         }
     }
+
     public static async Task<bool> CheckLeague()
     {
-        if (File.Exists(Misc.Settings.settingsloaded.riotPath))
+        if (File.Exists(Settings.settingsloaded.riotPath))
             return true;
         return false;
     }
+
     private static string? ExtractLoginToken(string responseText)
     {
         if (string.IsNullOrWhiteSpace(responseText))
@@ -449,7 +459,6 @@ internal static class ProxyLoginTokenManager
     private static string? FindLoginToken(JsonNode? node)
     {
         if (node is JsonObject obj)
-        {
             foreach (var kvp in obj)
             {
                 if (string.Equals(kvp.Key, "login_token", StringComparison.OrdinalIgnoreCase) ||
@@ -460,33 +469,26 @@ internal static class ProxyLoginTokenManager
                 if (!string.IsNullOrWhiteSpace(nested))
                     return nested;
             }
-        }
         else if (node is JsonArray array)
-        {
             foreach (var item in array)
             {
                 var nested = FindLoginToken(item);
                 if (!string.IsNullOrWhiteSpace(nested))
                     return nested;
             }
-        }
 
         return null;
     }
 
 
-
-
     private static async Task<bool> TrySetClipboardTextAsync(string text)
     {
         if (Application.Current?.Dispatcher != null)
-        {
             return await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 Clipboard.SetText(text);
                 return true;
             });
-        }
 
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
@@ -517,10 +519,8 @@ internal static class ProxyLoginTokenManager
     private static async Task<string?> TryGetClipboardTextAsync()
     {
         if (Application.Current?.Dispatcher != null)
-        {
             return await Application.Current.Dispatcher.InvokeAsync(() =>
                 Clipboard.ContainsText() ? Clipboard.GetText() : null);
-        }
 
         var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
@@ -548,23 +548,14 @@ internal static class ProxyLoginTokenManager
         }
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = null,
-        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-        WriteIndented = true
-    };
-
 
     private sealed class LoginTokenPayload
     {
         [JsonPropertyName("authentication_type")]
         public string AuthenticationType { get; set; } = "RiotAuth";
 
-        [JsonPropertyName("login_token")]
-        public string LoginToken { get; set; } = string.Empty;
+        [JsonPropertyName("login_token")] public string LoginToken { get; set; } = string.Empty;
 
-        [JsonPropertyName("persist_login")]
-        public bool PersistLogin { get; set; }
+        [JsonPropertyName("persist_login")] public bool PersistLogin { get; set; }
     }
 }

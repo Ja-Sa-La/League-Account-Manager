@@ -10,13 +10,9 @@ public partial class PasswordPrompt : Window
         InitializeComponent();
         var main = Application.Current?.MainWindow;
         if (main != null && main.IsVisible)
-        {
             Owner = main;
-        }
         else
-        {
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        }
         if (!string.IsNullOrWhiteSpace(message))
             PromptText.Text = message;
     }

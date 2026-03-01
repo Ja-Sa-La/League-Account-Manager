@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -11,6 +12,7 @@ internal class Lcu
 {
     private const string ValorantClientPlatformHeader =
         "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
+
     public static Vals Riot = new() { path = "", port = "", token = "", Value = "", version = null };
     public static Vals League;
 
@@ -153,7 +155,8 @@ internal class Lcu
         return await SendRequest(client, mode, endpoint, data, portSplit[1]);
     }
 
-    public static async Task<(HttpClient Client, string AccessToken, string EntitlementsToken, string Puuid, string IdToken)>
+    public static async Task<(HttpClient Client, string AccessToken, string EntitlementsToken, string Puuid, string
+            IdToken)>
         CreateValorantClientAsync()
     {
         var entitlementsResponse = await Connector("riot", "get", "/entitlements/v1/token", "") as HttpResponseMessage;
@@ -167,7 +170,8 @@ internal class Lcu
         if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(entitlementsToken))
             throw new InvalidOperationException("Missing entitlement or access token.");
 
-        var authResponse = await Connector("riot", "get", "/riot-client-auth/v1/authorization", "") as HttpResponseMessage;
+        var authResponse =
+            await Connector("riot", "get", "/riot-client-auth/v1/authorization", "") as HttpResponseMessage;
         if (authResponse == null)
             throw new InvalidOperationException("Failed to get authorization details.");
 
@@ -188,7 +192,7 @@ internal class Lcu
 
         var client = new HttpClient();
         client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            new AuthenticationHeaderValue("Bearer", accessToken);
         client.DefaultRequestHeaders.Add("X-Riot-Entitlements-JWT", entitlementsToken);
         client.DefaultRequestHeaders.Add("X-Riot-ClientPlatform", ValorantClientPlatformHeader);
         client.DefaultRequestHeaders.Add("X-Riot-ClientVersion", clientVersion);
