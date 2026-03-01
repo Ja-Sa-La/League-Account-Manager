@@ -29,6 +29,7 @@ public partial class ValorantAccounts : Page
 {
     public static string? SelectedUsername;
     public static string? SelectedPassword;
+    private static int _activeLoadedInstances;
     private bool Executing;
     private readonly object _fileChangeLock = new();
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
@@ -38,15 +39,59 @@ public partial class ValorantAccounts : Page
     private DateTime _lastKnownFileWrite = DateTime.MinValue;
     private DateTime _lastFileChange = DateTime.MinValue;
     private FileSystemWatcher? fileWatcher;
+    private readonly bool _listenForLeaguePullDataCompleted;
 
     public ValorantAccounts()
+        : this(true)
     {
+    }
+
+    private ValorantAccounts(bool listenForLeaguePullDataCompleted)
+    {
+        _listenForLeaguePullDataCompleted = listenForLeaguePullDataCompleted;
         InitializeComponent();
         Loaded += ValorantAccounts_Loaded;
         Unloaded += ValorantAccounts_Unloaded;
         IsVisibleChanged += ValorantAccounts_IsVisibleChanged;
         Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
         AccountFileStore.AccountsFileUpdated += OnAccountsFileUpdated;
+        if (_listenForLeaguePullDataCompleted)
+            Accounts.PullDataCompleted += OnLeaguePullDataCompleted;
+    }
+
+    public static void RunPullDataInBackground()
+    {
+        if (Volatile.Read(ref _activeLoadedInstances) > 0)
+            return;
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+            return;
+
+        dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                var backgroundPage = new ValorantAccounts(false);
+                await backgroundPage.LoadDataAsync();
+                backgroundPage.OnPullDataClick(backgroundPage, new RoutedEventArgs());
+            }
+            catch (Exception ex)
+            {
+                DebugConsole.WriteLine($"[ValorantAccounts] Background pull start failed: {ex.Message}", ConsoleColor.Red);
+            }
+        });
+    }
+
+    private void OnLeaguePullDataCompleted()
+    {
+        if (!IsLoaded)
+            return;
+
+        if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true)
+            return;
+
+        Dispatcher.InvokeAsync(() => { OnPullDataClick(this, new RoutedEventArgs()); });
     }
 
     private async void ValorantAccounts_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -113,6 +158,12 @@ public partial class ValorantAccounts : Page
 
     private void ValorantAccounts_Unloaded(object sender, RoutedEventArgs e)
     {
+        if (_listenForLeaguePullDataCompleted)
+            Accounts.PullDataCompleted -= OnLeaguePullDataCompleted;
+
+        if (Volatile.Read(ref _activeLoadedInstances) > 0)
+            Interlocked.Decrement(ref _activeLoadedInstances);
+
         if (fileWatcher != null)
         {
             fileWatcher.EnableRaisingEvents = false;
@@ -196,9 +247,9 @@ public partial class ValorantAccounts : Page
 
 
             
-            if (Process.GetProcessesByName("Riot Client").Length == 0 && Process.GetProcessesByName("RiotClientUx").Length == 0)
+            if (Process.GetProcessesByName("Riot Client").Length == 0 && Process.GetProcessesByName("RiotClientUx").Length == 0 && Process.GetProcessesByName("LeagueClientUx").Length == 0)
             {
-                Notif.notificationManager.Show("Error", "League of Legends client is not running!",
+                Notif.notificationManager.Show("Error", "Riot or League of Legends client is not running!",
                     NotificationType.Notification,
                     "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
@@ -571,8 +622,16 @@ public partial class ValorantAccounts : Page
 
     private async void ValorantAccounts_Loaded(object sender, RoutedEventArgs e)
     {
+        if (_listenForLeaguePullDataCompleted)
+        {
+            Accounts.PullDataCompleted -= OnLeaguePullDataCompleted;
+            Accounts.PullDataCompleted += OnLeaguePullDataCompleted;
+        }
+
         if (_initialized) return;
         _initialized = true;
+
+        Interlocked.Increment(ref _activeLoadedInstances);
 
         try
         {
@@ -732,6 +791,21 @@ public partial class ValorantAccounts : Page
 
                         switch (header)
                         {
+                            case "RiotID":
+                                try
+                                {
+                                    var riotId = selectedrow.riotID;
+                                    if (!string.IsNullOrWhiteSpace(riotId))
+                                    {
+                                        var url = $"https://tracker.gg/valorant/profile/riot/{Uri.EscapeDataString(riotId)}";
+                                        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Error(ex, "Error opening tracker.gg for RiotID");
+                                }
+                                break;
                             case "Agents":
                                 secondWindow = new DisplayDataWithSearch(selectedrow.valorantAgents);
                                 break;
@@ -822,10 +896,27 @@ public partial class ValorantAccounts : Page
         public int ValorantXp { get; set; }
     }
 
-    private async Task<ValorantAccountData> CollectValorantAccountDataAsync(HttpClient client, string region, string puuid)
+        private async Task<ValorantAccountData> CollectValorantAccountDataAsync(HttpClient client, string region, string puuid)
     {
         var data = new ValorantAccountData();
-        var pdBase = $"https://pd.{region}.a.pvp.net";
+
+        // Translate the live region into the correct pd shard
+        var regionLower = (region ?? string.Empty).ToLowerInvariant();
+        string shard = regionLower switch
+        {
+            "latam" => "na",
+            "br" => "na",
+            "na" => "na",
+            "pbe" => "na",
+            "eu" => "eu",
+            "ap" => "ap",
+            "kr" => "kr",
+            _ => regionLower
+        };
+
+        DebugConsole.WriteLine($"[ValorantAccounts] Translated region '{region}' to shard '{shard}'");
+
+        var pdBase = $"https://pd.{shard}.a.pvp.net";
 
         Dictionary<string, string> agentsMap;
         Dictionary<string, string> contractsMap;
@@ -1030,7 +1121,7 @@ public partial class ValorantAccounts : Page
 
         try
         {
-            data.ValorantRank = await GetValorantRankAsync(client, region, puuid);
+            data.ValorantRank = await GetValorantRankAsync(client, shard, puuid);
             DebugConsole.WriteLine($"[ValorantAccounts] Rank: {data.ValorantRank}");
         }
         catch (Exception ex)
@@ -1067,8 +1158,20 @@ public partial class ValorantAccounts : Page
             var name = nameSelector(item);
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                 continue;
+            // prefer displayIcon, then fullRender
+            var icon = item["displayIcon"]?.ToString() ?? item["fullRender"]?.ToString() ?? string.Empty;
+            // store icon without scheme to avoid ':' collisions when joining lists
+            if (!string.IsNullOrWhiteSpace(icon))
+            {
+                if (icon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    icon = icon.Substring("https://".Length);
+                else if (icon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                    icon = icon.Substring("http://".Length);
+            }
+            // Always produce three pipe-separated fields to match the Accounts format (name|icon|meta).
+            var value = string.Join("|", new[] { name, icon ?? string.Empty, string.Empty });
             if (!map.ContainsKey(id))
-                map[id] = name;
+                map[id] = value;
         }
 
         return map;
@@ -1097,8 +1200,22 @@ public partial class ValorantAccounts : Page
                 var name = nameSelector(nestedItem) ?? fallbackName;
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     continue;
+
+                // Get icon from nestedItem displayIcon/fullRender or fallback to parent displayIcon
+                var icon = nestedItem["displayIcon"]?.ToString() ?? nestedItem["fullRender"]?.ToString() ??
+                           item["displayIcon"]?.ToString() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(icon))
+                {
+                    if (icon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                        icon = icon.Substring("https://".Length);
+                    else if (icon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                        icon = icon.Substring("http://".Length);
+                }
+                // Ensure three fields: name|icon|meta (meta empty for Valorant)
+                var value = string.Join("|", new[] { name, icon ?? string.Empty, string.Empty });
+
                 if (!map.ContainsKey(id))
-                    map[id] = name;
+                    map[id] = value;
             }
         }
 
@@ -1118,10 +1235,33 @@ public partial class ValorantAccounts : Page
         {
             var skinId = item["uuid"]?.ToString();
             var skinName = item["displayName"]?.ToString();
-            if (!string.IsNullOrWhiteSpace(skinId) && !string.IsNullOrWhiteSpace(skinName) && !skins.ContainsKey(skinId))
-                skins[skinId] = skinName;
+
+            // Try to find an icon for the skin. Prefer item.displayIcon, then first level.displayIcon,
+            // then first chroma.displayIcon, finally chroma.fullRender if available. Store without scheme.
+            string? skinIcon = item["displayIcon"]?.ToString();
+            if (string.IsNullOrWhiteSpace(skinIcon))
+            {
+                var levels = item["levels"] as JArray;
+                if (levels != null && levels.Count > 0)
+                    skinIcon = levels.First["displayIcon"]?.ToString();
+            }
+
+            if (!string.IsNullOrWhiteSpace(skinIcon))
+            {
+                if (skinIcon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    skinIcon = skinIcon.Substring("https://".Length);
+                else if (skinIcon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                    skinIcon = skinIcon.Substring("http://".Length);
+            }
 
             var chromas = item["chromas"] as JArray;
+            if (!string.IsNullOrWhiteSpace(skinId) && !string.IsNullOrWhiteSpace(skinName) && !skins.ContainsKey(skinId))
+            {
+                var iconToStore = skinIcon ?? string.Empty;
+                // store as name|icon| (empty meta)
+                skins[skinId] = string.Join("|", new[] { skinName, iconToStore, string.Empty });
+            }
+
             if (chromas == null) continue;
             foreach (var chroma in chromas)
             {
@@ -1129,8 +1269,35 @@ public partial class ValorantAccounts : Page
                 var chromaName = chroma["displayName"]?.ToString() ?? skinName;
                 if (string.IsNullOrWhiteSpace(chromaId) || string.IsNullOrWhiteSpace(chromaName))
                     continue;
+
+                // For chroma, prefer displayIcon then fullRender, store without scheme
+                string? chromaIcon = chroma["displayIcon"]?.ToString() ?? chroma["fullRender"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(chromaIcon))
+                {
+                    if (chromaIcon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                        chromaIcon = chromaIcon.Substring("https://".Length);
+                    else if (chromaIcon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                        chromaIcon = chromaIcon.Substring("http://".Length);
+                }
+
+                // If skinIcon was empty, try to use chromaIcon as the skin icon fallback
+                if (string.IsNullOrWhiteSpace(skinIcon) && !string.IsNullOrWhiteSpace(chromaIcon) && skins.ContainsKey(skinId))
+                {
+                    // update stored skin icon if previously empty
+                    var existing = skins[skinId];
+                    if (existing != null && existing.Contains("|"))
+                    {
+                        var parts = existing.Split(new[] { '|' }, 3);
+                        // parts: [name, icon, meta]
+                        if (parts.Length == 3 && string.IsNullOrWhiteSpace(parts[1]))
+                        {
+                            skins[skinId] = string.Join("|", new[] { parts[0], chromaIcon ?? string.Empty, parts[2] });
+                        }
+                    }
+                }
+
                 if (!variants.ContainsKey(chromaId))
-                    variants[chromaId] = chromaName;
+                    variants[chromaId] = string.Join("|", new[] { chromaName, chromaIcon ?? string.Empty, string.Empty });
             }
         }
 

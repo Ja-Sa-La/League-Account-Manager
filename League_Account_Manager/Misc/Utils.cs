@@ -130,9 +130,12 @@ public class Utils
         public string? rank { get; set; }
         public string? champions { get; set; }
         public string? skins { get; set; }
+        [Ignore]
         public int Champions { get; set; }
+        [Ignore]
         public int Skins { get; set; }
         public string? Loot { get; set; }
+        [Ignore]
         public int Loots { get; set; }
         public string? rank2 { get; set; }
         public string? note { get; set; }

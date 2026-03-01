@@ -31,12 +31,34 @@
 
         <Border Grid.Row="2" Background="#FF2A2A2A" BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6"
                 Padding="8" Margin="0,0,0,8">
-            <ui:TextBox MouseDown="Window_MouseDownDatadisplay"
-                        Name="Datathing" Margin="0"
-                        TextWrapping="WrapWithOverflow" Text=""
-                        IsEnabled="True" IsReadOnly="true" VerticalScrollBarVisibility="Visible"
-                        IsReadOnlyCaretVisible="True" IsManipulationEnabled="True" IsTextSelectionEnabled="True"
-                        IsInactiveSelectionHighlightEnabled="True" />
+            <ScrollViewer MouseDown="Window_MouseDownDatadisplay" VerticalScrollBarVisibility="Auto">
+                <ItemsControl Name="ItemsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#FF323232" CornerRadius="6" Padding="6" Margin="0,4,0,4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Icon placeholder and image -->
+                                    <Grid>
+                                        <Border Width="36" Height="36" Background="#FF454545" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                        <Image Width="36" Height="36" HorizontalAlignment="Left" VerticalAlignment="Center" Stretch="UniformToFill" Source="{Binding IconSource}" />
+                                    </Grid>
+
+                                    <!-- Item text and optional price -->
+                                    <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" Foreground="White" TextWrapping="Wrap" FontSize="13" />
+                                        <TextBlock Text="{Binding Price}" Foreground="#FFB0B0B0" FontSize="11" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
         </Border>
     </Grid>
 </Window>
