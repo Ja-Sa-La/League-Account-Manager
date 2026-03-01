@@ -53,14 +53,13 @@ public class Settings
                             "Enter the password to decrypt your account list.");
                     });
                 else
-                {
                     password = PromptForAccountFilePassword(
                         "Enter the password to decrypt your account list.");
-                }
 
                 if (string.IsNullOrWhiteSpace(password))
                 {
-                    MessageBox.Show("Account file password is required to load encrypted accounts. The application will now close.",
+                    MessageBox.Show(
+                        "Account file password is required to load encrypted accounts. The application will now close.",
                         "Password Required", MessageBoxButton.OK, MessageBoxImage.Warning);
                     Application.Current?.Shutdown();
                     Environment.Exit(0);
@@ -70,6 +69,7 @@ public class Settings
                 AccountFileStore.SetPassword(password);
                 AccountPasswordSupplied?.Invoke();
             }
+
             if (settingsloaded.riotPath == null)
             {
                 settingsloaded.riotPath = findriot();

@@ -15,9 +15,11 @@
                     Name="MessageContainer" FontSize="11"
                     Text="" HorizontalAlignment="Left" Width="306" MinWidth="311" />
 
-        <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoAcceptClick"
+        <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top"
+                Click="OnToggleAutoAcceptClick"
                 Height="67" Width="300" />
-        <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoPickClick"
+        <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top"
+                Click="OnToggleAutoPickClick"
                 Height="67" Width="290" />
         <Button Content="Enable AutoAcceptBan" Margin="614,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoBanClick"
                 Height="67" Width="279" />

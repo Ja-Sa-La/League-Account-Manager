@@ -60,11 +60,11 @@
                                    FontSize="12"
                                    Click="OnNameChangeClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="GenerateLoginToken" Content="Generate token"
-                        FontSize="12"
-                        Click="GenerateLoginToken_OnClick" Width="130" />
+                                   FontSize="12"
+                                   Click="GenerateLoginToken_OnClick" Width="130" />
                         <ui:Button Margin="4" Padding="6,1" x:Name="UseLoginToken" Content="Login With token"
-                        FontSize="12"
-                        Click="UseLoginToken_OnClick" Width="130" />
+                                   FontSize="12"
+                                   Click="UseLoginToken_OnClick" Width="130" />
 
                     </WrapPanel>
                     <ui:TextBox x:Name="FilterTextBox" Margin="870,50,62,0"
@@ -75,7 +75,7 @@
             </Grid>
         </Border>
 
-        <Grid Height="605" Margin="10,124,10,0"  VerticalAlignment="Top" Grid.RowSpan="2">
+        <Grid Height="605" Margin="10,124,10,0" VerticalAlignment="Top" Grid.RowSpan="2">
             <Border Background="#FF2F2F2F" CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
                 <DataGrid x:Name="AccountsDataGrid" SelectionUnit="FullRow"
                           KeyDown="Accounts_OnKeyDown"

@@ -129,7 +129,7 @@
                     <Label Height="20" x:Name="Credits" Content="By Ja-Sa-La" HorizontalAlignment="Left"
                            Foreground="#80FFFFFF"
                            Padding="15,0,0,4" />
-                    <ui:NavigationViewItem Click="Discord_OnClick" >
+                    <ui:NavigationViewItem Click="Discord_OnClick">
                         <ui:NavigationViewItem.Icon>
                             <ui:SymbolIcon Symbol="Chat20" />
                         </ui:NavigationViewItem.Icon>

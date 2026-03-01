@@ -64,7 +64,8 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
+                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C"
+                                                BorderThickness="1"
                                                 CornerRadius="6" Background="#FF303030">
                                             <ContentPresenter />
                                         </Border>
@@ -130,7 +131,8 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
+                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C"
+                                                BorderThickness="1"
                                                 CornerRadius="6" Background="#FF303030">
                                             <ContentPresenter />
                                         </Border>

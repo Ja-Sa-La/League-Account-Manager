@@ -6,7 +6,7 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       mc:Ignorable="d"
       d:DesignHeight="749" d:DesignWidth="1216"
-    Title="ProfileEditor" Loaded="OnProfileEditorLoaded" Unloaded="OnProfileEditorUnloaded">
+      Title="ProfileEditor" Loaded="OnProfileEditorLoaded" Unloaded="OnProfileEditorUnloaded">
 
     <Grid>
         <ui:Button Content="Disable Chat" Margin="10,15,0,0" Click="OnDisableChatClick" VerticalAlignment="Top"
@@ -18,15 +18,20 @@
         <ui:Button Content="Get Chat settings" Margin="1011,15,0,0" Click="OnGetChatSettingsClick"
                    VerticalAlignment="Top"
                    Height="77" Width="169" Visibility="Hidden" />
-        <ui:Button Content="Set Chat Statusmessage" Margin="185,15,0,0" Click="OnSetStatusMessageClick" VerticalAlignment="Top"
+        <ui:Button Content="Set Chat Statusmessage" Margin="185,15,0,0" Click="OnSetStatusMessageClick"
+                   VerticalAlignment="Top"
                    Height="77" Width="311" />
-        <ui:Button Content="Show Offline" Margin="10,190,0,0" Click="OnSetChatOfflineClick" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Show Offline" Margin="10,190,0,0" Click="OnSetChatOfflineClick" VerticalAlignment="Top"
+                   Height="77"
                    Width="168" />
-        <ui:Button Content="Show Away" Margin="10,277,0,0" Click="OnSetChatAwayClick" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Show Away" Margin="10,277,0,0" Click="OnSetChatAwayClick" VerticalAlignment="Top"
+                   Height="77"
                    Width="168" />
-        <ui:Button Content="Show Mobile" Margin="10,364,0,0" Click="OnSetChatMobileClick" VerticalAlignment="Top" Height="78"
+        <ui:Button Content="Show Mobile" Margin="10,364,0,0" Click="OnSetChatMobileClick" VerticalAlignment="Top"
+                   Height="78"
                    Width="168" />
-        <ui:Button Content="Show Online" Margin="10,452,0,0" Click="OnSetChatOnlineClick" VerticalAlignment="Top" Height="77"
+        <ui:Button Content="Show Online" Margin="10,452,0,0" Click="OnSetChatOnlineClick" VerticalAlignment="Top"
+                   Height="77"
                    Width="168" />
         <ui:Button Content="set Icon" Margin="501,15,0,0" Click="OnSetIconClick" VerticalAlignment="Top" Height="77"
                    Width="250" />
@@ -53,7 +58,8 @@
                 BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6">
             <Image x:Name="IconPreview" Stretch="UniformToFill" />
         </Border>
-        <ui:Button Content="set Background" Click="OnSetBackgroundClick" VerticalAlignment="Top" Height="77" Width="250"
+        <ui:Button Content="set Background" Click="OnSetBackgroundClick" VerticalAlignment="Top" Height="77"
+                   Width="250"
                    Margin="756,15,0,0" />
         <ui:AutoSuggestBox IsEnabled="False" PlaceholderText="Loading!" MaxWidth="250" x:Name="SkinList"
                            VerticalAlignment="Top" SuggestionChosen="OnSkinSuggestionChosen"

@@ -57,7 +57,8 @@ public partial class DisEnchanter : Page
                     var skinName = thing["itemDesc"].ToString();
                     if (string.IsNullOrWhiteSpace(skinName)) skinName = thing["localizedName"].ToString();
                     var tilePath = thing["tilePath"]?.ToString();
-                    if (thing["displayCategories"].ToString() == "SKIN" || thing["displayCategories"].ToString() == "ETERNALS")
+                    if (thing["displayCategories"].ToString() == "SKIN" ||
+                        thing["displayCategories"].ToString() == "ETERNALS")
                     {
                         LootSkinsList.Add(new LootItem
                         {
@@ -83,7 +84,6 @@ public partial class DisEnchanter : Page
                             DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
                             IconUrl = BuildTileIconUrlWards(tilePath)
                         });
-
                     }
                     else if (thing["displayCategories"].ToString() == "SUMMONERICON")
                     {
@@ -97,7 +97,6 @@ public partial class DisEnchanter : Page
                             DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
                             IconUrl = BuildTileIconUrlSummonerIcon(tilePath)
                         });
-
                     }
                     else if (thing["displayCategories"].ToString() == "EMOTE")
                     {
@@ -111,9 +110,8 @@ public partial class DisEnchanter : Page
                             DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
                             IconUrl = BuildTileIconUrlEmotes(tilePath)
                         });
-
                     }
-                    }
+                }
             }
 
             SkinLootTable.ItemsSource = null;
@@ -211,6 +209,7 @@ public partial class DisEnchanter : Page
             "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets";
         return baseUrl + "/" + lowered;
     }
+
     private static string BuildTileIconUrlWards(string? tilePath)
     {
         if (string.IsNullOrWhiteSpace(tilePath)) return null;
@@ -225,6 +224,7 @@ public partial class DisEnchanter : Page
             "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default";
         return baseUrl + "/" + lowered;
     }
+
     private static string BuildTileIconUrlEmotes(string? tilePath)
     {
         if (string.IsNullOrWhiteSpace(tilePath)) return null;

@@ -1,10 +1,3 @@
-using CsvHelper.Configuration;
-using FlaUI.UIA3;
-using League_Account_Manager.Misc;
-using League_Account_Manager.Windows;
-using Newtonsoft.Json.Linq;
-using NLog;
-using Notification.Wpf;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -15,8 +8,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using CsvHelper.Configuration;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.UIA3;
+using League_Account_Manager.Misc;
+using League_Account_Manager.Windows;
+using Newtonsoft.Json.Linq;
+using NLog;
+using Notification.Wpf;
 using Button = Wpf.Ui.Controls.Button;
 using Application = FlaUI.Core.Application;
 
@@ -30,16 +30,16 @@ public partial class ValorantAccounts : Page
     public static string? SelectedUsername;
     public static string? SelectedPassword;
     private static int _activeLoadedInstances;
-    private bool Executing;
     private readonly object _fileChangeLock = new();
+    private readonly bool _listenForLeaguePullDataCompleted;
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     private bool _initialized;
-    private bool _pendingReload;
-    private DateTime _lastKnownFileWrite = DateTime.MinValue;
     private DateTime _lastFileChange = DateTime.MinValue;
+    private DateTime _lastKnownFileWrite = DateTime.MinValue;
+    private bool _pendingReload;
+    private bool Executing;
     private FileSystemWatcher? fileWatcher;
-    private readonly bool _listenForLeaguePullDataCompleted;
 
     public ValorantAccounts()
         : this(true)
@@ -58,6 +58,8 @@ public partial class ValorantAccounts : Page
         if (_listenForLeaguePullDataCompleted)
             Accounts.PullDataCompleted += OnLeaguePullDataCompleted;
     }
+
+    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
 
     public static void RunPullDataInBackground()
     {
@@ -78,7 +80,8 @@ public partial class ValorantAccounts : Page
             }
             catch (Exception ex)
             {
-                DebugConsole.WriteLine($"[ValorantAccounts] Background pull start failed: {ex.Message}", ConsoleColor.Red);
+                DebugConsole.WriteLine($"[ValorantAccounts] Background pull start failed: {ex.Message}",
+                    ConsoleColor.Red);
             }
         });
     }
@@ -144,7 +147,8 @@ public partial class ValorantAccounts : Page
             ValorantAccountsDataGrid.ItemsSource = ActualAccountlists;
 
             ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
-            ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel", ListSortDirection.Descending));
+            ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel",
+                ListSortDirection.Descending));
 
             ValorantAccountsDataGrid.Items.Refresh();
         }
@@ -153,8 +157,6 @@ public partial class ValorantAccounts : Page
             LogManager.GetCurrentClassLogger().Error(exception, "Error deleting Valorant account");
         }
     }
-
-    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
 
     private void ValorantAccounts_Unloaded(object sender, RoutedEventArgs e)
     {
@@ -244,10 +246,9 @@ public partial class ValorantAccounts : Page
     {
         try
         {
-
-
-            
-            if (Process.GetProcessesByName("Riot Client").Length == 0 && Process.GetProcessesByName("RiotClientUx").Length == 0 && Process.GetProcessesByName("LeagueClientUx").Length == 0)
+            if (Process.GetProcessesByName("Riot Client").Length == 0 &&
+                Process.GetProcessesByName("RiotClientUx").Length == 0 &&
+                Process.GetProcessesByName("LeagueClientUx").Length == 0)
             {
                 Notif.notificationManager.Show("Error", "Riot or League of Legends client is not running!",
                     NotificationType.Notification,
@@ -278,7 +279,6 @@ public partial class ValorantAccounts : Page
                 var response = await client.PutAsync(
                     "https://riot-geo.pas.si.riotgames.com/pas/v1/product/valorant", content);
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                DebugConsole.WriteLine($"[ValorantAccounts] Geo response: {body}");
 
                 var geoJson = JObject.Parse(body);
                 var liveRegion = geoJson["affinities"]?["live"]?.ToString();
@@ -314,7 +314,6 @@ public partial class ValorantAccounts : Page
                     }
 
                     if (!updated)
-                    {
                         records.Add(new Utils.AccountList
                         {
                             username = SelectedUsername,
@@ -335,7 +334,6 @@ public partial class ValorantAccounts : Page
                             valorantLevel = valorantData.ValorantLevel,
                             valorantXp = valorantData.ValorantXp
                         });
-                    }
 
                     await AccountFileStore.SaveAsync(filePath, records, config);
                 }
@@ -349,11 +347,13 @@ public partial class ValorantAccounts : Page
                 if (lastWrite > _lastKnownFileWrite)
                     await LoadDataAsync();
             }
+
             if (_pendingReload)
             {
                 _pendingReload = false;
                 await LoadDataAsync();
             }
+
             Notif.notificationManager.Show("Info", "Valorant account data refreshed",
                 NotificationType.Notification,
                 "WindowArea", TimeSpan.FromSeconds(5), null, null, null, null, () => Notif.donothing(), "OK",
@@ -368,10 +368,8 @@ public partial class ValorantAccounts : Page
 
     private async void OnLoginClick(object sender, RoutedEventArgs e)
     {
-
         try
         {
-
             if (ValorantAccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
             var selectedColumn = ValorantAccountsDataGrid.SelectedCells[0].Column;
 
@@ -384,13 +382,11 @@ public partial class ValorantAccounts : Page
                 SelectedPassword = selectedRow.password;
             }
 
-            DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
 
-            DebugConsole.WriteLine("[ValorantAccounts] OpenLeague1_Click triggered");
             Utils.KillLeagueFunc();
             if (!await CheckValorant()) throw new Exception("Valorant not installed");
             OpenValorant();
-            DebugConsole.WriteLine("[ValorantAccounts] Valorant launch requested");
+
             var num = 0;
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
@@ -400,14 +396,12 @@ public partial class ValorantAccounts : Page
                 if (Process.GetProcessesByName("Riot Client").Length != 0)
                 {
                     riotval = "Riot Client";
-                    DebugConsole.WriteLine("[ValorantAccounts] Riot Client process detected");
                     break;
                 }
 
                 if (Process.GetProcessesByName("RiotClientUx").Length != 0)
                 {
                     riotval = "RiotClientUx";
-                    DebugConsole.WriteLine("[ValorantAccounts] RiotClientUx process detected");
                     break;
                 }
 
@@ -416,6 +410,7 @@ public partial class ValorantAccounts : Page
                 num++;
                 if (num == 20) return;
             }
+
             var loginAttempts = 0;
 
             while (true)
@@ -449,16 +444,12 @@ public partial class ValorantAccounts : Page
 
                         var siblings = riotcontent.FindAllChildren();
                         if (checkbox.Parent == null) throw new Exception("Checkbox parent not found");
-                        DebugConsole.WriteLine(siblings.Length.ToString());
                         var count = Array.IndexOf(siblings, checkbox) + 1;
                         if (siblings.Length <= count) throw new Exception("Not enough siblings found for the checkbox");
                         dynamic signInElement = null;
                         while (siblings.Length >= count)
                         {
                             signInElement = siblings[count++].AsButton();
-
-                            DebugConsole.WriteLine($"Found checkbox: {checkbox.Name}");
-                            DebugConsole.WriteLine($"Found siblings count: {siblings.Length}");
 
                             if (signInElement.ControlType != ControlType.Button) continue;
                             break;
@@ -468,7 +459,6 @@ public partial class ValorantAccounts : Page
                         passwordField.Text = SelectedPassword;
                         if (signInElement != null)
                         {
-                            DebugConsole.WriteLine("[ValorantAccounts] Submitting login form");
                             while (!signInElement.IsEnabled) Thread.Sleep(200);
                             signInElement.Invoke();
 
@@ -555,7 +545,8 @@ public partial class ValorantAccounts : Page
                                             await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(),
                                                 ActualAccountlists, config);
 
-                                            DebugConsole.WriteLine("[ValorantAccounts] Invalid login detected, account updated");
+                                            DebugConsole.WriteLine(
+                                                "[ValorantAccounts] Invalid login detected, account updated");
                                             return; // pause/stop login processing
                                         }
 
@@ -598,7 +589,6 @@ public partial class ValorantAccounts : Page
 
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/valorant/patchlines/live", "");
-                            DebugConsole.WriteLine("[ValorantAccounts] Valorant patchline launch requested");
                             OnPullDataClick(this, new RoutedEventArgs());
                             break;
                         }
@@ -635,8 +625,6 @@ public partial class ValorantAccounts : Page
 
         try
         {
-            DebugConsole.WriteLine("[ValorantAccounts] Page loaded");
-
             await LoadDataAsync();
 
             var filePath = AccountFileStore.GetAccountsFilePath();
@@ -683,7 +671,8 @@ public partial class ValorantAccounts : Page
         await Dispatcher.InvokeAsync(() =>
         {
             ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
-            ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel", ListSortDirection.Descending));
+            ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel",
+                ListSortDirection.Descending));
         }, DispatcherPriority.Background, CancellationToken.None);
     }
 
@@ -717,7 +706,8 @@ public partial class ValorantAccounts : Page
                 ValorantAccountsDataGrid.ItemsSource = ActualAccountlists;
 
                 ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
-                ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel", ListSortDirection.Descending));
+                ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel",
+                    ListSortDirection.Descending));
 
                 if (!Misc.Settings.settingsloaded.DisplayPasswords && ValorantAccountsDataGrid.Columns.Count > 1)
                     ValorantAccountsDataGrid.Columns[1].Visibility = Visibility.Hidden;
@@ -797,7 +787,8 @@ public partial class ValorantAccounts : Page
                                     var riotId = selectedrow.riotID;
                                     if (!string.IsNullOrWhiteSpace(riotId))
                                     {
-                                        var url = $"https://tracker.gg/valorant/profile/riot/{Uri.EscapeDataString(riotId)}";
+                                        var url =
+                                            $"https://tracker.gg/valorant/profile/riot/{Uri.EscapeDataString(riotId)}";
                                         Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
                                     }
                                 }
@@ -805,6 +796,7 @@ public partial class ValorantAccounts : Page
                                 {
                                     _logger.Error(ex, "Error opening tracker.gg for RiotID");
                                 }
+
                                 break;
                             case "Agents":
                                 secondWindow = new DisplayDataWithSearch(selectedrow.valorantAgents);
@@ -878,31 +870,14 @@ public partial class ValorantAccounts : Page
         return parts.Count == 0 ? null : string.Join(":", parts);
     }
 
-    private sealed class ValorantAccountData
-    {
-        public List<string> Agents { get; set; } = new();
-        public List<string> Contracts { get; set; } = new();
-        public List<string> Sprays { get; set; } = new();
-        public List<string> GunBuddies { get; set; } = new();
-        public List<string> Cards { get; set; } = new();
-        public List<string> Skins { get; set; } = new();
-        public List<string> SkinVariants { get; set; } = new();
-        public List<string> Titles { get; set; } = new();
-        public int ValorantVp { get; set; }
-        public int ValorantKc { get; set; }
-        public int ValorantRp { get; set; }
-        public string? ValorantRank { get; set; }
-        public int ValorantLevel { get; set; }
-        public int ValorantXp { get; set; }
-    }
-
-        private async Task<ValorantAccountData> CollectValorantAccountDataAsync(HttpClient client, string region, string puuid)
+    private async Task<ValorantAccountData> CollectValorantAccountDataAsync(HttpClient client, string region,
+        string puuid)
     {
         var data = new ValorantAccountData();
 
         // Translate the live region into the correct pd shard
         var regionLower = (region ?? string.Empty).ToLowerInvariant();
-        string shard = regionLower switch
+        var shard = regionLower switch
         {
             "latam" => "na",
             "br" => "na",
@@ -913,8 +888,6 @@ public partial class ValorantAccounts : Page
             "kr" => "kr",
             _ => regionLower
         };
-
-        DebugConsole.WriteLine($"[ValorantAccounts] Translated region '{region}' to shard '{shard}'");
 
         var pdBase = $"https://pd.{shard}.a.pvp.net";
 
@@ -931,7 +904,6 @@ public partial class ValorantAccounts : Page
         {
             agentsMap = await GetValorantApiMapAsync("https://valorant-api.com/v1/agents?isPlayableCharacter=true",
                 item => item["uuid"]?.ToString(), item => item["displayName"]?.ToString());
-            DebugConsole.WriteLine($"[ValorantAccounts] Agents map: {agentsMap.Count}");
         }
         catch (Exception ex)
         {
@@ -943,7 +915,6 @@ public partial class ValorantAccounts : Page
         {
             contractsMap = await GetValorantApiMapAsync("https://valorant-api.com/v1/contracts",
                 item => item["uuid"]?.ToString(), item => item["displayName"]?.ToString());
-            DebugConsole.WriteLine($"[ValorantAccounts] Contracts map: {contractsMap.Count}");
         }
         catch (Exception ex)
         {
@@ -955,7 +926,6 @@ public partial class ValorantAccounts : Page
         {
             spraysMap = await GetValorantApiMapAsync("https://valorant-api.com/v1/sprays",
                 item => item["uuid"]?.ToString(), item => item["displayName"]?.ToString());
-            DebugConsole.WriteLine($"[ValorantAccounts] Sprays map: {spraysMap.Count}");
         }
         catch (Exception ex)
         {
@@ -967,7 +937,6 @@ public partial class ValorantAccounts : Page
         {
             cardsMap = await GetValorantApiMapAsync("https://valorant-api.com/v1/playercards",
                 item => item["uuid"]?.ToString(), item => item["displayName"]?.ToString());
-            DebugConsole.WriteLine($"[ValorantAccounts] Cards map: {cardsMap.Count}");
         }
         catch (Exception ex)
         {
@@ -979,7 +948,6 @@ public partial class ValorantAccounts : Page
         {
             titlesMap = await GetValorantApiMapAsync("https://valorant-api.com/v1/playertitles",
                 item => item["uuid"]?.ToString(), item => item["displayName"]?.ToString());
-            DebugConsole.WriteLine($"[ValorantAccounts] Titles map: {titlesMap.Count}");
         }
         catch (Exception ex)
         {
@@ -993,7 +961,6 @@ public partial class ValorantAccounts : Page
                 item => item["uuid"]?.ToString(),
                 item => item["displayName"]?.ToString(),
                 parent => parent["displayName"]?.ToString());
-            DebugConsole.WriteLine($"[ValorantAccounts] Gun buddies map: {gunBuddyMap.Count}");
         }
         catch (Exception ex)
         {
@@ -1004,7 +971,6 @@ public partial class ValorantAccounts : Page
         try
         {
             (skinMap, skinVariantMap) = await GetValorantWeaponSkinMapsAsync();
-            DebugConsole.WriteLine($"[ValorantAccounts] Skins map: {skinMap.Count}, variants: {skinVariantMap.Count}");
         }
         catch (Exception ex)
         {
@@ -1017,7 +983,6 @@ public partial class ValorantAccounts : Page
         {
             data.Agents = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/01bb38e1-da47-4e6a-9b3d-945fe4655707", agentsMap, "Agents");
-            DebugConsole.WriteLine($"[ValorantAccounts] Agents entitlements: {data.Agents.Count}");
         }
         catch (Exception ex)
         {
@@ -1029,7 +994,6 @@ public partial class ValorantAccounts : Page
             data.Contracts = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/f85cb6f7-33e5-4dc8-b609-ec7212301948", contractsMap,
                 "Contracts");
-            DebugConsole.WriteLine($"[ValorantAccounts] Contracts entitlements: {data.Contracts.Count}");
         }
         catch (Exception ex)
         {
@@ -1041,7 +1005,6 @@ public partial class ValorantAccounts : Page
             data.Sprays = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/d5f120f8-ff8c-4aac-92ea-f2b5acbe9475", spraysMap,
                 "Sprays");
-            DebugConsole.WriteLine($"[ValorantAccounts] Sprays entitlements: {data.Sprays.Count}");
         }
         catch (Exception ex)
         {
@@ -1053,11 +1016,11 @@ public partial class ValorantAccounts : Page
             data.GunBuddies = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/dd3bf334-87f3-40bd-b043-682a57a8dc3a", gunBuddyMap,
                 "GunBuddies");
-            DebugConsole.WriteLine($"[ValorantAccounts] Gun buddies entitlements: {data.GunBuddies.Count}");
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine($"[ValorantAccounts] Gun buddies entitlements failed: {ex.Message}", ConsoleColor.Red);
+            DebugConsole.WriteLine($"[ValorantAccounts] Gun buddies entitlements failed: {ex.Message}",
+                ConsoleColor.Red);
         }
 
         try
@@ -1065,7 +1028,6 @@ public partial class ValorantAccounts : Page
             data.Cards = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/3f296c07-64c3-494c-923b-fe692a4fa1bd", cardsMap,
                 "Cards");
-            DebugConsole.WriteLine($"[ValorantAccounts] Cards entitlements: {data.Cards.Count}");
         }
         catch (Exception ex)
         {
@@ -1077,7 +1039,6 @@ public partial class ValorantAccounts : Page
             data.Skins = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/e7c63390-eda7-46e0-bb7a-a6abdacd2433", skinMap,
                 "Skins");
-            DebugConsole.WriteLine($"[ValorantAccounts] Skins entitlements: {data.Skins.Count}");
         }
         catch (Exception ex)
         {
@@ -1089,11 +1050,11 @@ public partial class ValorantAccounts : Page
             data.SkinVariants = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/3ad1b2b2-acdb-4524-852f-954a76ddae0a", skinVariantMap,
                 "SkinVariants");
-            DebugConsole.WriteLine($"[ValorantAccounts] Skin variants entitlements: {data.SkinVariants.Count}");
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine($"[ValorantAccounts] Skin variants entitlements failed: {ex.Message}", ConsoleColor.Red);
+            DebugConsole.WriteLine($"[ValorantAccounts] Skin variants entitlements failed: {ex.Message}",
+                ConsoleColor.Red);
         }
 
         try
@@ -1101,7 +1062,6 @@ public partial class ValorantAccounts : Page
             data.Titles = await GetEntitlementNamesAsync(client,
                 $"{pdBase}/store/v1/entitlements/{puuid}/de7caa6b-adf7-4588-bbd1-143831e786c6", titlesMap,
                 "Titles");
-            DebugConsole.WriteLine($"[ValorantAccounts] Titles entitlements: {data.Titles.Count}");
         }
         catch (Exception ex)
         {
@@ -1112,7 +1072,6 @@ public partial class ValorantAccounts : Page
         {
             (data.ValorantVp, data.ValorantKc, data.ValorantRp) =
                 await GetValorantWalletAsync(client, $"{pdBase}/store/v1/wallet/{puuid}");
-            DebugConsole.WriteLine($"[ValorantAccounts] Wallet VP={data.ValorantVp}, KC={data.ValorantKc}, RP={data.ValorantRp}");
         }
         catch (Exception ex)
         {
@@ -1122,7 +1081,6 @@ public partial class ValorantAccounts : Page
         try
         {
             data.ValorantRank = await GetValorantRankAsync(client, shard, puuid);
-            DebugConsole.WriteLine($"[ValorantAccounts] Rank: {data.ValorantRank}");
         }
         catch (Exception ex)
         {
@@ -1133,7 +1091,6 @@ public partial class ValorantAccounts : Page
         {
             (data.ValorantLevel, data.ValorantXp) =
                 await GetValorantLevelAsync(client, $"{pdBase}/account-xp/v1/players/{puuid}");
-            DebugConsole.WriteLine($"[ValorantAccounts] Level={data.ValorantLevel}, XP={data.ValorantXp}");
         }
         catch (Exception ex)
         {
@@ -1168,8 +1125,9 @@ public partial class ValorantAccounts : Page
                 else if (icon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
                     icon = icon.Substring("http://".Length);
             }
+
             // Always produce three pipe-separated fields to match the Accounts format (name|icon|meta).
-            var value = string.Join("|", new[] { name, icon ?? string.Empty, string.Empty });
+            var value = string.Join("|", name, icon ?? string.Empty, string.Empty);
             if (!map.ContainsKey(id))
                 map[id] = value;
         }
@@ -1203,7 +1161,7 @@ public partial class ValorantAccounts : Page
 
                 // Get icon from nestedItem displayIcon/fullRender or fallback to parent displayIcon
                 var icon = nestedItem["displayIcon"]?.ToString() ?? nestedItem["fullRender"]?.ToString() ??
-                           item["displayIcon"]?.ToString() ?? string.Empty;
+                    item["displayIcon"]?.ToString() ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(icon))
                 {
                     if (icon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -1211,8 +1169,9 @@ public partial class ValorantAccounts : Page
                     else if (icon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
                         icon = icon.Substring("http://".Length);
                 }
+
                 // Ensure three fields: name|icon|meta (meta empty for Valorant)
-                var value = string.Join("|", new[] { name, icon ?? string.Empty, string.Empty });
+                var value = string.Join("|", name, icon ?? string.Empty, string.Empty);
 
                 if (!map.ContainsKey(id))
                     map[id] = value;
@@ -1236,32 +1195,46 @@ public partial class ValorantAccounts : Page
             var skinId = item["uuid"]?.ToString();
             var skinName = item["displayName"]?.ToString();
 
-            // Try to find an icon for the skin. Prefer item.displayIcon, then first level.displayIcon,
-            // then first chroma.displayIcon, finally chroma.fullRender if available. Store without scheme.
-            string? skinIcon = item["displayIcon"]?.ToString();
-            if (string.IsNullOrWhiteSpace(skinIcon))
+            static string StripScheme(string? url)
             {
-                var levels = item["levels"] as JArray;
-                if (levels != null && levels.Count > 0)
-                    skinIcon = levels.First["displayIcon"]?.ToString();
+                if (string.IsNullOrWhiteSpace(url))
+                    return string.Empty;
+                if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    return url.Substring("https://".Length);
+                if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                    return url.Substring("http://".Length);
+                return url;
             }
 
-            if (!string.IsNullOrWhiteSpace(skinIcon))
+            void AddSkinMapping(string? id, string? name, string? icon)
             {
-                if (skinIcon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                    skinIcon = skinIcon.Substring("https://".Length);
-                else if (skinIcon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-                    skinIcon = skinIcon.Substring("http://".Length);
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name) || skins.ContainsKey(id))
+                    return;
+                skins[id] = string.Join("|", name, StripScheme(icon), string.Empty);
             }
 
+            var levels = item["levels"] as JArray;
             var chromas = item["chromas"] as JArray;
-            if (!string.IsNullOrWhiteSpace(skinId) && !string.IsNullOrWhiteSpace(skinName) && !skins.ContainsKey(skinId))
-            {
-                var iconToStore = skinIcon ?? string.Empty;
-                // store as name|icon| (empty meta)
-                skins[skinId] = string.Join("|", new[] { skinName, iconToStore, string.Empty });
-            }
 
+            var fallbackLevelIcon = levels?.FirstOrDefault()?["displayIcon"]?.ToString();
+            var fallbackChromaIcon = chromas?.FirstOrDefault()?["displayIcon"]?.ToString()
+                                     ?? chromas?.FirstOrDefault()?["fullRender"]?.ToString();
+            var skinIcon = item["displayIcon"]?.ToString() ?? fallbackLevelIcon ?? fallbackChromaIcon;
+
+            // Map skin UUID itself
+            AddSkinMapping(skinId, skinName, skinIcon);
+
+            // Map all level UUIDs to the same skin bucket because entitlements can return level UUIDs
+            if (levels != null)
+                foreach (var level in levels)
+                {
+                    var levelId = level["uuid"]?.ToString();
+                    var levelName = level["displayName"]?.ToString() ?? skinName;
+                    var levelIcon = level["displayIcon"]?.ToString() ?? skinIcon;
+                    AddSkinMapping(levelId, levelName, levelIcon);
+                }
+
+            // Map all chroma UUIDs for variants entitlements
             if (chromas == null) continue;
             foreach (var chroma in chromas)
             {
@@ -1270,34 +1243,12 @@ public partial class ValorantAccounts : Page
                 if (string.IsNullOrWhiteSpace(chromaId) || string.IsNullOrWhiteSpace(chromaName))
                     continue;
 
-                // For chroma, prefer displayIcon then fullRender, store without scheme
-                string? chromaIcon = chroma["displayIcon"]?.ToString() ?? chroma["fullRender"]?.ToString();
-                if (!string.IsNullOrWhiteSpace(chromaIcon))
-                {
-                    if (chromaIcon.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                        chromaIcon = chromaIcon.Substring("https://".Length);
-                    else if (chromaIcon.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-                        chromaIcon = chromaIcon.Substring("http://".Length);
-                }
-
-                // If skinIcon was empty, try to use chromaIcon as the skin icon fallback
-                if (string.IsNullOrWhiteSpace(skinIcon) && !string.IsNullOrWhiteSpace(chromaIcon) && skins.ContainsKey(skinId))
-                {
-                    // update stored skin icon if previously empty
-                    var existing = skins[skinId];
-                    if (existing != null && existing.Contains("|"))
-                    {
-                        var parts = existing.Split(new[] { '|' }, 3);
-                        // parts: [name, icon, meta]
-                        if (parts.Length == 3 && string.IsNullOrWhiteSpace(parts[1]))
-                        {
-                            skins[skinId] = string.Join("|", new[] { parts[0], chromaIcon ?? string.Empty, parts[2] });
-                        }
-                    }
-                }
+                var chromaIcon = chroma["displayIcon"]?.ToString()
+                                 ?? chroma["fullRender"]?.ToString()
+                                 ?? skinIcon;
 
                 if (!variants.ContainsKey(chromaId))
-                    variants[chromaId] = string.Join("|", new[] { chromaName, chromaIcon ?? string.Empty, string.Empty });
+                    variants[chromaId] = string.Join("|", chromaName, StripScheme(chromaIcon), string.Empty);
             }
         }
 
@@ -1310,11 +1261,9 @@ public partial class ValorantAccounts : Page
         Dictionary<string, string> nameMap,
         string label)
     {
-        LogRequest($"[ValorantAccounts] Entitlements request ({label})", url, client, null);
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         var response = await client.SendAsync(request).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        DebugConsole.WriteLine($"[ValorantAccounts] Entitlements response ({label}, {(int)response.StatusCode}): {body}");
         if (!response.IsSuccessStatusCode)
             return new List<string>();
         var json = JObject.Parse(body);
@@ -1322,18 +1271,15 @@ public partial class ValorantAccounts : Page
 
         var entitlements = json["Entitlements"] as JArray;
         if (entitlements != null)
-        {
             foreach (var entitlement in entitlements)
             {
                 var itemId = entitlement["ItemID"]?.ToString();
                 if (!string.IsNullOrWhiteSpace(itemId))
                     itemIds.Add(itemId);
             }
-        }
 
         var entitlementsByTypes = json["EntitlementsByTypes"] as JArray;
         if (entitlementsByTypes != null)
-        {
             foreach (var type in entitlementsByTypes)
             {
                 var typeEntitlements = type["Entitlements"] as JArray;
@@ -1345,7 +1291,6 @@ public partial class ValorantAccounts : Page
                         itemIds.Add(itemId);
                 }
             }
-        }
 
         var names = itemIds
             .Select(id => nameMap.TryGetValue(id, out var name) ? name : id)
@@ -1358,11 +1303,9 @@ public partial class ValorantAccounts : Page
 
     private static async Task<(int Vp, int Kc, int Rp)> GetValorantWalletAsync(HttpClient client, string url)
     {
-        LogRequest("[ValorantAccounts] Wallet request", url, client, null);
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         var response = await client.SendAsync(request).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        DebugConsole.WriteLine($"[ValorantAccounts] Wallet response ({(int)response.StatusCode}): {body}");
         if (!response.IsSuccessStatusCode)
             return (0, 0, 0);
 
@@ -1377,11 +1320,9 @@ public partial class ValorantAccounts : Page
     private static async Task<string> GetValorantRankAsync(HttpClient client, string region, string puuid)
     {
         var url = $"https://pd.{region}.a.pvp.net/mmr/v1/players/{puuid}";
-        LogRequest("[ValorantAccounts] Rank request", url, client, null);
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         var response = await client.SendAsync(request).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        DebugConsole.WriteLine($"[ValorantAccounts] Rank response ({(int)response.StatusCode}): {body}");
         if ((int)response.StatusCode >= 500)
             return "Unranked";
         if (!response.IsSuccessStatusCode)
@@ -1419,11 +1360,9 @@ public partial class ValorantAccounts : Page
 
     private static async Task<(int Level, int Xp)> GetValorantLevelAsync(HttpClient client, string url)
     {
-        LogRequest("[ValorantAccounts] Level request", url, client, null);
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         var response = await client.SendAsync(request).ConfigureAwait(false);
         var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        DebugConsole.WriteLine($"[ValorantAccounts] Level response ({(int)response.StatusCode}): {body}");
         if (!response.IsSuccessStatusCode)
             return (0, 0);
 
@@ -1435,12 +1374,10 @@ public partial class ValorantAccounts : Page
 
     private static void LogRequest(string prefix, string url, HttpClient client, string? body)
     {
-        var headers = string.Join("; ", client.DefaultRequestHeaders.Select(h =>
-            $"{h.Key}={string.Join(",", h.Value)}"));
-        DebugConsole.WriteLine($"{prefix} URL: {url}");
-        DebugConsole.WriteLine($"{prefix} Headers: {headers}");
-        if (body != null)
-            DebugConsole.WriteLine($"{prefix} Body: {body}");
+        _ = prefix;
+        _ = url;
+        _ = client;
+        _ = body;
     }
 
     private static string? GetUnameFromIdToken(string idToken)
@@ -1527,5 +1464,23 @@ public partial class ValorantAccounts : Page
         var bytes = Convert.FromBase64String(payload);
         var json = Encoding.UTF8.GetString(bytes);
         return JObject.Parse(json);
+    }
+
+    private sealed class ValorantAccountData
+    {
+        public List<string> Agents { get; set; } = new();
+        public List<string> Contracts { get; set; } = new();
+        public List<string> Sprays { get; set; } = new();
+        public List<string> GunBuddies { get; set; } = new();
+        public List<string> Cards { get; set; } = new();
+        public List<string> Skins { get; set; } = new();
+        public List<string> SkinVariants { get; set; } = new();
+        public List<string> Titles { get; set; } = new();
+        public int ValorantVp { get; set; }
+        public int ValorantKc { get; set; }
+        public int ValorantRp { get; set; }
+        public string? ValorantRank { get; set; }
+        public int ValorantLevel { get; set; }
+        public int ValorantXp { get; set; }
     }
 }

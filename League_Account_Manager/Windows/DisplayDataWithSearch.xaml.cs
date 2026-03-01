@@ -1,9 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Linq;
-using System.Collections.Generic;
-using System;
+using System.Windows.Media.Imaging;
 
 namespace League_Account_Manager.Windows;
 
@@ -13,34 +11,7 @@ namespace League_Account_Manager.Windows;
 public partial class DisplayDataWithSearch : Window
 {
     private readonly string dataholder = "";
-    private List<DisplayItem> items = new();
-
-    private sealed class DisplayItem
-    {
-        public string Name { get; set; } = string.Empty;
-        public string? IconUrl { get; set; }
-        public string? Price { get; set; }
-        public object? IconSource
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(IconUrl)) return null;
-                try
-                {
-                    // If stored without scheme, prepend https:// to form a valid absolute URI
-                    var url = IconUrl!.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || IconUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                        ? IconUrl
-                        : "https://" + IconUrl;
-
-                    return new System.Windows.Media.Imaging.BitmapImage(new Uri(url));
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-        }
-    }
+    private readonly List<DisplayItem> items = new();
 
     public DisplayDataWithSearch(string? Data)
     {
@@ -79,7 +50,7 @@ public partial class DisplayDataWithSearch : Window
         foreach (var line in lines)
         {
             // Support multiple formats: pipe-delimited (name|url|price) or hyphen-delimited (name-url-price)
-            string name = line;
+            var name = line;
             string? url = null;
             string? price = null;
 
@@ -111,7 +82,8 @@ public partial class DisplayDataWithSearch : Window
                 }
             }
 
-            items.Add(new DisplayItem { Name = name, IconUrl = string.IsNullOrWhiteSpace(url) ? null : url, Price = price });
+            items.Add(new DisplayItem
+                { Name = name, IconUrl = string.IsNullOrWhiteSpace(url) ? null : url, Price = price });
         }
 
         ItemsList.ItemsSource = items;
@@ -135,5 +107,34 @@ public partial class DisplayDataWithSearch : Window
         var searchTerm = datafiltersearch.Text ?? string.Empty;
         var filtered = items.Where(it => it.Name.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
         ItemsList.ItemsSource = filtered;
+    }
+
+    private sealed class DisplayItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? IconUrl { get; set; }
+        public string? Price { get; set; }
+
+        public object? IconSource
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(IconUrl)) return null;
+                try
+                {
+                    // If stored without scheme, prepend https:// to form a valid absolute URI
+                    var url = IconUrl!.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                              IconUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                        ? IconUrl
+                        : "https://" + IconUrl;
+
+                    return new BitmapImage(new Uri(url));
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
     }
 }

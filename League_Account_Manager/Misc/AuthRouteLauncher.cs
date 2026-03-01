@@ -1,11 +1,11 @@
 using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -192,9 +192,9 @@ internal sealed class AuthRouteLauncher
 
     private sealed class AuthProxy : IDisposable
     {
+        private readonly HttpClient _httpClient = new();
         private readonly HttpListener _listener = new();
         private readonly string _name;
-        private readonly HttpClient _httpClient = new();
         private Uri? _upstreamBase;
 
         public AuthProxy(int port, string name)
@@ -276,7 +276,7 @@ internal sealed class AuthRouteLauncher
 
                         ctx.Response.StatusCode = (int)res.StatusCode;
                         ctx.Response.ContentType = res.Content.Headers.ContentType?.ToString()
-                                                  ?? "application/json";
+                                                   ?? "application/json";
                         CopyResponseHeaders(res, ctx.Response);
                         ctx.Response.ContentLength64 = responseBytes.LongLength;
                         await ctx.Response.OutputStream.WriteAsync(responseBytes, 0, responseBytes.Length, token);
@@ -353,10 +353,7 @@ internal sealed class AuthRouteLauncher
                 return body;
 
             var decoded = body;
-            foreach (var encoding in encodings)
-            {
-                decoded = DecodeWithEncoding(decoded, encoding);
-            }
+            foreach (var encoding in encodings) decoded = DecodeWithEncoding(decoded, encoding);
 
             return decoded;
         }
@@ -443,7 +440,7 @@ internal sealed class AuthRouteLauncher
                    || header.Equals("Upgrade", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string FormatHeaders(System.Collections.Specialized.NameValueCollection headers)
+        private static string FormatHeaders(NameValueCollection headers)
         {
             if (headers.Count == 0)
                 return "{}";

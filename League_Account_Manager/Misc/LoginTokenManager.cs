@@ -1,42 +1,40 @@
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
 using League_Account_Manager.Windows;
 using Microsoft.Win32;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using NLog;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Net.Http;
-using System.Reflection.Metadata;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace League_Account_Manager.Misc;
 
 public static class LoginTokenManager
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private static readonly string RiotSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Riot Games", "Riot Client", "Data", "RiotGamesPrivateSettings.yaml");
+
     private static readonly string LolSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Riot Games", "League of Legends", "Data", "RiotGamesPrivateSettings.yaml");
+
     private static readonly string RiotConfigPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Riot Games", "Riot Client", "Config");
+
     private static readonly string RiotMetadataPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "Riot Games", "Metadata", "Riot Client");
 
-    public static async Task<bool> GenerateLoginToken(string username, string password, string riotClientPath, bool stealth = false)
+    public static async Task<bool> GenerateLoginToken(string username, string password, string riotClientPath,
+        bool stealth = false)
     {
         string? backupPath = null;
         try
@@ -46,6 +44,7 @@ public static class LoginTokenManager
                 DebugConsole.WriteLine("[Token] Username or password missing, aborting generation");
                 return false;
             }
+
             if (!File.Exists(riotClientPath))
             {
                 DebugConsole.WriteLine("[Token] Riot client path invalid, aborting generation");
@@ -203,6 +202,7 @@ public static class LoginTokenManager
                 DebugConsole.WriteLine("[Token] Found Riot Client process");
                 return "Riot Client";
             }
+
             if (Process.GetProcessesByName("RiotClientUx").Length != 0)
             {
                 DebugConsole.WriteLine("[Token] Found RiotClientUx process");
@@ -316,7 +316,8 @@ public static class LoginTokenManager
                     }
                     else if (entryPath.StartsWith("metadata/", StringComparison.OrdinalIgnoreCase))
                     {
-                        var relative = entryPath.Substring("metadata/".Length).Replace('/', Path.DirectorySeparatorChar);
+                        var relative = entryPath.Substring("metadata/".Length)
+                            .Replace('/', Path.DirectorySeparatorChar);
                         var destPath = Path.Combine(RiotMetadataPath, relative);
                         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                         try
@@ -361,7 +362,7 @@ public static class LoginTokenManager
         {
             var backupPath = Path.Combine(Path.GetTempPath(), $"lam_token_backup_{Guid.NewGuid():N}.zip");
             using var fs = new FileStream(backupPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
-            using var archive = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: false, entryNameEncoding: Encoding.UTF8);
+            using var archive = new ZipArchive(fs, ZipArchiveMode.Create, false, Encoding.UTF8);
 
             void AddFileIfExists(string sourcePath, string entryName)
             {
@@ -419,7 +420,7 @@ public static class LoginTokenManager
                 return;
 
             using var fs = File.OpenRead(backupPath);
-            using var archive = new ZipArchive(fs, ZipArchiveMode.Read, leaveOpen: false, entryNameEncoding: Encoding.UTF8);
+            using var archive = new ZipArchive(fs, ZipArchiveMode.Read, false, Encoding.UTF8);
             foreach (var entry in archive.Entries)
             {
                 var entryPath = entry.FullName.Replace('\\', '/');
@@ -454,12 +455,13 @@ public static class LoginTokenManager
                     await entryStream.CopyToAsync(mem).ConfigureAwait(false);
                     await File.WriteAllBytesAsync(destPath, mem.ToArray()).ConfigureAwait(false);
                 }
+
                 DebugConsole.WriteLine("[Token] Files restored");
             }
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine( $"[Token] Failed to restore original files after token use {ex} ");
+            DebugConsole.WriteLine($"[Token] Failed to restore original files after token use {ex} ");
         }
         finally
         {
@@ -497,9 +499,11 @@ public static class LoginTokenManager
                 var usernameField = content.FindFirstDescendant(cf => cf.ByAutomationId("username"))?.AsTextBox();
                 var passwordField = content.FindFirstDescendant(cf => cf.ByAutomationId("password"))?.AsTextBox();
                 var rememberBox = content.FindFirstDescendant(cf => cf.ByAutomationId("remember-me"))?.AsCheckBox() ??
-                                  content.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox))?.AsCheckBox();
+                                  content.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox))
+                                      ?.AsCheckBox();
                 if (rememberBox == null)
-                    DebugConsole.WriteLine("[Token] Remember-me checkbox not found by automationId; using first checkbox");
+                    DebugConsole.WriteLine(
+                        "[Token] Remember-me checkbox not found by automationId; using first checkbox");
 
                 var siblings = content.FindAllChildren();
                 AutomationElement? signInElement = null;
@@ -532,7 +536,6 @@ public static class LoginTokenManager
                 passwordField.Text = password;
 
                 if (rememberBox != null && rememberBox.IsChecked != true)
-                {
                     try
                     {
                         rememberBox.Focus();
@@ -552,13 +555,13 @@ public static class LoginTokenManager
                         {
                         }
                     }
-                }
 
                 while (!signInElement.IsEnabled)
                 {
                     DebugConsole.WriteLine("[Token] Waiting for sign-in button to enable");
                     await Task.Delay(200);
                 }
+
                 await Task.Delay(1000);
                 signInElement.AsButton()?.Invoke();
                 DebugConsole.WriteLine("[Token] Sign-in invoked");
@@ -714,7 +717,6 @@ public static class LoginTokenManager
                         content.Contains("\"phase\":\"logged_in\"", StringComparison.OrdinalIgnoreCase))
                         return true;
                 }
-
             }
             catch (Exception e)
             {

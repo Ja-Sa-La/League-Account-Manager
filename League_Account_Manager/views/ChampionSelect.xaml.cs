@@ -13,6 +13,12 @@ public partial class ChampionSelect : Page
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private JObject region;
 
+
+    public ChampionSelect()
+    {
+        InitializeComponent();
+    }
+
     private static string BuildRankString(JToken? queue, bool highest)
     {
         if (queue == null) return "Unranked";
@@ -30,12 +36,6 @@ public partial class ChampionSelect : Page
             return tier;
 
         return $"{tier} {div}";
-    }
-
-
-    public ChampionSelect()
-    {
-        InitializeComponent();
     }
 
 
@@ -108,11 +108,11 @@ public partial class ChampionSelect : Page
 
             var playerPeak = border?.FindName($"player{I + 1}peak") as TextBlock;
             var playerRank = border?.FindName($"player{I + 1}rank") as TextBlock;
-            var playerWr   = border?.FindName($"player{I + 1}wr")   as TextBlock;
+            var playerWr = border?.FindName($"player{I + 1}wr") as TextBlock;
 
             if (playerPeak != null) playerPeak.Text = BuildRankString(solo, true);
             if (playerRank != null) playerRank.Text = BuildRankString(solo, false);
-            if (playerWr != null)   playerWr.Text   = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
+            if (playerWr != null) playerWr.Text = $"{gameStats.Wins} / {gameStats.Losses} / {wr:P2} kda {kda:F2}";
             resp = await Lcu.Connector("league", "get", $"/lol-summoner/v2/summoners/puuid/{puuid}", "");
             var playerinfo = JObject.Parse(await GetResponseBody(resp));
             return playerinfo["gameName"] + "#" + playerinfo["tagLine"];
@@ -167,7 +167,7 @@ public partial class ChampionSelect : Page
 
             var playerPeak = border?.FindName($"player{I + 1}peak") as TextBlock;
             var playerRank = border?.FindName($"player{I + 1}rank") as TextBlock;
-            var playerWr   = border?.FindName($"player{I + 1}wr")   as TextBlock;
+            var playerWr = border?.FindName($"player{I + 1}wr") as TextBlock;
             if (playerPeak != null) playerPeak.Text = BuildRankString(solo, true);
             if (playerRank != null) playerRank.Text = BuildRankString(solo, false);
             if (playerWr != null) playerWr.Text = $"{wins} / {losses} / {wr:P2} kda {kda:F2}";
