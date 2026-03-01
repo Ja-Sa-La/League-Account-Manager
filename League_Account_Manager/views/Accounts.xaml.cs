@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -38,6 +39,7 @@ public partial class Accounts : Page
 {
     public static string? SelectedUsername;
     public static string? SelectedPassword;
+    public static event Action? PullDataCompleted;
     private readonly Dictionary<string, ListSortDirection?> _columnSortState = new();
     private readonly object _fileChangeLock = new();
     private readonly AuthRouteLauncher _launcher = new();
@@ -336,6 +338,14 @@ public partial class Accounts : Page
         catch (Exception exception)
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            try
+            {
+                DebugConsole.WriteLine($"[Accounts] Error loading data: {exception.Message}", ConsoleColor.Red);
+            }
+            catch
+            {
+                // ignore debug console errors
+            }
         }
     }
 
@@ -409,6 +419,33 @@ public partial class Accounts : Page
                     "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 return;
+            }
+
+            // Try to select an account from any id token provided by the Riot client
+            try
+            {
+                var authResp = await Lcu.Connector("riot", "get", "/riot-client-auth/v1/authorization", "") as HttpResponseMessage;
+                if (authResp != null)
+                {
+                    var authBody = await authResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    try
+                    {
+                        var authJson = JObject.Parse(authBody);
+                        var idToken = authJson["idToken"]?["token"]?.ToString();
+                        if (!string.IsNullOrWhiteSpace(idToken))
+                        {
+                            TrySelectAccountFromIdToken(idToken);
+                        }
+                    }
+                    catch
+                    {
+                        // ignore parse errors
+                    }
+                }
+            }
+            catch
+            {
+                // ignore errors contacting riot client for id token
             }
 
             if (SelectedUsername == null || SelectedPassword == null)
@@ -609,16 +646,119 @@ public partial class Accounts : Page
                             var Loot = JObject.Parse(responseBody);
 
                             string lootText = !string.IsNullOrEmpty(Loot["itemDesc"]?.ToString())
-                                ? Loot["itemDesc"]
+                                ? Loot["itemDesc"]?.ToString()
                                 : !string.IsNullOrEmpty(Loot["localizedName"]?.ToString())
-                                    ? Loot["localizedName"]
-                                    : Loot["asset"]?.ToString();
+                                    ? Loot["localizedName"]?.ToString()
+                                    : Loot["asset"]?.ToString() ?? string.Empty;
 
-                            lootList.Add($"{lootText} x {Loot["count"]}");
+                            // Map tilePath/imagePath to raw.communitydragon.org paths
+                            string? iconUrl = null;
+                            var tilePath = Loot["tilePath"]?.ToString() ?? Loot["imagePath"]?.ToString() ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(tilePath))
+                            {
+                                try
+                                {
+                                    var tail = tilePath.TrimStart('/');
+
+                                    // Special handling for /fe/ frontend assets (e.g. /fe/lol-loot/...)
+                                    var parts = tail.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                                    if (parts.Length >= 2 && parts[0].Equals("fe", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        // e.g. fe/lol-loot/assets/loot_item_icons/...
+                                        // map to plugins/rcp-fe-lol-loot/global/default/<rest after fe/lol-loot/>
+                                        if (parts.Length >= 2 && parts[1].Equals("lol-loot", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            var rest = string.Join('/', parts.Skip(2));
+                                            var mapped = $"plugins/rcp-fe-lol-loot/global/default/{rest}".Replace('\\', '/').ToLowerInvariant();
+                                            while (mapped.Contains("//")) mapped = mapped.Replace("//", "/");
+                                            iconUrl = $"raw.communitydragon.org/latest/{mapped}";
+                                        }
+                                        else
+                                        {
+                                            // generic fe mapping fallback
+                                            var rest = string.Join('/', parts.Skip(1));
+                                            var mapped = $"plugins/rcp-fe-lol-loot/global/default/{rest}".Replace('\\', '/').ToLowerInvariant();
+                                            while (mapped.Contains("//")) mapped = mapped.Replace("//", "/");
+                                            iconUrl = $"raw.communitydragon.org/latest/{mapped}";
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Remove ASSETS/ or lol-game-data/ prefix if present
+                                        var idx = tail.IndexOf("ASSETS/", StringComparison.OrdinalIgnoreCase);
+                                        if (idx >= 0)
+                                            tail = tail.Substring(idx + "ASSETS/".Length);
+                                        else
+                                        {
+                                            var lgd = "lol-game-data/";
+                                            var lgdIdx = tail.IndexOf(lgd, StringComparison.OrdinalIgnoreCase);
+                                            if (lgdIdx >= 0)
+                                                tail = tail.Substring(lgdIdx + lgd.Length);
+                                        }
+
+                                        // Remove any leading "assets/" segments to avoid duplication
+                                        while (tail.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+                                            tail = tail.Substring("assets/".Length);
+
+                                        tail = tail.TrimStart('/');
+
+                                        string mapped;
+                                        // v1/v2 or content paths should not get an extra assets/ prefix
+                                        if (tail.StartsWith("v1/", StringComparison.OrdinalIgnoreCase) ||
+                                            tail.StartsWith("v2/", StringComparison.OrdinalIgnoreCase) ||
+                                            tail.StartsWith("content/", StringComparison.OrdinalIgnoreCase))
+                                            mapped = $"plugins/rcp-be-lol-game-data/global/default/{tail}".Replace('\\', '/').ToLowerInvariant();
+                                        else
+                                            mapped = $"plugins/rcp-be-lol-game-data/global/default/assets/{tail}".Replace('\\', '/').ToLowerInvariant();
+
+                                        while (mapped.Contains("//")) mapped = mapped.Replace("//", "/");
+                                        iconUrl = $"raw.communitydragon.org/latest/{mapped}";
+                                    }
+                                }
+                                catch
+                                {
+                                    iconUrl = null;
+                                }
+                            }
+
+                            var countVal = Loot["count"]?.ToString() ?? thing["count"]?.ToString() ?? "1";
+
+                            // Log the parsed loot info for debugging
+                            try
+                            {
+                                var msg = $"[Accounts] Loot parsed: LootId='{lootId}', Name='{lootText}', TilePath='{tilePath}', IconUrl='{iconUrl}', Count='{countVal}'";
+                                _logger.Debug(msg);
+                                DebugConsole.WriteLine(msg);
+                                if (iconUrl == null)
+                                {
+                                    var noIcon = $"[Accounts] Loot mapping produced no icon for LootId='{lootId}', TilePath='{tilePath}'";
+                                    _logger.Debug(noIcon);
+                                    DebugConsole.WriteLine(noIcon);
+                                }
+                            }
+                            catch
+                            {
+                                // ignore logging errors
+                            }
+
+                            // Format as name|url|count
+                            var entryParts = new List<string> { lootText ?? string.Empty };
+                            entryParts.Add(iconUrl ?? string.Empty);
+                            entryParts.Add(countVal);
+                            lootList.Add(string.Join("|", entryParts));
                             lootCount++;
                         }
                         catch
                         {
+                            try
+                            {
+                                var warn = $"[Accounts] Exception parsing loot item LootId='{thing?["lootId"]?.ToString()}'";
+                                _logger.Warn(warn);
+                                DebugConsole.WriteLine(warn, ConsoleColor.Yellow);
+                            }
+                            catch
+                            {
+                            }
                         }
 
             // Build ranks
@@ -652,13 +792,220 @@ public partial class Accounts : Page
             var Rank2 = BuildRankString(rankedInfo, "RANKED_FLEX_SR");
 
             var skinInfo = skinTask.Result;
-            var skinList = skinInfo?.Where(i => i["owned"]?.ToObject<bool>() == true)
-                .Select(i => i["name"].ToString())
-                .ToList() ?? new List<string>();
+            var skinList = new List<string>();
+            if (skinInfo != null)
+            {
+                foreach (var item in skinInfo)
+                {
+                    try
+                    {
+                        var owned = item["owned"]?.ToObject<bool>() ?? false;
+                        if (!owned) continue;
 
-            var champList = champInfo?.Where(i => i["ownership"]?["owned"]?.ToObject<bool>() == true)
-                .Select(i => i["name"].ToString())
-                .ToList() ?? new List<string>();
+                        var name = item["name"]?.ToString() ?? string.Empty;
+                        var itemId = item["itemId"]?.ToString() ?? string.Empty;
+
+                        // Find champion id from tags like "champions_30" or fallback to parse imagePath/tilePath
+                        int? champId = null;
+                        var tags = item["tags"] as JArray;
+                        if (tags != null)
+                        {
+                            foreach (var t in tags)
+                            {
+                                var ts = t.ToString();
+                                if (ts.StartsWith("champions_", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    if (int.TryParse(ts.Substring("champions_".Length), out var parsed))
+                                    {
+                                        champId = parsed;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Fallback: try to extract champion and skin ids from imagePath or tilePath
+                        if (champId == null)
+                        {
+                            var imagePath = item["imagePath"]?.ToString() ?? item["tilePath"]?.ToString() ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(imagePath))
+                            {
+                                try
+                                {
+                                    // look for "/<champId>/<skinId>" segments, e.g. /.../30/30016.png
+                                    var pathParts = imagePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                                    for (var pi = 0; pi + 1 < pathParts.Length; pi++)
+                                    {
+                                        if (int.TryParse(pathParts[pi], out var a) && int.TryParse(Path.GetFileNameWithoutExtension(pathParts[pi + 1]), out var b))
+                                        {
+                                            // heuristics: champion ids are usually < 2000 while skin ids can be larger
+                                            champId = a;
+                                            // if itemId is empty, we can set itemId = b? but we already have itemId from JSON
+                                            break;
+                                        }
+                                    }
+                                }
+                                catch
+                                {
+                                    // ignore fallback parse errors
+                                }
+                            }
+                        }
+
+                        // Build icon url (prefer mapping from tilePath/imagePath to raw.communitydragon.org and store without scheme)
+                        string? iconUrl = null;
+                        var tilePath = item["tilePath"]?.ToString() ?? item["imagePath"]?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(tilePath))
+                        {
+                            try
+                            {
+                                // Normalize tilePath and strip known prefixes so we don't end up with
+                                // duplicate "assets" segments in the mapped URL.
+                                var tail = tilePath.TrimStart('/');
+
+                                // If tilePath contains an ASSETS/ marker, take the remainder after it
+                                var idx = tail.IndexOf("ASSETS/", StringComparison.OrdinalIgnoreCase);
+                                if (idx >= 0)
+                                {
+                                    tail = tail.Substring(idx + "ASSETS/".Length);
+                                }
+                                else
+                                {
+                                    // Remove leading "lol-game-data/" if present
+                                    var lgd = "lol-game-data/";
+                                    var lgdIdx = tail.IndexOf(lgd, StringComparison.OrdinalIgnoreCase);
+                                    if (lgdIdx >= 0)
+                                        tail = tail.Substring(lgdIdx + lgd.Length);
+                                }
+
+                                // Remove any leading "assets/" segments to avoid assets/assets
+                                while (tail.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+                                    tail = tail.Substring("assets/".Length);
+
+                                tail = tail.TrimStart('/');
+
+                                // Construct the communitydragon raw path and normalize
+                                string mapped;
+                                if (tail.StartsWith("v1/", StringComparison.OrdinalIgnoreCase) || tail.StartsWith("v2/", StringComparison.OrdinalIgnoreCase) || tail.StartsWith("content/", StringComparison.OrdinalIgnoreCase))
+                                    mapped = $"plugins/rcp-be-lol-game-data/global/default/{tail}".Replace('\\', '/').ToLowerInvariant();
+                                else
+                                    mapped = $"plugins/rcp-be-lol-game-data/global/default/assets/{tail}".Replace('\\', '/').ToLowerInvariant();
+
+                                while (mapped.Contains("//")) mapped = mapped.Replace("//", "/");
+                                iconUrl = $"raw.communitydragon.org/latest/{mapped}";
+                            }
+                            catch
+                            {
+                                iconUrl = null;
+                            }
+                        }
+
+                        // No fallback to cdn.communitydragon.org: rely on tilePath/imagePath mapping only
+
+                        // Extract price (first price entry)
+                        string? price = null;
+                        var prices = item["prices"] as JArray;
+                        if (prices != null && prices.Count > 0)
+                        {
+                            var p = prices.First;
+                            var cost = p["cost"]?.ToString();
+                            var currency = p["currency"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(cost))
+                            {
+                                price = !string.IsNullOrWhiteSpace(currency) ? $"{cost} {currency}" : cost;
+                            }
+                        }
+
+                        // Format as name|url|price (price optional)
+                        var parts = new List<string> { name };
+                        parts.Add(iconUrl ?? string.Empty);
+                        parts.Add(price ?? string.Empty);
+                        var entry = string.Join("|", parts);
+                        skinList.Add(entry);
+                        DebugConsole.WriteLine($"[Accounts] Parsed skin entry: Name='{name}', ItemId='{itemId}', ChampId='{(champId?.ToString() ?? "null")}', IconUrl='{iconUrl}', Price='{price}' -> '{entry}'");
+                    }
+                    catch
+                    {
+                        // skip problematic skin
+                    }
+                }
+            }
+
+            // Build champion entries as name|iconUrl|roles (roles comma-separated). Map squarePortraitPath to raw.communitydragon.org
+            var champList = new List<string>();
+            if (champInfo != null)
+            {
+                foreach (var c in champInfo)
+                {
+                    try
+                    {
+                        var owned = c["ownership"]?["owned"]?.ToObject<bool>() ?? false;
+                        if (!owned) continue;
+
+                        var name = c["name"]?.ToString() ?? string.Empty;
+                        // roles array -> comma separated
+                        var rolesArr = c["roles"] as JArray;
+                        string roles = rolesArr != null && rolesArr.Count > 0
+                            ? string.Join(",", rolesArr.Select(r => r.ToString()))
+                            : string.Empty;
+
+                        string? iconUrl = null;
+                        var portrait = c["squarePortraitPath"]?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(portrait))
+                        {
+                            try
+                            {
+                                var tail = portrait.TrimStart('/');
+                                // If contains ASSETS/, take remainder after it
+                                var idx = tail.IndexOf("ASSETS/", StringComparison.OrdinalIgnoreCase);
+                                if (idx >= 0)
+                                {
+                                    tail = tail.Substring(idx + "ASSETS/".Length);
+                                }
+                                else
+                                {
+                                    var lgd = "lol-game-data/";
+                                    var lgdIdx = tail.IndexOf(lgd, StringComparison.OrdinalIgnoreCase);
+                                    if (lgdIdx >= 0)
+                                        tail = tail.Substring(lgdIdx + lgd.Length);
+                                }
+
+                                // Remove any leading "assets/" segments
+                                while (tail.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+                                    tail = tail.Substring("assets/".Length);
+
+                                tail = tail.TrimStart('/');
+
+                                // For champion icons the path usually starts with v1/ or content/, map without extra assets/ prefix
+                                string mapped;
+                                if (tail.StartsWith("v1/", StringComparison.OrdinalIgnoreCase) ||
+                                    tail.StartsWith("v2/", StringComparison.OrdinalIgnoreCase) ||
+                                    tail.StartsWith("content/", StringComparison.OrdinalIgnoreCase))
+                                    mapped = $"plugins/rcp-be-lol-game-data/global/default/{tail}".Replace('\\', '/').ToLowerInvariant();
+                                else
+                                    mapped = $"plugins/rcp-be-lol-game-data/global/default/assets/{tail}".Replace('\\', '/').ToLowerInvariant();
+
+                                while (mapped.Contains("//")) mapped = mapped.Replace("//", "/");
+                                iconUrl = $"raw.communitydragon.org/latest/{mapped}";
+                            }
+                            catch
+                            {
+                                iconUrl = null;
+                            }
+                        }
+
+                        var parts = new List<string> { name };
+                        parts.Add(iconUrl ?? string.Empty);
+                        parts.Add(roles ?? string.Empty);
+                        champList.Add(string.Join("|", parts));
+                        DebugConsole.WriteLine($"[Accounts] Parsed champ entry: Name='{name}', IconUrl='{iconUrl}', Roles='{roles}' -> '{string.Join("|", parts)}'");
+                    }
+                    catch
+                    {
+                        // skip
+                    }
+                }
+            }
 
             var wallet = walletTask.Result ?? new Utils.Wallet { be = 0, rp = 0 };
             var region = regionTask.Result ?? JObject.Parse("{\"region\":\"UNKNOWN\"}");
@@ -706,6 +1053,9 @@ public partial class Accounts : Page
                 AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
                 AccountsDataGrid.Items.Refresh();
             });
+
+            PullDataCompleted?.Invoke();
+            ValorantAccounts.RunPullDataInBackground();
         }
         catch (Exception ex)
         {
@@ -714,6 +1064,14 @@ public partial class Accounts : Page
                 Progressgrid.Visibility = Visibility.Hidden;
             });
             LogManager.GetCurrentClassLogger().Error(ex, "Error pulling account data");
+            try
+            {
+                DebugConsole.WriteLine($"[Accounts] Error pulling account data: {ex.Message}", ConsoleColor.Red);
+            }
+            catch
+            {
+                // ignore debug console errors
+            }
         }
     }
 
@@ -1919,5 +2277,59 @@ public partial class Accounts : Page
     {
 
         _ = ProxyLoginTokenManager.UseLoginTokenAsync();
+    }
+
+    private static JObject? DecodeJwtPayload(string token)
+    {
+        var parts = token.Split('.');
+        if (parts.Length < 2)
+            return null;
+
+        var payload = parts[1]
+            .Replace('-', '+')
+            .Replace('_', '/');
+        switch (payload.Length % 4)
+        {
+            case 2:
+                payload += "==";
+                break;
+            case 3:
+                payload += "=";
+                break;
+        }
+
+        var bytes = Convert.FromBase64String(payload);
+        var json = Encoding.UTF8.GetString(bytes);
+        return JObject.Parse(json);
+    }
+
+    private static void TrySelectAccountFromIdToken(string idToken)
+    {
+        try
+        {
+            var payloadJson = DecodeJwtPayload(idToken);
+            var uname = payloadJson?["lol"]?.FirstOrDefault()?["uname"]?.ToString();
+            if (string.IsNullOrWhiteSpace(uname))
+                return;
+
+            if (!string.IsNullOrWhiteSpace(uname) && string.Equals(SelectedUsername, uname, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            var accounts = ActualAccountlists;
+            if (accounts == null)
+                return;
+
+            var match = accounts.FirstOrDefault(a => string.Equals(a.username, uname, StringComparison.OrdinalIgnoreCase));
+            if (match == null)
+                return;
+
+            SelectedUsername = match.username;
+            SelectedPassword = match.password;
+            DebugConsole.WriteLine($"[Accounts] Switched selected account to {match.username} from id token.");
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[Accounts] Failed to decode id token: {ex.Message}", ConsoleColor.Red);
+        }
     }
 }

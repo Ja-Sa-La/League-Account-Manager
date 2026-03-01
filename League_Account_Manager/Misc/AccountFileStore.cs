@@ -244,7 +244,8 @@ internal static class AccountFileStore
         if (!csv.Read()) return records;
 
         csv.ReadHeader();
-        var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var headerMap = new Dictionary<string, int>(StringComparer.Ordinal);
         if (csv.HeaderRecord != null)
             for (var i = 0; i < csv.HeaderRecord.Length; i++)
                 if (!string.IsNullOrWhiteSpace(csv.HeaderRecord[i]) && !headerMap.ContainsKey(csv.HeaderRecord[i]))
@@ -291,10 +292,7 @@ internal static class AccountFileStore
                     rank = GetField("rank", 7) ?? "",
                     champions = GetField("champions", 8) ?? "",
                     skins = GetField("skins", 9) ?? "",
-                    Champions = TryParseInt(GetField("Champions", 10)),
-                    Skins = TryParseInt(GetField("Skins", 11)),
                     Loot = GetField("Loot", 12) ?? "",
-                    Loots = TryParseInt(GetField("Loots", 13)),
                     rank2 = GetField("rank2", 14) ?? "",
                     note = GetField("note", 15) ?? "",
                     valorantAgents = GetField("valorantAgents", 16) ?? "",
@@ -314,6 +312,16 @@ internal static class AccountFileStore
                     valorantXp = TryParseInt(GetField("valorantXp", -1))
                 };
 
+                int CountTokensLocal(string? v)
+                {
+                    if (string.IsNullOrWhiteSpace(v)) return 0;
+                    return v.Split(':', StringSplitOptions.RemoveEmptyEntries).Length;
+                }
+
+                record.Champions = CountTokensLocal(record.champions);
+                record.Skins = CountTokensLocal(record.skins);
+                record.Loots = CountTokensLocal(record.Loot);
+
                 records.Add(record);
             }
             catch
@@ -324,14 +332,78 @@ internal static class AccountFileStore
         return records;
     }
 
-    private static string WriteCsvToString(IEnumerable<Utils.AccountList> records, CsvConfiguration config)
-    {
-        using var writer = new StringWriter(CultureInfo.CurrentCulture);
-        using var csv = new CsvWriter(writer, config);
-        csv.WriteRecords(records);
-        writer.Flush();
-        return writer.ToString();
-    }
+        private static string WriteCsvToString(IEnumerable<Utils.AccountList> records, CsvConfiguration config)
+        {
+
+            using var writer = new StringWriter(CultureInfo.CurrentCulture);
+            using var csv = new CsvWriter(writer, config);
+
+            var headers = new[]
+            {
+                "username","password","riotID","level","server","be","rp","rank",
+                "champions","skins","Champions","Skins","Loot","Loots","rank2","note",
+                "valorantAgents","valorantContracts","valorantSprays","valorantGunBuddies",
+                "valorantCards","valorantSkins","valorantSkinVariants","valorantTitles",
+                "valorantVp","valorantRp","valorantKc","valorantLevel","valorantRank","valorantServer","valorantXp"
+            };
+
+            foreach (var h in headers)
+                csv.WriteField(h);
+            csv.NextRecord();
+
+            foreach (var r in records)
+            {
+                int CountTokensLocal(string? v)
+                {
+                    if (string.IsNullOrWhiteSpace(v)) return 0;
+                    return v.Split(':', StringSplitOptions.RemoveEmptyEntries).Length;
+                }
+
+                var championsCount = CountTokensLocal(r.champions);
+                var skinsCount = CountTokensLocal(r.skins);
+                var lootsCount = CountTokensLocal(r.Loot);
+
+                if (championsCount == 0 && r.Champions > 0) championsCount = r.Champions;
+                if (skinsCount == 0 && r.Skins > 0) skinsCount = r.Skins;
+                if (lootsCount == 0 && r.Loots > 0) lootsCount = r.Loots;
+
+                csv.WriteField(r.username ?? "");
+                csv.WriteField(r.password ?? "");
+                csv.WriteField(r.riotID ?? "");
+                csv.WriteField(r.level?.ToString() ?? "0");
+                csv.WriteField(r.server ?? "");
+                csv.WriteField(r.be?.ToString() ?? "0");
+                csv.WriteField(r.rp?.ToString() ?? "0");
+                csv.WriteField(r.rank ?? "");
+                csv.WriteField(r.champions ?? "");
+                csv.WriteField(r.skins ?? "");
+                csv.WriteField(championsCount.ToString());
+                csv.WriteField(skinsCount.ToString());
+                csv.WriteField(r.Loot ?? "");
+                csv.WriteField(lootsCount.ToString());
+                csv.WriteField(r.rank2 ?? "");
+                csv.WriteField(r.note ?? "");
+                csv.WriteField(r.valorantAgents ?? "");
+                csv.WriteField(r.valorantContracts ?? "");
+                csv.WriteField(r.valorantSprays ?? "");
+                csv.WriteField(r.valorantGunBuddies ?? "");
+                csv.WriteField(r.valorantCards ?? "");
+                csv.WriteField(r.valorantSkins ?? "");
+                csv.WriteField(r.valorantSkinVariants ?? "");
+                csv.WriteField(r.valorantTitles ?? "");
+                csv.WriteField(r.valorantVp?.ToString() ?? "0");
+                csv.WriteField(r.valorantRp?.ToString() ?? "0");
+                csv.WriteField(r.valorantKc?.ToString() ?? "0");
+                csv.WriteField(r.valorantLevel?.ToString() ?? "0");
+                csv.WriteField(r.valorantRank ?? "");
+                csv.WriteField(r.valorantServer ?? "");
+                csv.WriteField(r.valorantXp?.ToString() ?? "0");
+                csv.NextRecord();
+            }
+
+            writer.Flush();
+            return writer.ToString();
+        }
 
     private static int TryParseInt(string? value)
     {
