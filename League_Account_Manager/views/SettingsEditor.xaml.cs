@@ -11,6 +11,7 @@ using System.Windows.Data;
 using IniParser;
 using IniParser.Model;
 using League_Account_Manager.Misc;
+using League_Account_Manager.Windows;
 using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 using NLog;
@@ -30,8 +31,8 @@ public partial class SettingsEditor : Page
         GenerateDynamicUI();
     }
 
-    public SettingsIngame settings { get; set; }
-    private SettingsIngame originalSettings { get; set; }
+    public SettingsIngame settings { get; set; } = new();
+    private SettingsIngame originalSettings { get; set; } = new();
 
     private void GenerateDynamicUI()
     {
@@ -58,7 +59,7 @@ public partial class SettingsEditor : Page
                     Margin = new Thickness(0, 5, 0, 0)
                 };
 
-                UIElement control = null;
+                UIElement? control = null;
 
                 // Boolean
                 if (prop.PropertyType == typeof(bool))
@@ -196,7 +197,7 @@ public partial class SettingsEditor : Page
             var inputPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(),
                 "Input.ini");
 
-            SettingsIngame loaded = null;
+            SettingsIngame? loaded = null;
             _extraSections.Clear();
 
             if (File.Exists(iniPath))
@@ -236,7 +237,8 @@ public partial class SettingsEditor : Page
         catch (Exception ex)
         {
             Logger.Error(ex, "Failed to load initial settings");
-            MessageBox.Show("Error loading settings: " + ex.Message);
+            AppMessageBox.Show("Error loading settings: " + ex.Message, "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -282,11 +284,11 @@ public partial class SettingsEditor : Page
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name ?? string.Empty));
         }
     }
 
@@ -297,7 +299,7 @@ public partial class SettingsEditor : Page
         try
         {
             var json = JsonSerializer.Serialize(s);
-            return JsonSerializer.Deserialize<SettingsIngame>(json);
+            return JsonSerializer.Deserialize<SettingsIngame>(json) ?? new SettingsIngame();
         }
         catch (Exception ex)
         {
@@ -329,17 +331,18 @@ public partial class SettingsEditor : Page
                         BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
                     if (prop == null) continue;
 
-                    var value = key.Value switch
+                    var keyValue = key.Value ?? string.Empty;
+                    var value = keyValue switch
                     {
                         "1" => true,
                         "0" => false,
-                        _ when prop.PropertyType == typeof(bool) => bool.Parse(key.Value),
-                        _ when prop.PropertyType == typeof(float) => float.Parse(key.Value,
+                        _ when prop.PropertyType == typeof(bool) => bool.Parse(keyValue),
+                        _ when prop.PropertyType == typeof(float) => float.Parse(keyValue,
                             CultureInfo.InvariantCulture),
-                        _ when prop.PropertyType == typeof(double) => double.Parse(key.Value,
+                        _ when prop.PropertyType == typeof(double) => double.Parse(keyValue,
                             CultureInfo.InvariantCulture),
-                        _ when prop.PropertyType.IsEnum => Enum.Parse(prop.PropertyType, key.Value, true),
-                        _ => Convert.ChangeType(key.Value, prop.PropertyType, CultureInfo.InvariantCulture)
+                        _ when prop.PropertyType.IsEnum => Enum.Parse(prop.PropertyType, keyValue, true),
+                        _ => Convert.ChangeType(keyValue, prop.PropertyType, CultureInfo.InvariantCulture)
                     };
 
                     prop.SetValue(property.GetValue(s), value);
@@ -440,8 +443,9 @@ public partial class SettingsEditor : Page
         return s;
     }
 
-    private object ConvertStringToType(string value, Type targetType)
+    private object ConvertStringToType(string? value, Type targetType)
     {
+        value ??= string.Empty;
         if (targetType == typeof(string)) return value;
         if (targetType == typeof(bool))
         {
@@ -526,7 +530,7 @@ public partial class SettingsEditor : Page
         }
     }
 
-    private static string FormatValue(object val)
+    private static string FormatValue(object? val)
     {
         return val switch
         {
@@ -612,7 +616,7 @@ public partial class SettingsEditor : Page
         return JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    private string FormatValueJson(object val)
+    private string FormatValueJson(object? val)
     {
         if (val == null) return "";
         return val switch
@@ -744,7 +748,7 @@ public partial class SettingsEditor : Page
         };
         if (ofd.ShowDialog() != true) return;
 
-        settings = JsonSerializer.Deserialize<SettingsIngame>(File.ReadAllText(ofd.FileName));
+        settings = JsonSerializer.Deserialize<SettingsIngame>(File.ReadAllText(ofd.FileName)) ?? new SettingsIngame();
         DataContext = null;
         DataContext = settings;
     }
@@ -754,7 +758,8 @@ public partial class SettingsEditor : Page
         try
         {
             var iniPath = Misc.Settings.settingsloaded.settingsLocation;
-            var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath), "PersistedSettings.json");
+            var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(),
+                "PersistedSettings.json");
 
             SaveSettings(settings, iniPath, persistedPath);
 
@@ -813,7 +818,8 @@ public partial class SettingsEditor : Page
         try
         {
             var iniPath = Misc.Settings.settingsloaded.settingsLocation;
-            var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath), "PersistedSettings.json");
+            var persistedPath = Path.Combine(Path.GetDirectoryName(iniPath) ?? Directory.GetCurrentDirectory(),
+                "PersistedSettings.json");
 
             new FileInfo(iniPath).IsReadOnly = readOnly;
             new FileInfo(persistedPath).IsReadOnly = readOnly;

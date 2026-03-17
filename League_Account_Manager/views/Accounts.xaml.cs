@@ -1369,10 +1369,11 @@ public partial class Accounts : Page
                     break;
                 }
 
+                DebugConsole.WriteLine($"[Accounts] Waiting for riot process");
 
-                Thread.Sleep(200);
+                await Task.Delay(200);
                 num++;
-                if (num == 20) return;
+                if (num == 80) return;
             }
 
             while (true)
@@ -1425,7 +1426,7 @@ public partial class Accounts : Page
                         passwordField.Text = SelectedPassword;
                         if (signInElement != null)
                         {
-                            while (!signInElement.IsEnabled) Thread.Sleep(200);
+                            while (!signInElement.IsEnabled) await Task.Delay(200);
                             signInElement.Invoke();
 
                             // brief pause to allow any login error tooltip to appear
@@ -1543,11 +1544,11 @@ public partial class Accounts : Page
                                 if (status == "\"AcceptanceRequired\"")
                                 {
                                     await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                                    Thread.Sleep(200);
+                                    await Task.Delay(200);
                                 }
                                 else
                                 {
-                                    Thread.Sleep(500);
+                                    await Task.Delay(500);
                                 }
                             }
 
@@ -1565,14 +1566,14 @@ public partial class Accounts : Page
                             break;
                         }
 
-                        Thread.Sleep(500);
+                        await Task.Delay(500);
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.Warn(ex, "Transient error during login automation");
                     DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                    Thread.Sleep(200);
+                    await Task.Delay(200);
                 }
         }
         catch (Exception exception)
@@ -1769,7 +1770,7 @@ public partial class Accounts : Page
             var selectedrow = AccountsDataGrid.SelectedItem as Utils.AccountList;
             if (selectedrow == null) return;
 
-            var confirm = MessageBox.Show("Delete the selected account?", "Confirm delete",
+            var confirm = AppMessageBox.Show("Delete the selected account?", "Confirm delete",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (confirm != MessageBoxResult.Yes) return;
 
@@ -2170,7 +2171,9 @@ public partial class Accounts : Page
 
             var loginAttempts = 0;
 
-            await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath, persist);
+            await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
+                persistLogin: persist,
+                tokenProduct: "league");
 
             var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
             var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
@@ -2187,7 +2190,7 @@ public partial class Accounts : Page
                     else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
                         riotval = "RiotClientUx";
 
-                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 20)
+                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 80)
                         break;
 
                     await Task.Delay(200);

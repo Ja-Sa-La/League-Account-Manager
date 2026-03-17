@@ -204,10 +204,10 @@ public partial class ReportTool : Page
     private class PlayersData : INotifyPropertyChanged
     {
         private bool _report;
-        public string gameId { get; set; }
-        public string puuId { get; set; }
-        public string summonerId { get; set; }
-        public string riotID { get; set; }
+        public string gameId { get; set; } = string.Empty;
+        public string puuId { get; set; } = string.Empty;
+        public string summonerId { get; set; } = string.Empty;
+        public string riotID { get; set; } = string.Empty;
         public string reported { get; set; } = "no";
 
         public bool report
@@ -223,7 +223,7 @@ public partial class ReportTool : Page
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual void OnPropertyChanged(string propertyName)
         {

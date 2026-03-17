@@ -6,11 +6,14 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
-		<ApplicationIcon>favicon.ico</ApplicationIcon>
+		<ApplicationIcon>Assests\LAM Icon.ico</ApplicationIcon>
 		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 	<ItemGroup>
-		<Content Include="favicon.ico" />
+	  <Content Include="Assests\LAM Icon.ico" />
+	</ItemGroup>
+ <ItemGroup>
+		<Resource Include="Assests\Navigation Icons\*.png" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="CsvHelper" Version="33.0.1" />

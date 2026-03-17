@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Windows;
+using League_Account_Manager.Windows;
 using Microsoft.Win32;
 using Notification.Wpf;
 
@@ -15,6 +18,8 @@ internal static class ProxyLoginTokenManager
     private const string LoginUriScheme = "leagueaccountmanager";
     private const string LoginUriHost = "login";
     private const string LoginRedirectBaseUrl = "https://redirect.leagueaccountmanager.xyz/login";
+    private const string ProductLeague = "league";
+    private const string ProductValorant = "valorant";
     private static int _captureInProgress;
     private static TaskCompletionSource<bool> _captureTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -52,8 +57,8 @@ internal static class ProxyLoginTokenManager
             return false;
 
         return await Application.Current.Dispatcher.InvokeAsync(() =>
-            MessageBox.Show("Allow user to stay logged in?", "Persist Login",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
+            AppMessageBox.Show("Allow user to stay logged in?", "Persist Login", MessageBoxButton.YesNo,
+                MessageBoxImage.Question) == MessageBoxResult.Yes);
     }
 
     public static void RegisterLoginUriScheme()
@@ -102,10 +107,17 @@ internal static class ProxyLoginTokenManager
             return;
         }
 
-        await UseLoginTokenAsync(token);
+        var product = GetProductFromEncodedTokenOrDefault(token);
+        DebugConsole.WriteLine($"[ProxyLoginToken] Token product detected: {product}");
+
+        if (product == ProductValorant)
+            await UseLoginTokenValorantAsync(token);
+        else
+            await UseLoginTokenAsync(token);
     }
 
-    public static async Task CaptureLoginTokenAsync(string responseText, bool? persistLogin = false)
+    public static async Task CaptureLoginTokenAsync(string responseText, bool? persistLogin = false,
+        string product = ProductLeague)
     {
         if (Interlocked.Exchange(ref _captureInProgress, 1) == 1)
             return;
@@ -125,7 +137,8 @@ internal static class ProxyLoginTokenManager
             {
                 AuthenticationType = "RiotAuth",
                 LoginToken = loginToken,
-                PersistLogin = persistLogin.Value
+                PersistLogin = persistLogin ?? false,
+                Product = NormalizeProduct(product)
             };
 
             var json = JsonSerializer.Serialize(payload, JsonOptions);
@@ -250,9 +263,10 @@ internal static class ProxyLoginTokenManager
                 return false;
             }
 
-            if (credentialsResponse != null && (int)credentialsResponse.StatusCode == 400)
+            if (credentialsResponse is HttpResponseMessage credentialsHttp &&
+                credentialsHttp.StatusCode == HttpStatusCode.BadRequest)
             {
-                var errorBody = await credentialsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var errorBody = await credentialsHttp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(errorBody) &&
                     errorBody.Contains("auth_failure", StringComparison.OrdinalIgnoreCase))
                 {
@@ -316,9 +330,167 @@ internal static class ProxyLoginTokenManager
         }
     }
 
-    private static async Task LogResponseAsync(string endpoint, dynamic response)
+    public static async Task<bool> UseLoginTokenValorantAsync()
     {
-        if (response == null)
+        var encodedToken = await TryGetLoginTokenFromClipboardAsync();
+        if (string.IsNullOrWhiteSpace(encodedToken))
+        {
+            DebugConsole.WriteLine("[ProxyLoginToken] Clipboard does not contain a login token.");
+            return false;
+        }
+
+        return await UseLoginTokenValorantAsync(encodedToken);
+    }
+    private static async Task<bool> UseLoginTokenValorantAsync(string encodedToken)
+    {
+        try
+        {
+            if (!await CheckLeague()) throw new Exception("valorant not installed");
+            Utils.KillLeagueFunc2();
+            var riotProcess = Process.Start(Settings.settingsloaded.riotPath,
+                "--launch-product=valorant --launch-patchline=live");
+            var num = 0;
+            while (true)
+            {
+                if (Process.GetProcessesByName("Riot Client").Length != 0) break;
+
+                if (Process.GetProcessesByName("RiotClientUx").Length != 0) break;
+
+
+                Thread.Sleep(200);
+                num++;
+                if (num == 20)
+                {
+                    DebugConsole.WriteLine("[ProxyLoginToken] Riot client is not running.");
+                    return false;
+                }
+            }
+
+            while (true)
+            {
+                var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
+                if (readyResp != null)
+                {
+                    var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    try
+                    {
+                        var node = JsonNode.Parse(readyBody);
+                        var ready = node?["ready"]?.GetValue<bool>() ?? false;
+                        if (ready)
+                            break;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                await Task.Delay(200);
+            }
+
+            byte[] encrypted;
+            try
+            {
+                encrypted = Convert.FromBase64String(encodedToken);
+            }
+            catch (FormatException)
+            {
+                DebugConsole.WriteLine("[ProxyLoginToken] Login token is not valid base64.");
+                return false;
+            }
+
+            var payload = JsonSerializer.Deserialize<LoginTokenPayload>(encrypted, JsonOptions);
+            if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
+            {
+                DebugConsole.WriteLine("[ProxyLoginToken] Login token payload missing or invalid.");
+                return false;
+            }
+
+            DebugConsole.WriteLine(
+                $"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
+
+            var loginPayload = JsonSerializer.Serialize(payload, JsonOptions);
+            DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v1/session/login-token payload.");
+            dynamic? credentialsResponse;
+            try
+            {
+                credentialsResponse =
+                    await Lcu.Connector("riot", "put", "/rso-auth/v1/session/login-token", loginPayload);
+            }
+            catch (Exception ex)
+            {
+                DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v1/session/login-token failed: {ex}");
+                return false;
+            }
+
+            if (credentialsResponse is HttpResponseMessage credentialsHttp &&
+                credentialsHttp.StatusCode == HttpStatusCode.BadRequest)
+            {
+                var errorBody = await credentialsHttp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(errorBody) &&
+                    errorBody.Contains("auth_failure", StringComparison.OrdinalIgnoreCase))
+                {
+                    Notif.notificationManager.Show("Invalid Token",
+                        "The login token is not valid.",
+                        NotificationType.Error);
+                    return false;
+                }
+            }
+
+            await LogResponseAsync("/rso-auth/v1/session/login-token", credentialsResponse);
+            var authorizationPayload = JsonSerializer.Serialize(new
+            {
+                clientId = "riot-client",
+                trustLevels = new[] { "always_trusted" }
+            }, JsonOptions);
+
+            DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v2/authorizations payload.");
+            dynamic? authorizationResponse;
+            try
+            {
+                authorizationResponse =
+                    await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
+            }
+            catch (Exception ex)
+            {
+                DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v2/authorizations failed: {ex}");
+                return false;
+            }
+
+            await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
+
+            var success = credentialsResponse != null && authorizationResponse != null;
+            DebugConsole.WriteLine($"[ProxyLoginToken] Token login completed: {success}");
+            while (true)
+            {
+                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
+                if (status == "\"Accepted\"") break;
+                if (status == "\"AcceptanceRequired\"")
+                {
+                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
+                    Thread.Sleep(200);
+                }
+                else
+                {
+                    Thread.Sleep(500);
+                }
+            }
+
+            await Lcu.Connector("riot", "post",
+                "/product-launcher/v1/products/valorant/patchlines/live", "");
+
+            return success;
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[ProxyLoginToken] Failed to use login token: {ex}");
+            return false;
+        }
+    }
+    private static async Task LogResponseAsync(string endpoint, object? response)
+    {
+        if (response is not HttpResponseMessage httpResponse)
         {
             DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response: <null>");
             return;
@@ -326,8 +498,8 @@ internal static class ProxyLoginTokenManager
 
         try
         {
-            var status = response.StatusCode;
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var status = httpResponse.StatusCode;
+            var content = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
             DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response: {(int)status} {status} body={content}");
         }
         catch (Exception ex)
@@ -341,6 +513,28 @@ internal static class ProxyLoginTokenManager
         if (File.Exists(Settings.settingsloaded.riotPath))
             return true;
         return false;
+    }
+
+    private static string GetProductFromEncodedTokenOrDefault(string encodedToken)
+    {
+        try
+        {
+            var bytes = Convert.FromBase64String(encodedToken);
+            var payload = JsonSerializer.Deserialize<LoginTokenPayload>(bytes, JsonOptions);
+            return NormalizeProduct(payload?.Product);
+        }
+        catch
+        {
+            return ProductLeague;
+        }
+    }
+
+    private static string NormalizeProduct(string? product)
+    {
+        if (string.Equals(product, ProductValorant, StringComparison.OrdinalIgnoreCase))
+            return ProductValorant;
+
+        return ProductLeague;
     }
 
     private static string? ExtractLoginToken(string responseText)
@@ -557,5 +751,7 @@ internal static class ProxyLoginTokenManager
         [JsonPropertyName("login_token")] public string LoginToken { get; set; } = string.Empty;
 
         [JsonPropertyName("persist_login")] public bool PersistLogin { get; set; }
+
+        [JsonPropertyName("product")] public string Product { get; set; } = ProductLeague;
     }
 }

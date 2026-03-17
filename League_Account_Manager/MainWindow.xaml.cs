@@ -108,7 +108,7 @@ public partial class MainWindow : Window
 
     private bool IsUpdateProcess()
     {
-        return Process.GetCurrentProcess().MainModule.FileName.Contains("temp_update.exe");
+        return Process.GetCurrentProcess().MainModule?.FileName?.Contains("temp_update.exe") == true;
     }
 
     private void MainWindowOnPreviewKeyDown(object sender, KeyEventArgs e)

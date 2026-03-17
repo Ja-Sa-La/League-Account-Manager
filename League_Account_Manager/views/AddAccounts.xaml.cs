@@ -16,7 +16,7 @@ public partial class AddAccounts : Page
         InitializeComponent();
     }
 
-    public List<Utils.AccountList> AccountLists { get; }
+    public List<Utils.AccountList> AccountLists { get; } = new();
 
     private void OnAddSingleAccountClick(object sender, RoutedEventArgs e)
     {
@@ -57,15 +57,17 @@ public partial class AddAccounts : Page
 
     private async void AddAccountAsync(string username, string password)
     {
-        Accounts.ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-        Accounts.ActualAccountlists.Add(new Utils.AccountList { username = username, password = password });
-        Utils.RemoveDoubleQuotesFromList(Accounts.ActualAccountlists);
-        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), Accounts.ActualAccountlists, _config);
+        var accountLists = Accounts.ActualAccountlists ?? new List<Utils.AccountList>();
+        accountLists.RemoveAll(r => r.username == "username" && r.password == "password");
+        accountLists.Add(new Utils.AccountList { username = username, password = password });
+        Utils.RemoveDoubleQuotesFromList(accountLists);
+        Accounts.ActualAccountlists = accountLists;
+        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), accountLists, _config);
     }
 
     public class UserNameList
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }
