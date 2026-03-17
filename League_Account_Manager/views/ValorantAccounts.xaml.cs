@@ -35,6 +35,8 @@ public partial class ValorantAccounts : Page
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     private bool _initialized;
+    private readonly OfflineLauncher offlineLauncher = new();
+    private readonly AuthRouteLauncher _launcher = new();
     private DateTime _lastFileChange = DateTime.MinValue;
     private DateTime _lastKnownFileWrite = DateTime.MinValue;
     private bool _pendingReload;
@@ -130,7 +132,7 @@ public partial class ValorantAccounts : Page
             var selectedrow = ValorantAccountsDataGrid.SelectedItem as Utils.AccountList;
             if (selectedrow == null) return;
 
-            var confirm = MessageBox.Show("Delete the selected Valorant account?", "Confirm delete",
+            var confirm = AppMessageBox.Show("Delete the selected Valorant account?", "Confirm delete",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (confirm != MessageBoxResult.Yes) return;
 
@@ -370,6 +372,7 @@ public partial class ValorantAccounts : Page
     {
         try
         {
+            DebugConsole.WriteLine("[ValorantAccounts] Login flow started");
             if (ValorantAccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
             var selectedColumn = ValorantAccountsDataGrid.SelectedCells[0].Column;
 
@@ -380,17 +383,38 @@ public partial class ValorantAccounts : Page
                 if (selectedRow == null || header == null) throw new Exception("Account not selected");
                 SelectedUsername = selectedRow.username;
                 SelectedPassword = selectedRow.password;
+                DebugConsole.WriteLine($"[ValorantAccounts] Selected account: {SelectedUsername}");
             }
 
 
             Utils.KillLeagueFunc();
             if (!await CheckValorant()) throw new Exception("Valorant not installed");
-            OpenValorant();
 
             var num = 0;
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
             var riotval = string.Empty;
+
+            DebugConsole.WriteLine($"[ValorantAccounts] Login mode: {clickedButton.Name}");
+
+
+
+
+            switch (clickedButton.Name)
+            {
+                case "Login":
+                    Process.Start(Misc.Settings.settingsloaded.riotPath,
+                        "--launch-product=valorant --launch-patchline=live");
+                    DebugConsole.WriteLine("[ValorantAccounts] Riot client launch requested (normal mode)");
+                    break;
+
+                case "StealthLogin":
+                    await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath,false,true);
+                    DebugConsole.WriteLine("[ValorantAccounts] Riot client launch requested (stealth mode)");
+                    break;
+            }
+
+
             while (true)
             {
                 if (Process.GetProcessesByName("Riot Client").Length != 0)
@@ -408,8 +432,15 @@ public partial class ValorantAccounts : Page
 
                 Thread.Sleep(200);
                 num++;
-                if (num == 20) return;
+                if (num == 80)
+                {
+                    DebugConsole.WriteLine("[ValorantAccounts] Timed out waiting for Riot client process",
+                        ConsoleColor.Yellow);
+                    return;
+                }
             }
+
+            DebugConsole.WriteLine($"[ValorantAccounts] Attached to process: {riotval}");
 
             var loginAttempts = 0;
 
@@ -460,6 +491,7 @@ public partial class ValorantAccounts : Page
                         if (signInElement != null)
                         {
                             while (!signInElement.IsEnabled) Thread.Sleep(200);
+                            DebugConsole.WriteLine("[ValorantAccounts] Sign-in button enabled, invoking login");
                             signInElement.Invoke();
 
                             // brief pause to allow any login error tooltip to appear
@@ -475,6 +507,9 @@ public partial class ValorantAccounts : Page
                                     if (loginError != null)
                                     {
                                         loginAttempts++;
+                                        DebugConsole.WriteLine(
+                                            $"[ValorantAccounts] Login error tooltip detected (attempt {loginAttempts})",
+                                            ConsoleColor.Yellow);
 
                                         var errorText = string.Empty;
                                         try
@@ -553,6 +588,9 @@ public partial class ValorantAccounts : Page
                                         if (loginAttempts >= 3)
                                         {
                                             cancelLogin = true;
+                                            DebugConsole.WriteLine(
+                                                "[ValorantAccounts] Max login attempts reached, canceling login",
+                                                ConsoleColor.Yellow);
                                             break;
                                         }
 
@@ -583,12 +621,15 @@ public partial class ValorantAccounts : Page
 
                             if (restartLogin)
                             {
+                                DebugConsole.WriteLine("[ValorantAccounts] Retrying login automation");
                                 await Task.Delay(500);
                                 continue;
                             }
 
+                            DebugConsole.WriteLine("[ValorantAccounts] Login accepted, launching Valorant product");
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/valorant/patchlines/live", "");
+                            DebugConsole.WriteLine("[ValorantAccounts] Triggering Valorant account pull after login");
                             OnPullDataClick(this, new RoutedEventArgs());
                             break;
                         }
@@ -1464,6 +1505,152 @@ public partial class ValorantAccounts : Page
         var bytes = Convert.FromBase64String(payload);
         var json = Encoding.UTF8.GetString(bytes);
         return JObject.Parse(json);
+    }
+
+    private async void GenerateLoginToken_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!await CheckValorant()) throw new Exception("League not installed");
+
+            if (ValorantAccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
+            var selectedColumn = ValorantAccountsDataGrid.SelectedCells[0].Column;
+
+            if (selectedColumn != null)
+            {
+                var header = selectedColumn.Header?.ToString();
+                var selectedRow = ValorantAccountsDataGrid.SelectedItem as Utils.AccountList;
+                if (selectedRow == null || header == null) throw new Exception("Account not selected");
+                SelectedUsername = selectedRow.username;
+                SelectedPassword = selectedRow.password;
+            }
+
+            DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+            ProxyLoginTokenManager.ResetCaptureSignal();
+
+            Utils.KillLeagueFunc();
+            Process[] leagueProcess;
+            Process riotProcess;
+            var num = 0;
+            var clickedButton = sender as Button;
+            if (clickedButton == null) return;
+
+            var loginAttempts = 0;
+
+            await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
+                persistLogin: persist,
+                launchLeague: false,
+                extraRiotClientArgs: "--launch-product=valorant --launch-patchline=live",
+                tokenProduct: "valorant");
+
+            var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
+            var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
+
+            var automationTask = Task.Run(async () =>
+            {
+                var riotval = string.Empty;
+                var attempts = 0;
+
+                while (string.IsNullOrEmpty(riotval))
+                {
+                    if (Process.GetProcessesByName("Riot Client").Length != 0)
+                        riotval = "Riot Client";
+                    else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
+                        riotval = "RiotClientUx";
+
+                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 80)
+                        break;
+
+                    await Task.Delay(200);
+                }
+
+                if (string.IsNullOrEmpty(riotval))
+                    return;
+
+                while (!tokenDetectedTask.IsCompleted)
+                    try
+                    {
+                        var app = Application.Attach(riotval);
+
+                        using (var automation = new UIA3Automation())
+                        {
+                            AutomationElement window = app.GetMainWindow(automation);
+                            var riotcontent =
+                                window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+
+                            var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
+                                .AsTextBox();
+                            var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
+                                .AsTextBox();
+                            var checkbox =
+                                riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
+
+                            if (usernameField == null || passwordField == null || checkbox == null)
+                            {
+                                await Task.Delay(200);
+                                continue;
+                            }
+
+                            var siblings = riotcontent.FindAllChildren();
+                            var count = Array.IndexOf(siblings, checkbox) + 1;
+                            dynamic signInElement = null;
+                            while (siblings.Length >= count)
+                            {
+                                signInElement = siblings[count++].AsButton();
+                                if (signInElement != null && signInElement.ControlType == ControlType.Button)
+                                    break;
+                            }
+
+                            usernameField.Text = SelectedUsername;
+                            passwordField.Text = SelectedPassword;
+
+                            if (signInElement != null)
+                            {
+                                while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
+                                    await Task.Delay(200);
+
+                                if (!tokenDetectedTask.IsCompleted)
+                                    signInElement.Invoke();
+                            }
+
+                            await Task.Delay(500);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn(ex, "Transient error during login automation");
+                        DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
+                        await Task.Delay(200);
+                    }
+            });
+
+
+            try
+            {
+                await captureTask;
+                DebugConsole.WriteLine("[Accounts] Token capture completed.");
+            }
+            catch (Exception ex)
+            {
+                DebugConsole.WriteLine($"[Accounts] Token capture failed or canceled: {ex.Message}");
+            }
+
+            await automationTask;
+        }
+        catch (Exception ex)
+        {
+            LogManager.GetCurrentClassLogger().Error(ex, "Error generating login token");
+            Notif.notificationManager.Show("Error", "An error occurred while generating the login token",
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+        }
+    }
+
+    private async void UseLoginToken_OnClick(object sender, RoutedEventArgs e)
+    {
+        _ = ProxyLoginTokenManager.UseLoginTokenValorantAsync();
     }
 
     private sealed class ValorantAccountData

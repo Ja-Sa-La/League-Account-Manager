@@ -25,6 +25,6 @@ public partial class ProgressWindow : Window
         if (Owner == null) return;
 
         Left = Owner.Left + Owner.Width - Width - 10;
-        Top = Owner.Top + Owner.Height - Height - 10;
+        Top = Owner.Top + Owner.Height - Height - 70;
     }
 }

@@ -38,15 +38,15 @@
                             <Border Background="#FF323232" CornerRadius="6" Padding="10" Margin="0,8,0,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="65" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
                                     <!-- Icon placeholder and image -->
                                     <Grid>
-                                        <Border Height="50" MinWidth="50" Background="#FF454545" CornerRadius="4"
+                                        <Border Height="60" MinWidth="60" Background="#FF454545" CornerRadius="4"
                                                 HorizontalAlignment="Left" VerticalAlignment="Center">
-                                            <Image Height="50" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            <Image Height="60" HorizontalAlignment="Left" VerticalAlignment="Center"
                                                    Stretch="Uniform" Source="{Binding IconSource}" />
                                         </Border>
                                     </Grid>
@@ -55,8 +55,8 @@
                                     <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0"
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" Foreground="White" TextWrapping="Wrap"
-                                                   FontSize="15" />
-                                        <TextBlock Text="{Binding Price}" Foreground="#FFB0B0B0" FontSize="13"
+                                                   FontSize="16" />
+                                        <TextBlock Text="{Binding Price}" Foreground="#FFB0B0B0" FontSize="14"
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Grid>

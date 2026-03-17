@@ -7,7 +7,6 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using JsonSerializer = System.Text.Json.JsonSerializer;
-using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace League_Account_Manager.Misc;
@@ -58,7 +57,7 @@ public class Settings
 
                 if (string.IsNullOrWhiteSpace(password))
                 {
-                    MessageBox.Show(
+                    AppMessageBox.Show(
                         "Account file password is required to load encrypted accounts. The application will now close.",
                         "Password Required", MessageBoxButton.OK, MessageBoxImage.Warning);
                     Application.Current?.Shutdown();
@@ -170,7 +169,7 @@ public class Settings
             {
                 if (Path.GetFileName(openFileDialog.FileName) != "RiotClientServices.exe")
                 {
-                    MessageBox.Show("Please select a file with the name RiotClientServices.exe.", "Invalid Filename",
+                    AppMessageBox.Show("Please select a file with the name RiotClientServices.exe.", "Invalid Filename",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     continue;
                 }
@@ -194,7 +193,7 @@ public class Settings
             {
                 if (Path.GetFileName(openFileDialog.FileName) != "game.cfg")
                 {
-                    MessageBox.Show("Please select a file with the name game.cfg", "Invalid Filename",
+                    AppMessageBox.Show("Please select a file with the name game.cfg", "Invalid Filename",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     continue;
                 }
@@ -244,7 +243,7 @@ public class Settings
             {
                 if (Path.GetFileName(openFileDialog.FileName) != "LeagueClient.exe")
                 {
-                    MessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
+                    AppMessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     continue;
                 }

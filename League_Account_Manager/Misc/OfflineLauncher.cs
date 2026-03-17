@@ -26,6 +26,7 @@ internal class OfflineLauncher
 
     public async Task<Process> LaunchRiotOrLeagueOfflineAsync(string riotClientPath,
         bool launchLeague = true,
+        bool LaunchValo = false,
         string patchline = "live",
         string? extraRiotClientArgs = null,
         CancellationToken cancellationToken = default)
@@ -43,6 +44,8 @@ internal class OfflineLauncher
 
         if (launchLeague)
             startInfo.Arguments += $" --launch-product=league_of_legends --launch-patchline={patchline}";
+        else if (LaunchValo)
+            startInfo.Arguments += $" --launch-product=valorant --launch-patchline={patchline}";
 
         if (!string.IsNullOrWhiteSpace(extraRiotClientArgs))
             startInfo.Arguments += $" {extraRiotClientArgs}";
@@ -239,9 +242,17 @@ internal class OfflineLauncher
 
     private sealed class ChatProxy : IDisposable
     {
+        private sealed class PresenceInjectionState
+        {
+            public bool InsertedStealthUser;
+            public bool SentStealthPresence;
+            public string? ValorantVersion;
+        }
+
         private readonly X509Certificate2 _certificate = CreateTemporaryCertificate();
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
         private long _chatConnectionCounter;
+        private volatile bool _disposed;
         private string? _upstreamHost;
         private int _upstreamPort;
 
@@ -249,6 +260,7 @@ internal class OfflineLauncher
 
         public void Dispose()
         {
+            _disposed = true;
             _listener.Stop();
             _certificate.Dispose();
         }
@@ -261,7 +273,7 @@ internal class OfflineLauncher
 
             _ = Task.Run(async () =>
             {
-                while (!token.IsCancellationRequested)
+                while (!_disposed && !token.IsCancellationRequested)
                 {
                     TcpClient? incoming = null;
                     try
@@ -272,8 +284,24 @@ internal class OfflineLauncher
                             $"[OfflineLauncher] Chat request #{connectionId}: accepted TCP client from {incoming.Client.RemoteEndPoint}");
                         _ = Task.Run(() => HandleConnectionAsync(incoming, connectionId, token), token);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        break;
+                    }
+                    catch (InvalidOperationException ex)
+                        when (ex.Message.Contains("Not listening", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
                     catch (Exception ex)
                     {
+                        if (_disposed || token.IsCancellationRequested)
+                            break;
+
                         DebugConsole.WriteLine($"[OfflineLauncher] Chat accept error: {ex.Message}");
                         incoming?.Dispose();
                     }
@@ -312,8 +340,9 @@ internal class OfflineLauncher
                 DebugConsole.WriteLine(
                     $"[OfflineLauncher] Chat request #{connectionId}: connected upstream {_upstreamHost}:{_upstreamPort}.");
 
-                var c2s = PumpClientToServerAsync(incomingSsl, outgoingSsl, connectionId, token);
-                var s2c = PumpServerToClientAsync(outgoingSsl, incomingSsl, connectionId, token);
+                var state = new PresenceInjectionState();
+                var c2s = PumpClientToServerAsync(incomingSsl, outgoingSsl, connectionId, state, token);
+                var s2c = PumpServerToClientAsync(outgoingSsl, incomingSsl, connectionId, state, token);
                 await Task.WhenAny(c2s, s2c);
             }
 
@@ -321,7 +350,7 @@ internal class OfflineLauncher
         }
 
         private async Task PumpClientToServerAsync(SslStream incomingSsl, SslStream outgoingSsl, long connectionId,
-            CancellationToken token)
+            PresenceInjectionState state, CancellationToken token)
         {
             var bytes = new byte[16384];
             while (!token.IsCancellationRequested)
@@ -337,6 +366,7 @@ internal class OfflineLauncher
                 if (text.Contains("<presence", StringComparison.OrdinalIgnoreCase) &&
                     text.Contains("</presence>", StringComparison.OrdinalIgnoreCase))
                 {
+                    TryCaptureValorantVersion(text, state, connectionId);
                     var rewritten = RewritePresenceToOffline(text);
                     if (!ReferenceEquals(rewritten, text))
                     {
@@ -354,10 +384,9 @@ internal class OfflineLauncher
 
 
         private async Task PumpServerToClientAsync(SslStream serverSsl, SslStream clientSsl, long connectionId,
-            CancellationToken token)
+            PresenceInjectionState state, CancellationToken token)
         {
             var bytes = new byte[16384];
-            var insertedStealthUser = false;
             const string rosterMarker = "<query xmlns='jabber:iq:riotgames:roster'>";
 
             while (!token.IsCancellationRequested)
@@ -369,9 +398,9 @@ internal class OfflineLauncher
                 var content = Encoding.UTF8.GetString(bytes, 0, read);
                 DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: S->C bytes={read}");
 
-                if (!insertedStealthUser && content.Contains(rosterMarker, StringComparison.Ordinal))
+                if (!state.InsertedStealthUser && content.Contains(rosterMarker, StringComparison.Ordinal))
                 {
-                    insertedStealthUser = true;
+                    state.InsertedStealthUser = true;
                     var stealthUser =
                         "<item jid='41c322a1-b328-495b-a004-5ccd3e45eae8@eu1.pvp.net' name='&#9;Stealth Mode Active' subscription='both' puuid='41c322a1-b328-495b-a004-5ccd3e45eae8'>" +
                         "<group priority='9999'>System</group>" +
@@ -387,11 +416,138 @@ internal class OfflineLauncher
                     await clientSsl.WriteAsync(patched.AsMemory(0, patched.Length), token);
                     DebugConsole.WriteLine(
                         $"[OfflineLauncher] Chat request #{connectionId}: inserted 'Stealth Mode Active' roster user.");
+
+                    await SendStealthPresenceAsync(clientSsl, connectionId, state, token);
                     continue;
                 }
 
                 await clientSsl.WriteAsync(bytes.AsMemory(0, read), token);
+
+                if (state.InsertedStealthUser && !state.SentStealthPresence)
+                    await SendStealthPresenceAsync(clientSsl, connectionId, state, token);
             }
+        }
+
+        private void TryCaptureValorantVersion(string content, PresenceInjectionState state, long connectionId)
+        {
+            if (!string.IsNullOrWhiteSpace(state.ValorantVersion))
+                return;
+
+            var version = TryExtractValorantVersion(content);
+            if (string.IsNullOrWhiteSpace(version))
+                return;
+
+            state.ValorantVersion = version;
+            DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: extracted VALORANT version '{version}'.");
+        }
+
+        private static string? TryExtractValorantVersion(string content)
+        {
+            try
+            {
+                var xml = XDocument.Load(new StringReader("<xml>" + content + "</xml>"));
+                if (xml.Root is null)
+                    return null;
+
+                foreach (var presence in xml.Root.Elements().Where(e => e.Name.LocalName == "presence"))
+                {
+                    var payload = presence
+                        .Elements().FirstOrDefault(e => e.Name.LocalName == "games")?
+                        .Elements().FirstOrDefault(e => e.Name.LocalName == "valorant")?
+                        .Elements().FirstOrDefault(e => e.Name.LocalName == "p")?
+                        .Value;
+
+                    if (string.IsNullOrWhiteSpace(payload))
+                        continue;
+
+                    var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+                    var json = JsonNode.Parse(decoded);
+                    var version = json?["partyPresenceData"]?["partyClientVersion"]?.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(version))
+                        return version;
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private async Task SendStealthPresenceAsync(SslStream clientSsl, long connectionId, PresenceInjectionState state,
+            CancellationToken token)
+        {
+            if (state.SentStealthPresence)
+                return;
+
+            state.SentStealthPresence = true;
+
+            var stanzaId = Guid.NewGuid();
+            var unixTimeMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var valorantPresence = Convert.ToBase64String(Encoding.UTF8.GetBytes(
+                """
+                {
+                 "isValid": true,
+                 "isIdle": false,
+                 "queueId": "competitive",
+                 "provisioningFlow": "Invalid",
+                 "partyId": "00000000-0000-0000-0000-000000000000",
+                 "partySize": 1,
+                 "maxPartySize": 5,
+                 "partyOwnerMatchScoreAllyTeam": 0,
+                 "partyOwnerMatchScoreEnemyTeam": 0,
+                 "partyPresenceData":
+                 {
+                     "partyId": "00000000-0000-0000-0000-000000000000",
+                     "isPartyOwner": true,
+                     "partyState": "DEFAULT",
+                     "partyAccessibility": "CLOSED",
+                     "partyLFM": false,
+                     "partyClientVersion": "{VERSION}",
+                     "partyVersion": 1768830115681,
+                     "partySize": 1,
+                     "queueEntryTime": "0001.01.01-00.00.00",
+                     "isPartyCrossPlayEnabled": false,
+                     "isPlayerCrossPlayEnabled": false,
+                     "partyPrecisePlatformTypes": 1,
+                     "customGameName": "Stealth Mode Active",
+                     "customGameTeam": "",
+                     "maxPartySize": 5,
+                     "tournamentId": "",
+                     "rosterId": "",
+                     "partyOwnerSessionLoopState": "MENUS",
+                     "partyOwnerMatchMap": "",
+                     "partyOwnerProvisioningFlow": "Invalid",
+                     "partyOwnerMatchScoreAllyTeam": 0,
+                     "partyOwnerMatchScoreEnemyTeam": 0
+                 },
+                 "playerPresenceData":
+                 {
+                     "playerCardId": "99bdfb9b-4ee9-a057-5b62-b2ae6309abf8",
+                     "playerTitleId": "e3ca05a4-4e44-9afe-3791-7d96ca8f71fa",
+                     "accountLevel": 999,
+                     "competitiveTier": 0,
+                     "leaderboardPosition": 0
+                 }
+                }
+                """.Replace("{VERSION}", state.ValorantVersion ?? "unknown")));
+
+            var presenceMessage =
+                $"<presence from='41c322a1-b328-495b-a004-5ccd3e45eae8@eu1.pvp.net/RC-Stealth' id='b-{stanzaId}'>" +
+                "<games>" +
+                $"<keystone><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>keystone</s.p><pty/></keystone>" +
+                $"<league_of_legends><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>league_of_legends</s.p><s.c>live</s.c><p>{{&quot;pty&quot;:true}}</p></league_of_legends>" +
+                $"<valorant><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>valorant</s.p><s.r>PC</s.r><p>{valorantPresence}</p><pty/></valorant>" +
+                $"<bacon><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.l>bacon_availability_online</s.l><s.p>bacon</s.p></bacon>" +
+                "</games>" +
+                "<show>chat</show>" +
+                "<platform>riot</platform>" +
+                "<status/>" +
+                "</presence>";
+
+            var payload = Encoding.UTF8.GetBytes(presenceMessage);
+            await clientSsl.WriteAsync(payload.AsMemory(0, payload.Length), token);
+            DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: sent stealth fake presence.");
         }
 
         private string RewritePresenceToOffline(string content)
@@ -421,13 +577,8 @@ internal class OfflineLauncher
                     var games = presence.Elements().FirstOrDefault(e => e.Name.LocalName == "games");
                     if (games is not null)
                     {
-                        foreach (var node in games.Elements().Where(e =>
-                                     e.Name.LocalName is "league_of_legends" or "valorant" or "bacon" or "lion"
-                                         or "keystone" or "riot_client").ToList())
+                        foreach (var node in games.Elements().ToList())
                             node.Remove();
-
-                        var lol = games.Elements().FirstOrDefault(e => e.Name.LocalName == "league_of_legends");
-                        lol?.Element("st")?.ReplaceNodes("offline");
                     }
 
                     changed = true;

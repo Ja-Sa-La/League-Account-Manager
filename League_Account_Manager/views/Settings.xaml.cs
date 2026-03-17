@@ -41,7 +41,7 @@ public partial class Settings : Page
 
             if (string.IsNullOrWhiteSpace(newPassword))
             {
-                MessageBox.Show("Please set an account file password before enabling encryption.",
+                AppMessageBox.Show("Please set an account file password before enabling encryption.",
                     "Missing Password", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -81,7 +81,7 @@ public partial class Settings : Page
         }
         catch (Exception exception)
         {
-            MessageBox.Show($"Failed to update account file encryption: {exception.Message}", "Encryption Error",
+            AppMessageBox.Show($"Failed to update account file encryption: {exception.Message}", "Encryption Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }

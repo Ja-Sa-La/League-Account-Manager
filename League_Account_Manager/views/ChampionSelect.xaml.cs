@@ -11,7 +11,7 @@ namespace League_Account_Manager.views;
 public partial class ChampionSelect : Page
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    private JObject region;
+    private JObject? region;
 
 
     public ChampionSelect()
@@ -62,7 +62,18 @@ public partial class ChampionSelect : Page
             {
                 var player = team[i];
                 var playerText = FindName($"Player{i + 1}") as TextBox;
-                playerText.Text = await PullRankedInfo(player["puuid"], i);
+                if (playerText == null)
+                    continue;
+
+                var puuid = player?["puuid"]?.ToString();
+                if (string.IsNullOrWhiteSpace(puuid))
+                {
+                    Logger.Warn("Missing puuid for team member at index {Index}", i);
+                    playerText.Text = "Error loading data";
+                    continue;
+                }
+
+                playerText.Text = await PullRankedInfo(puuid, i);
             }
         }
         catch (Exception exception)
@@ -72,7 +83,7 @@ public partial class ChampionSelect : Page
         }
     }
 
-    private async Task<string> PullRankedInfo(dynamic puuid, int I)
+    private async Task<string> PullRankedInfo(string puuid, int I)
     {
         try
         {
@@ -126,7 +137,7 @@ public partial class ChampionSelect : Page
         return "Error loading data";
     }
 
-    private async Task<dynamic> PullRankedInfo2(dynamic puuid, int I)
+    private async Task<JObject?> PullRankedInfo2(string puuid, int I)
     {
         try
         {
@@ -153,11 +164,11 @@ public partial class ChampionSelect : Page
             }
 
             Gamestats gameStats = CalculateGameStats(games);
-            var wins = gameStats?.Wins ?? 0;
-            var losses = gameStats?.Losses ?? 0;
-            var kills = gameStats?.Kills ?? 0;
-            var deaths = gameStats?.Deaths ?? 0;
-            var assists = gameStats?.Assists ?? 0;
+            var wins = gameStats.Wins;
+            var losses = gameStats.Losses;
+            var kills = gameStats.Kills;
+            var deaths = gameStats.Deaths;
+            var assists = gameStats.Assists;
 
             var wr = wins + losses > 0 ? wins / (wins + losses) : 0;
             var kdaDen = deaths <= 0 ? 1 : deaths;
@@ -181,7 +192,7 @@ public partial class ChampionSelect : Page
             DebugConsole.WriteLine(exception.ToString());
         }
 
-        return "Error loading data";
+        return null;
     }
 
 
@@ -191,7 +202,7 @@ public partial class ChampionSelect : Page
         return data;
     }
 
-    private Gamestats CalculateGameStats(JToken games)
+    private Gamestats CalculateGameStats(JToken? games)
     {
         try
         {
@@ -201,22 +212,25 @@ public partial class ChampionSelect : Page
                 return new Gamestats();
             }
 
-            int wins = 0, losses = 0, kills = 0, deaths = 0, assists = 0;
             var tmp = new Gamestats { Assists = 0, Deaths = 0, Kills = 0, Losses = 0, Wins = 0 };
 
             foreach (var game in games)
-                if (Convert.ToInt32(game["mapId"]) == 11 && game["gameType"].ToString() == "MATCHED_GAME" &&
-                    game["queueId"].ToString() == "420")
+                if ((game["mapId"]?.ToObject<int>() ?? 0) == 11 &&
+                    string.Equals(game["gameType"]?.ToString(), "MATCHED_GAME", StringComparison.Ordinal) &&
+                    string.Equals(game["queueId"]?.ToString(), "420", StringComparison.Ordinal))
                 {
-                    var win = game["participants"][0]["stats"]["win"];
+                    var win = game["participants"]?[0]?["stats"]?["win"];
+                    if (win == null)
+                        continue;
+
                     if (Convert.ToBoolean(win)) tmp.Wins++;
                     else if (!Convert.ToBoolean(win)) tmp.Losses++;
 
                     try
                     {
-                        tmp.Kills += int.Parse(game["participants"][0]["stats"]["kills"].ToString());
-                        tmp.Deaths += int.Parse(game["participants"][0]["stats"]["deaths"].ToString());
-                        tmp.Assists += int.Parse(game["participants"][0]["stats"]["assists"].ToString());
+                        tmp.Kills += game["participants"]?[0]?["stats"]?["kills"]?.ToObject<int>() ?? 0;
+                        tmp.Deaths += game["participants"]?[0]?["stats"]?["deaths"]?.ToObject<int>() ?? 0;
+                        tmp.Assists += game["participants"]?[0]?["stats"]?["assists"]?.ToObject<int>() ?? 0;
                     }
                     catch (Exception exception)
                     {
@@ -231,7 +245,7 @@ public partial class ChampionSelect : Page
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
 
-        return null;
+        return new Gamestats();
     }
 
     private void OnOpenOpGgClick(object sender, RoutedEventArgs e)
@@ -298,15 +312,35 @@ public partial class ChampionSelect : Page
             resp = await Lcu.Connector("riot", "get", "/riotclient/get_region_locale", "");
             region = JObject.Parse(await GetResponseBody(resp));
 
-            var region_parsed = RegionHelperUtil.RegionParser(region["region"].ToString());
+            var regionValue = region["region"]?.ToString();
+            if (string.IsNullOrWhiteSpace(regionValue))
+                return;
+
+            var region_parsed = RegionHelperUtil.RegionParser(regionValue);
 
             var url = $"https://www.op.gg/multisearch/{region_parsed}?summoners=";
 
-            foreach (var player in players["myTeam"])
+            var team = players["myTeam"] as JArray;
+            if (team == null)
+                return;
+
+            foreach (var player in team)
             {
-                var playerTex = await PullRankedInfo2(player["puuid"], i);
+                var puuid = player?["puuid"]?.ToString();
+                if (string.IsNullOrWhiteSpace(puuid))
+                    continue;
+
+                var playerTex = await PullRankedInfo2(puuid, i);
                 i++;
-                url += $"{playerTex["gameName"]}%23{playerTex["tagLine"]},";
+                if (playerTex == null)
+                    continue;
+
+                var gameName = playerTex["gameName"]?.ToString();
+                var tagLine = playerTex["tagLine"]?.ToString();
+                if (string.IsNullOrWhiteSpace(gameName) || string.IsNullOrWhiteSpace(tagLine))
+                    continue;
+
+                url += $"{gameName}%23{tagLine},";
             }
 
             OpenUrl(url);
@@ -328,16 +362,37 @@ public partial class ChampionSelect : Page
             var players = JObject.Parse(await GetResponseBody(resp));
             DebugConsole.WriteLine(players);
             var i = 0;
-            var url = $"https://porofessor.gg/pregame/{region["region"].ToString().ToLower()}/";
+            var regionValue = region["region"]?.ToString()?.ToLower();
+            if (string.IsNullOrWhiteSpace(regionValue))
+                return;
 
-            foreach (var player in players["myTeam"])
+            var url = $"https://porofessor.gg/pregame/{regionValue}/";
+
+            var team = players["myTeam"] as JArray;
+            if (team == null)
+                return;
+
+            foreach (var player in team)
             {
-                var playerText = await PullRankedInfo2(player["puuid"], i);
+                var puuid = player?["puuid"]?.ToString();
+                if (string.IsNullOrWhiteSpace(puuid))
+                    continue;
+
+                var playerText = await PullRankedInfo2(puuid, i);
                 i++;
-                url += $"{playerText["gameName"]} -{playerText["tagLine"]},";
+                if (playerText == null)
+                    continue;
+
+                var gameName = playerText["gameName"]?.ToString();
+                var tagLine = playerText["tagLine"]?.ToString();
+                if (string.IsNullOrWhiteSpace(gameName) || string.IsNullOrWhiteSpace(tagLine))
+                    continue;
+
+                url += $"{gameName} -{tagLine},";
             }
 
-            url = url.Remove(url.Length - 1, 1);
+            if (url.EndsWith(",", StringComparison.Ordinal))
+                url = url.Remove(url.Length - 1, 1);
             OpenUrl(url);
         }
         catch (Exception exception)
@@ -357,14 +412,17 @@ public partial class ChampionSelect : Page
         var resp = await Lcu.Connector("league", "post",
             "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",
             "");
-        DebugConsole.WriteLine(GetResponseBody(resp));
+        DebugConsole.WriteLine(await GetResponseBody(resp));
     }
 }
 
 public static class RegionHelperUtil
 {
-    public static string RegionParser(string region)
+    public static string RegionParser(string? region)
     {
+        if (string.IsNullOrWhiteSpace(region))
+            return string.Empty;
+
         var region_parsed = region.ToLower();
 
         switch (region_parsed)

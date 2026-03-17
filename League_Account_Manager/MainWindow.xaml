@@ -62,13 +62,15 @@
                     <ui:NavigationViewItem NavigationCacheMode="Required" Content="League" TargetPageTag="home"
                                            TargetPageType="{x:Type Page:Accounts}">
                         <ui:NavigationViewItem.Icon>
-                            <ui:SymbolIcon Symbol="Home20" />
+                            <ui:ImageIcon Width="20" Height="20"
+                                          Source="pack://application:,,,/Assests/Navigation Icons/League.png" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                     <ui:NavigationViewItem NavigationCacheMode="Required" Content="Valorant"
                                            TargetPageType="{x:Type Page:ValorantAccounts}">
                         <ui:NavigationViewItem.Icon>
-                            <ui:SymbolIcon Symbol="Alert20" />
+                            <ui:ImageIcon Width="20" Height="20"
+                                          Source="pack://application:,,,/Assests/Navigation Icons/Valorant.png" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Add accounts" TargetPageType="{x:Type Page:AddAccounts}">
@@ -84,7 +86,8 @@
                     <ui:NavigationViewItem Content="Auto Champ select" NavigationCacheMode="Required"
                                            TargetPageType="{x:Type Page:Autolobby}">
                         <ui:NavigationViewItem.Icon>
-                            <ui:SymbolIcon Symbol="Group20" />
+                            <ui:ImageIcon Width="20" Height="20"
+                                          Source="pack://application:,,,/Assests/Navigation Icons/Auto Champ Select.png" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Buy champions" TargetPageType="{x:Type Page:ChampionBuyer}">
@@ -131,7 +134,8 @@
                            Padding="15,0,0,4" />
                     <ui:NavigationViewItem Click="Discord_OnClick">
                         <ui:NavigationViewItem.Icon>
-                            <ui:SymbolIcon Symbol="Chat20" />
+                            <ui:ImageIcon Width="20" Height="20"
+                                          Source="pack://application:,,,/Assests/Navigation%20Icons/Discord.png" />
                         </ui:NavigationViewItem.Icon>
                         <ui:NavigationViewItem.Content>
                             <TextBlock>
