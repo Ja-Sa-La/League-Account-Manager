@@ -82,6 +82,8 @@ public partial class Accounts : Page
 
     private void Accounts_Unloaded(object sender, RoutedEventArgs e)
     {
+        AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
+        Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
         if (fileWatcher != null)
         {
             fileWatcher.EnableRaisingEvents = false;
@@ -94,15 +96,16 @@ public partial class Accounts : Page
     private async void OnAccountsFileUpdated(object? sender, EventArgs e)
     {
         _pendingReload = true;
-        if (!IsLoaded) return;
         try
         {
-            _pendingReload = false;
-            await Dispatcher.InvokeAsync(async () => { await LoadDataAsync(); });
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                if (!IsLoaded) return;
+                _pendingReload = false;
+                await LoadDataAsync();
+            });
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private async void Accounts_Loaded(object sender, RoutedEventArgs e)
