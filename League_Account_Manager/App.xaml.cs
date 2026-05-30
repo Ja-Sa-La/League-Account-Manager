@@ -13,6 +13,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         StartupArgs = e.Args;
+
         base.OnStartup(e);
         ProxyLoginTokenManager.RegisterLoginUriScheme();
     }

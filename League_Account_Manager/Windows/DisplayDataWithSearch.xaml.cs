@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace League_Account_Manager.Windows;
@@ -12,6 +13,7 @@ public partial class DisplayDataWithSearch : Window
 {
     private readonly string dataholder = "";
     private readonly List<DisplayItem> items = new();
+    private HoverPreviewWindow? _previewWindow;
 
     public DisplayDataWithSearch(string? Data)
     {
@@ -98,6 +100,9 @@ public partial class DisplayDataWithSearch : Window
 
     private void Window_Deactivated(object sender, EventArgs e)
     {
+        if (_previewWindow is { IsVisible: true })
+            return;
+
         Close();
     }
 
@@ -107,6 +112,87 @@ public partial class DisplayDataWithSearch : Window
         var searchTerm = datafiltersearch.Text ?? string.Empty;
         var filtered = items.Where(it => it.Name.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
         ItemsList.ItemsSource = filtered;
+    }
+
+    private void OnItemHoverEnter(object sender, MouseEventArgs e)
+    {
+        if (sender is not FrameworkElement element)
+            return;
+
+        if (element.DataContext is not DisplayItem item)
+            return;
+
+        if (item.IconSource is not ImageSource imageSource)
+        {
+            HidePreviewWindow();
+            return;
+        }
+
+        EnsurePreviewWindow();
+        UpdatePreviewWindowPlacement();
+        _previewWindow!.SetImage(imageSource);
+        if (!_previewWindow.IsVisible)
+            _previewWindow.Show();
+    }
+
+    private void OnItemsListMouseLeave(object sender, MouseEventArgs e)
+    {
+        HidePreviewWindow();
+    }
+
+    private void Window_LocationOrSizeChanged(object sender, EventArgs e)
+    {
+        UpdatePreviewWindowPlacement();
+    }
+
+    private void Window_Closed(object? sender, EventArgs e)
+    {
+        if (_previewWindow != null)
+        {
+            try
+            {
+                _previewWindow.Close();
+            }
+            catch
+            {
+            }
+
+            _previewWindow = null;
+        }
+    }
+
+    private void EnsurePreviewWindow()
+    {
+        if (_previewWindow != null)
+            return;
+
+        _previewWindow = new HoverPreviewWindow
+        {
+            Owner = this
+        };
+    }
+
+    private void HidePreviewWindow()
+    {
+        if (_previewWindow == null)
+            return;
+
+        _previewWindow.Hide();
+        _previewWindow.ClearImage();
+    }
+
+    private void UpdatePreviewWindowPlacement()
+    {
+        if (_previewWindow == null)
+            return;
+
+        const double previewWidth = 380;
+        const double gap = 12;
+
+        _previewWindow.Width = previewWidth;
+        _previewWindow.Height = ActualHeight;
+        _previewWindow.Top = Top;
+        _previewWindow.Left = Left - previewWidth - gap;
     }
 
     private sealed class DisplayItem
@@ -135,6 +221,44 @@ public partial class DisplayDataWithSearch : Window
                     return null;
                 }
             }
+        }
+    }
+
+    private sealed class HoverPreviewWindow : Window
+    {
+        private readonly Image _previewImage;
+
+        public HoverPreviewWindow()
+        {
+            ShowInTaskbar = false;
+            ShowActivated = false;
+            Focusable = false;
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            Topmost = true;
+            Background = new SolidColorBrush(Color.FromRgb(31, 31, 31));
+            BorderBrush = new SolidColorBrush(Color.FromRgb(76, 76, 76));
+            BorderThickness = new Thickness(1);
+
+            _previewImage = new Image
+            {
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(8)
+            };
+
+            Content = _previewImage;
+        }
+
+        public void SetImage(ImageSource source)
+        {
+            _previewImage.Source = source;
+        }
+
+        public void ClearImage()
+        {
+            _previewImage.Source = null;
         }
     }
 }

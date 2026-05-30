@@ -21,7 +21,20 @@ public class Utils
             account.skins = RemoveDoubleQuotes(account.skins);
             account.Loot = RemoveDoubleQuotes(account.Loot);
             account.rank2 = RemoveDoubleQuotes(account.rank2);
+            account.lastPlayed = RemoveDoubleQuotes(account.lastPlayed);
+            account.leagueMatchHistory = RemoveDoubleQuotes(account.leagueMatchHistory);
             account.note = RemoveDoubleQuotes(account.note);
+            SanitizeStructuredEntries(account.championsData);
+            SanitizeStructuredEntries(account.skinsData);
+            SanitizeStructuredEntries(account.lootData);
+            SanitizeStructuredEntries(account.valorantAgentsData);
+            SanitizeStructuredEntries(account.valorantContractsData);
+            SanitizeStructuredEntries(account.valorantSpraysData);
+            SanitizeStructuredEntries(account.valorantGunBuddiesData);
+            SanitizeStructuredEntries(account.valorantCardsData);
+            SanitizeStructuredEntries(account.valorantSkinsData);
+            SanitizeStructuredEntries(account.valorantSkinVariantsData);
+            SanitizeStructuredEntries(account.valorantTitlesData);
             account.valorantAgents = RemoveDoubleQuotes(account.valorantAgents);
             account.valorantContracts = RemoveDoubleQuotes(account.valorantContracts);
             account.valorantSprays = RemoveDoubleQuotes(account.valorantSprays);
@@ -40,6 +53,25 @@ public class Utils
         if (string.IsNullOrEmpty(input)) return input;
 
         return input.Replace("\"", "");
+    }
+
+    private static void SanitizeStructuredEntries(List<StructuredDataEntry>? entries)
+    {
+        if (entries == null)
+            return;
+
+        foreach (var entry in entries)
+        {
+            entry.name = RemoveDoubleQuotes(entry.name);
+            entry.icon = RemoveDoubleQuotes(entry.icon);
+            entry.value = RemoveDoubleQuotes(entry.value);
+
+            if (entry.extra == null)
+                continue;
+
+            foreach (var key in entry.extra.Keys.ToList())
+                entry.extra[key] = RemoveDoubleQuotes(entry.extra[key]);
+        }
     }
 
     public static void KillLeagueFunc()
@@ -130,25 +162,38 @@ public class Utils
         public string? rank { get; set; }
         public string? champions { get; set; }
         public string? skins { get; set; }
+        public List<StructuredDataEntry>? championsData { get; set; }
+        public List<StructuredDataEntry>? skinsData { get; set; }
 
         [Ignore] public int Champions { get; set; }
 
         [Ignore] public int Skins { get; set; }
 
         public string? Loot { get; set; }
+        public List<StructuredDataEntry>? lootData { get; set; }
 
         [Ignore] public int Loots { get; set; }
 
         public string? rank2 { get; set; }
+        public string? lastPlayed { get; set; }
+        public string? leagueMatchHistory { get; set; }
         public string? note { get; set; }
         public string? valorantAgents { get; set; }
+        public List<StructuredDataEntry>? valorantAgentsData { get; set; }
         public string? valorantContracts { get; set; }
+        public List<StructuredDataEntry>? valorantContractsData { get; set; }
         public string? valorantSprays { get; set; }
+        public List<StructuredDataEntry>? valorantSpraysData { get; set; }
         public string? valorantGunBuddies { get; set; }
+        public List<StructuredDataEntry>? valorantGunBuddiesData { get; set; }
         public string? valorantCards { get; set; }
+        public List<StructuredDataEntry>? valorantCardsData { get; set; }
         public string? valorantSkins { get; set; }
+        public List<StructuredDataEntry>? valorantSkinsData { get; set; }
         public string? valorantSkinVariants { get; set; }
+        public List<StructuredDataEntry>? valorantSkinVariantsData { get; set; }
         public string? valorantTitles { get; set; }
+        public List<StructuredDataEntry>? valorantTitlesData { get; set; }
         public int? valorantVp { get; set; }
         public int? valorantRp { get; set; }
         public int? valorantKc { get; set; }
@@ -178,6 +223,14 @@ public class Utils
 
             return value.Split(':', StringSplitOptions.RemoveEmptyEntries).Length;
         }
+    }
+
+    public class StructuredDataEntry
+    {
+        public string? name { get; set; }
+        public string? icon { get; set; }
+        public string? value { get; set; }
+        public Dictionary<string, string>? extra { get; set; }
     }
 
     public class Wallet

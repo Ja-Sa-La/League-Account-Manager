@@ -118,6 +118,25 @@ public partial class ValorantAccounts : Page
         await DeleteSelectedValorantAccountAsync();
     }
 
+    private void OnValorantAccountsDataGridSorting(object? sender, DataGridSortingEventArgs e)
+    {
+        try
+        {
+            if (e.Column == null)
+                return;
+
+            var sortMemberPath = GetValorantSortMemberPath(e.Column);
+            var newDirection = e.Column.SortDirection == ListSortDirection.Ascending
+                ? ListSortDirection.Descending
+                : ListSortDirection.Ascending;
+
+            SaveValorantSortPreference(sortMemberPath, newDirection);
+        }
+        catch
+        {
+        }
+    }
+
     private async void OnAccountsKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete) return;
@@ -147,10 +166,7 @@ public partial class ValorantAccounts : Page
 
             ValorantAccountsDataGrid.ItemsSource = null;
             ValorantAccountsDataGrid.ItemsSource = ActualAccountlists;
-
-            ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
-            ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel",
-                ListSortDirection.Descending));
+            ApplyValorantSortToGrid();
 
             ValorantAccountsDataGrid.Items.Refresh();
         }
@@ -711,10 +727,53 @@ public partial class ValorantAccounts : Page
         if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true) return;
         await Dispatcher.InvokeAsync(() =>
         {
-            ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
-            ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel",
-                ListSortDirection.Descending));
+            ApplyValorantSortToGrid();
         }, DispatcherPriority.Background, CancellationToken.None);
+    }
+
+    private string GetValorantSortMemberPath(DataGridColumn column)
+    {
+        if (!string.IsNullOrWhiteSpace(column.SortMemberPath))
+            return column.SortMemberPath;
+
+        return column.Header?.ToString() switch
+        {
+            "Level" => "valorantLevel",
+            _ => "valorantLevel"
+        };
+    }
+
+    private (string SortMemberPath, ListSortDirection Direction) GetValorantSortPreference()
+    {
+        var sortMemberPath = Misc.Settings.settingsloaded.ValorantDefaultSortColumn;
+        if (string.IsNullOrWhiteSpace(sortMemberPath))
+            sortMemberPath = "valorantLevel";
+
+        var direction = Misc.Settings.settingsloaded.ValorantDefaultSortDescending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+
+        return (sortMemberPath, direction);
+    }
+
+    private void SaveValorantSortPreference(string sortMemberPath, ListSortDirection direction)
+    {
+        Misc.Settings.settingsloaded.ValorantDefaultSortColumn = sortMemberPath;
+        Misc.Settings.settingsloaded.ValorantDefaultSortDescending = direction == ListSortDirection.Descending;
+        Misc.Settings.Save();
+    }
+
+    private void ApplyValorantSortToGrid()
+    {
+        var (sortMemberPath, direction) = GetValorantSortPreference();
+        ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
+        ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription(sortMemberPath, direction));
+
+        foreach (var col in ValorantAccountsDataGrid.Columns)
+            col.SortDirection =
+                string.Equals(GetValorantSortMemberPath(col), sortMemberPath, StringComparison.OrdinalIgnoreCase)
+                    ? direction
+                    : null;
     }
 
     public async Task LoadDataAsync()
@@ -745,10 +804,7 @@ public partial class ValorantAccounts : Page
             {
                 ValorantAccountsDataGrid.ItemsSource = null;
                 ValorantAccountsDataGrid.ItemsSource = ActualAccountlists;
-
-                ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
-                ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("valorantLevel",
-                    ListSortDirection.Descending));
+                ApplyValorantSortToGrid();
 
                 if (!Misc.Settings.settingsloaded.DisplayPasswords && ValorantAccountsDataGrid.Columns.Count > 1)
                     ValorantAccountsDataGrid.Columns[1].Visibility = Visibility.Hidden;

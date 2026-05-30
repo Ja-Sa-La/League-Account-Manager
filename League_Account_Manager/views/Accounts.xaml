@@ -96,6 +96,7 @@
                         <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}" />
                         <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}" />
                         <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}" />
+                        <DataGridTextColumn MinWidth="140" Header="Last Played" Binding="{Binding lastPlayed}" />
                         <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}" />
                         <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}" />
                         <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}" />

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -25,6 +26,7 @@ using Application = FlaUI.Core.Application;
 using Button = Wpf.Ui.Controls.Button;
 using DataGrid = System.Windows.Controls.DataGrid;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
+using HtmlNode = HtmlAgilityPack.HtmlNode;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using ListBox = System.Windows.Controls.ListBox;
 using ListBoxItem = System.Windows.Controls.ListBoxItem;
@@ -37,6 +39,10 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class Accounts : Page
 {
+    private static readonly Regex LastPlayedScriptRegex = new(
+        @"newTooltipData\s*=\s*\{""[^""\r\n]+"":\s*\(new\s+Date\((?<timestamp>\d+)\)\.toLocaleDateString\(\)\s*\+\s*""\s*""\s*\+\s*new\s+Date\((?<timestamp2>\d+)\)\.toLocaleTimeString\(\)\)\s*\+\s*""\s*-\s*(?<duration>[^""\r\n]+)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public static string? SelectedUsername;
     public static string? SelectedPassword;
     private readonly Dictionary<string, ListSortDirection?> _columnSortState = new();
@@ -139,9 +145,7 @@ public partial class Accounts : Page
             DebugConsole.WriteLine("[Accounts] Rank update finished");
 
             // Now setup watcher AFTER everything is loaded
-            var filePath = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                $"{Misc.Settings.settingsloaded.filename}.csv");
+            var filePath = AccountFileStore.GetAccountsFilePath();
 
             fileWatcher = new FileSystemWatcher
             {
@@ -177,43 +181,144 @@ public partial class Accounts : Page
         try
         {
             if (e.Column == null) return;
-            var header = e.Column.Header?.ToString();
-            if (header != "SoloQ" && header != "FlexQ") return;
+            var sortMemberPath = GetSortMemberPath(e.Column);
+            var newDirection = e.Column.SortDirection == ListSortDirection.Ascending
+                ? ListSortDirection.Descending
+                : ListSortDirection.Ascending;
 
-            e.Handled = true; // we'll provide custom sort
+            if (sortMemberPath == "rank" || sortMemberPath == "rank2")
+            {
+                e.Handled = true;
+                var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList> ??
+                           ActualAccountlists ?? new List<Utils.AccountList>();
+                AccountsDataGrid.ItemsSource = SortLeagueRankList(list, sortMemberPath, newDirection).ToList();
+                SetLeagueSortDirectionIndicators(sortMemberPath, newDirection);
+                AccountsDataGrid.Items.Refresh();
+            }
+            else if (sortMemberPath == "lastPlayed")
+            {
+                e.Handled = true;
+                var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList> ??
+                           ActualAccountlists ?? new List<Utils.AccountList>();
+                AccountsDataGrid.ItemsSource = SortLeagueLastPlayedList(list, newDirection).ToList();
+                SetLeagueSortDirectionIndicators(sortMemberPath, newDirection);
+                AccountsDataGrid.Items.Refresh();
+            }
 
-            var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList>;
-            if (list == null) return;
-
-            _columnSortState.TryGetValue(header, out var current);
-            var newDirection = current == ListSortDirection.Descending
-                ? ListSortDirection.Ascending
-                : ListSortDirection.Descending;
-
-            var keys = _columnSortState.Keys.ToList();
-            foreach (var k in keys)
-                if (k != header)
-                    _columnSortState.Remove(k);
-            _columnSortState[header] = newDirection;
-
-            Func<Utils.AccountList, string?> getRank = x => header == "SoloQ" ? x.rank : x.rank2;
-
-            IOrderedEnumerable<Utils.AccountList> sorted;
-            if (newDirection == ListSortDirection.Descending)
-                sorted = list.OrderBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
-                    .ThenByDescending(x => ParseRankValue(getRank(x)));
-            else
-                sorted = list.OrderBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
-                    .ThenBy(x => ParseRankValue(getRank(x)));
-
-            foreach (var col in AccountsDataGrid.Columns) col.SortDirection = col == e.Column ? newDirection : null;
-
-            AccountsDataGrid.ItemsSource = sorted.ToList();
-            AccountsDataGrid.Items.Refresh();
+            SaveLeagueSortPreference(sortMemberPath, newDirection);
         }
         catch
         {
         }
+    }
+
+    private string GetSortMemberPath(DataGridColumn column)
+    {
+        if (!string.IsNullOrWhiteSpace(column.SortMemberPath))
+            return column.SortMemberPath;
+
+        return column.Header?.ToString() switch
+        {
+            "SoloQ" => "rank",
+            "FlexQ" => "rank2",
+            _ => "level"
+        };
+    }
+
+    private IEnumerable<Utils.AccountList> SortLeagueRankList(IEnumerable<Utils.AccountList> list, string sortMemberPath,
+        ListSortDirection direction)
+    {
+        Func<Utils.AccountList, string?> getRank = x =>
+            string.Equals(sortMemberPath, "rank2", StringComparison.OrdinalIgnoreCase) ? x.rank2 : x.rank;
+
+        if (direction == ListSortDirection.Descending)
+            return list.OrderBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
+                .ThenByDescending(x => ParseRankValue(getRank(x)));
+
+        return list.OrderBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
+            .ThenBy(x => ParseRankValue(getRank(x)));
+    }
+
+    private IEnumerable<Utils.AccountList> SortLeagueLastPlayedList(IEnumerable<Utils.AccountList> list,
+        ListSortDirection direction)
+    {
+        static DateTime? ParseLastPlayed(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsed))
+                return parsed;
+
+            if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out parsed))
+                return parsed;
+
+            return null;
+        }
+
+        if (direction == ListSortDirection.Descending)
+            return list.OrderBy(x => ParseLastPlayed(x.lastPlayed).HasValue ? 0 : 1)
+                .ThenByDescending(x => ParseLastPlayed(x.lastPlayed));
+
+        return list.OrderBy(x => ParseLastPlayed(x.lastPlayed).HasValue ? 0 : 1)
+            .ThenBy(x => ParseLastPlayed(x.lastPlayed));
+    }
+
+    private (string SortMemberPath, ListSortDirection Direction) GetLeagueSortPreference()
+    {
+        var sortMemberPath = Misc.Settings.settingsloaded.LeagueDefaultSortColumn;
+        if (string.IsNullOrWhiteSpace(sortMemberPath))
+            sortMemberPath = "level";
+
+        var direction = Misc.Settings.settingsloaded.LeagueDefaultSortDescending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+
+        return (sortMemberPath, direction);
+    }
+
+    private void SaveLeagueSortPreference(string sortMemberPath, ListSortDirection direction)
+    {
+        Misc.Settings.settingsloaded.LeagueDefaultSortColumn = sortMemberPath;
+        Misc.Settings.settingsloaded.LeagueDefaultSortDescending = direction == ListSortDirection.Descending;
+        Misc.Settings.Save();
+    }
+
+    private void ApplyLeagueSortToGrid()
+    {
+        var (sortMemberPath, direction) = GetLeagueSortPreference();
+
+        if (sortMemberPath == "rank" || sortMemberPath == "rank2")
+        {
+            var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList> ??
+                       ActualAccountlists ?? new List<Utils.AccountList>();
+            AccountsDataGrid.ItemsSource = SortLeagueRankList(list, sortMemberPath, direction).ToList();
+            AccountsDataGrid.Items.SortDescriptions.Clear();
+            SetLeagueSortDirectionIndicators(sortMemberPath, direction);
+            return;
+        }
+
+        if (sortMemberPath == "lastPlayed")
+        {
+            var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList> ??
+                       ActualAccountlists ?? new List<Utils.AccountList>();
+            AccountsDataGrid.ItemsSource = SortLeagueLastPlayedList(list, direction).ToList();
+            AccountsDataGrid.Items.SortDescriptions.Clear();
+            SetLeagueSortDirectionIndicators(sortMemberPath, direction);
+            return;
+        }
+
+        AccountsDataGrid.Items.SortDescriptions.Clear();
+        AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription(sortMemberPath, direction));
+        SetLeagueSortDirectionIndicators(sortMemberPath, direction);
+    }
+
+    private void SetLeagueSortDirectionIndicators(string sortMemberPath, ListSortDirection direction)
+    {
+        foreach (var col in AccountsDataGrid.Columns)
+            col.SortDirection = string.Equals(GetSortMemberPath(col), sortMemberPath, StringComparison.OrdinalIgnoreCase)
+                ? direction
+                : null;
     }
 
     private double ParseRankValue(string? rankText)
@@ -297,8 +402,7 @@ public partial class Accounts : Page
         if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true) return;
         await Dispatcher.InvokeAsync(() =>
         {
-            AccountsDataGrid.Items.SortDescriptions.Clear();
-            AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+            ApplyLeagueSortToGrid();
         }, DispatcherPriority.Background, CancellationToken.None);
     }
 
@@ -331,9 +435,7 @@ public partial class Accounts : Page
             {
                 AccountsDataGrid.ItemsSource = null;
                 AccountsDataGrid.ItemsSource = ActualAccountlists;
-
-                AccountsDataGrid.Items.SortDescriptions.Clear();
-                AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+                ApplyLeagueSortToGrid();
 
                 if (!Misc.Settings.settingsloaded.DisplayPasswords && AccountsDataGrid.Columns.Count > 1)
                     AccountsDataGrid.Columns[1].Visibility = Visibility.Hidden;
@@ -492,13 +594,7 @@ public partial class Accounts : Page
                     note = banNote
                 });
 
-                // Write CSV immediately
-                using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                           $"{Misc.Settings.settingsloaded.filename}.csv")))
-                using (var csv2 = new CsvWriter(writer, config))
-                {
-                    csv2.WriteRecords(ActualAccountlists);
-                }
+                await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -623,6 +719,13 @@ public partial class Accounts : Page
                 return;
             }
 
+            var matchHistoryData = await GetCurrentSummonerMatchHistoryAsync();
+            if (!string.IsNullOrWhiteSpace(matchHistoryData.LastPlayed))
+            {
+                _logger.Info($"[Accounts] Last played from match history endpoint: {matchHistoryData.LastPlayed}");
+                DebugConsole.WriteLine($"[Accounts] Last played from match history endpoint: {matchHistoryData.LastPlayed}");
+            }
+
             // Now get champion info (depends on summonerId)
             var champInfo = await GetChampionInfoAsync(summonerId);
             if (champInfo != null) MarkTaskCompleted("Fetch champions");
@@ -630,6 +733,7 @@ public partial class Accounts : Page
             // Loot info may need async per item
             var lootInfo = lootTask.Result;
             var lootList = new List<string>();
+            var lootStructured = new List<Utils.StructuredDataEntry>();
             var lootCount = 0;
 
             if (lootInfo != null)
@@ -756,6 +860,12 @@ public partial class Accounts : Page
                             entryParts.Add(iconUrl ?? string.Empty);
                             entryParts.Add(countVal);
                             lootList.Add(string.Join("|", entryParts));
+                            lootStructured.Add(new Utils.StructuredDataEntry
+                            {
+                                name = lootText,
+                                icon = iconUrl,
+                                value = countVal
+                            });
                             lootCount++;
                         }
                         catch
@@ -803,6 +913,7 @@ public partial class Accounts : Page
 
             var skinInfo = skinTask.Result;
             var skinList = new List<string>();
+            var skinStructured = new List<Utils.StructuredDataEntry>();
             if (skinInfo != null)
                 foreach (var item in skinInfo)
                     try
@@ -925,6 +1036,17 @@ public partial class Accounts : Page
                         parts.Add(price ?? string.Empty);
                         var entry = string.Join("|", parts);
                         skinList.Add(entry);
+                        skinStructured.Add(new Utils.StructuredDataEntry
+                        {
+                            name = name,
+                            icon = iconUrl,
+                            value = price,
+                            extra = new Dictionary<string, string>
+                            {
+                                ["itemId"] = itemId,
+                                ["championId"] = champId?.ToString() ?? string.Empty
+                            }
+                        });
                         DebugConsole.WriteLine(
                             $"[Accounts] Parsed skin entry: Name='{name}', ItemId='{itemId}', ChampId='{champId?.ToString() ?? "null"}', IconUrl='{iconUrl}', Price='{price}' -> '{entry}'");
                     }
@@ -935,6 +1057,7 @@ public partial class Accounts : Page
 
             // Build champion entries as name|iconUrl|roles (roles comma-separated). Map squarePortraitPath to raw.communitydragon.org
             var champList = new List<string>();
+            var champStructured = new List<Utils.StructuredDataEntry>();
             if (champInfo != null)
                 foreach (var c in champInfo)
                     try
@@ -998,6 +1121,12 @@ public partial class Accounts : Page
                         parts.Add(iconUrl ?? string.Empty);
                         parts.Add(roles ?? string.Empty);
                         champList.Add(string.Join("|", parts));
+                        champStructured.Add(new Utils.StructuredDataEntry
+                        {
+                            name = name,
+                            icon = iconUrl,
+                            value = roles
+                        });
                         DebugConsole.WriteLine(
                             $"[Accounts] Parsed champ entry: Name='{name}', IconUrl='{iconUrl}', Roles='{roles}' -> '{string.Join("|", parts)}'");
                     }
@@ -1010,8 +1139,11 @@ public partial class Accounts : Page
             var region = regionTask.Result ?? JObject.Parse("{\"region\":\"UNKNOWN\"}");
 
             // Update ActualAccountlists
-            var note = ActualAccountlists?.FindLast(x =>
+            var existingAccount = ActualAccountlists?.FindLast(x =>
                 x.username == SelectedUsername && x.password == SelectedPassword);
+            var preservedLastPlayed = existingAccount?.lastPlayed;
+            if (!string.IsNullOrWhiteSpace(matchHistoryData.LastPlayed))
+                preservedLastPlayed = matchHistoryData.LastPlayed;
             ActualAccountlists?.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
 
             ActualAccountlists?.Add(new Utils.AccountList
@@ -1025,22 +1157,23 @@ public partial class Accounts : Page
                 rp = wallet.rp,
                 rank = Rank,
                 champions = string.Join(":", champList),
+                championsData = champStructured,
                 Champions = champList.Count,
                 skins = string.Join(":", skinList),
+                skinsData = skinStructured,
                 Skins = skinList.Count,
                 Loot = string.Join(":", lootList),
+                lootData = lootStructured,
                 Loots = lootCount,
                 rank2 = Rank2,
-                note = note?.note
+                lastPlayed = preservedLastPlayed,
+                leagueMatchHistory = !string.IsNullOrWhiteSpace(matchHistoryData.SerializedEntries)
+                    ? matchHistoryData.SerializedEntries
+                    : existingAccount?.leagueMatchHistory,
+                note = existingAccount?.note
             });
 
-            // Write CSV **outside Dispatcher** (no UI thread required)
-            using (var writer = new StreamWriter(Path.Combine(Directory.GetCurrentDirectory(),
-                       $"{Misc.Settings.settingsloaded.filename}.csv")))
-            using (var csv2 = new CsvWriter(writer, config))
-            {
-                csv2.WriteRecords(ActualAccountlists);
-            }
+            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
             // Update UI last
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -1048,8 +1181,7 @@ public partial class Accounts : Page
                 Progressgrid.Visibility = Visibility.Hidden;
                 AccountsDataGrid.ItemsSource = null;
                 AccountsDataGrid.ItemsSource = ActualAccountlists;
-                AccountsDataGrid.Items.SortDescriptions.Clear();
-                AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+                ApplyLeagueSortToGrid();
                 AccountsDataGrid.Items.Refresh();
             });
 
@@ -1111,6 +1243,67 @@ public partial class Accounts : Page
             catch (JsonException)
             {
                 return null;
+            }
+        });
+    }
+
+    private Task<(string? LastPlayed, string? SerializedEntries)> GetCurrentSummonerMatchHistoryAsync()
+    {
+        return RetryAsync<(string? LastPlayed, string? SerializedEntries)>(async () =>
+        {
+            var resp = await Lcu.Connector("league", "get",
+                "/lol-match-history/v1/products/lol/current-summoner/matches", "");
+            if (resp == null) return default;
+
+            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(body)) return default;
+
+            try
+            {
+                var parsed = JObject.Parse(body);
+                var games = parsed["games"]?["games"] as JArray;
+                if (games == null || games.Count == 0)
+                    return default;
+
+                DateTimeOffset? latestMatchDate = null;
+                var historyEntries = new List<string>();
+
+                foreach (var game in games)
+                {
+                    var gameCreationDate = game["gameCreationDate"]?.ToString();
+                    if (string.IsNullOrWhiteSpace(gameCreationDate))
+                        continue;
+
+                    if (!DateTimeOffset.TryParse(gameCreationDate, out DateTimeOffset parsedDate))
+                        continue;
+
+                    if (latestMatchDate == null || parsedDate > latestMatchDate.Value)
+                        latestMatchDate = parsedDate;
+
+                    var localDate = parsedDate.LocalDateTime.ToString("g");
+                    var gameMode = game["gameMode"]?.ToString() ?? "Unknown";
+                    var queueId = game["queueId"]?.ToString() ?? "?";
+                    var durationSeconds = game["gameDuration"]?.ToObject<int?>() ?? 0;
+                    var durationText = TimeSpan.FromSeconds(Math.Max(0, durationSeconds)).ToString(@"mm\:ss");
+
+                    var participant = game["participants"]?.FirstOrDefault();
+                    var championId = participant?["championId"]?.ToString() ?? "?";
+                    var win = participant?["stats"]?["win"]?.ToObject<bool?>();
+                    var kills = participant?["stats"]?["kills"]?.ToObject<int?>() ?? 0;
+                    var deaths = participant?["stats"]?["deaths"]?.ToObject<int?>() ?? 0;
+                    var assists = participant?["stats"]?["assists"]?.ToObject<int?>() ?? 0;
+                    var result = win == true ? "Win" : win == false ? "Loss" : "Unknown";
+
+                    var details =
+                        $"{result} | Q:{queueId} | {gameMode} | Champ:{championId} | KDA {kills}/{deaths}/{assists} | {durationText}";
+                    historyEntries.Add($"{localDate}||{details}");
+                }
+
+                return (latestMatchDate?.LocalDateTime.ToString("g"), string.Join(":", historyEntries));
+            }
+            catch (JsonException)
+            {
+                return default;
             }
         });
     }
@@ -1617,6 +1810,7 @@ public partial class Accounts : Page
         if (ActualAccountlists == null || ActualAccountlists.Count == 0)
             return;
 
+        DebugConsole.WriteLine($"[Accounts] Starting rank update for {ActualAccountlists.Count} account(s).");
         var total = ActualAccountlists.Count;
         var processed = 0;
         var anyChanges = false;
@@ -1624,7 +1818,6 @@ public partial class Accounts : Page
         ProgressWindow progressWindow = null!;
         DispatcherTimer? followTimer = null;
 
-        // Show progress window
         Dispatcher.Invoke(() =>
         {
             progressWindow = new ProgressWindow(total)
@@ -1644,98 +1837,153 @@ public partial class Accounts : Page
 
         try
         {
-            using var http = new HttpClient
+            var userAgents = new[]
+            {
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
+        };
+
+            var random = new Random();
+
+            using var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+                UseProxy = false
+            };
+
+            using var http = new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromSeconds(15)
             };
-            http.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
 
             foreach (var account in ActualAccountlists)
             {
                 processed++;
+                var accountLabel = !string.IsNullOrWhiteSpace(account.riotID)
+                    ? account.riotID
+                    : !string.IsNullOrWhiteSpace(account.username)
+                        ? account.username
+                        : $"account #{processed}";
 
                 // Keep window following main window
                 Dispatcher.Invoke(() => progressWindow.FollowOwner());
 
                 try
                 {
-                    if (string.IsNullOrWhiteSpace(account.riotID) || string.IsNullOrWhiteSpace(account.server))
+                    if (string.IsNullOrWhiteSpace(account.riotID))
+                    {
+                        DebugConsole.WriteLine(
+                            $"[Accounts] Skipping rank update for {accountLabel}: missing Riot ID.",
+                            ConsoleColor.Yellow);
                         continue;
-
-                    var formattedRiotId = account.riotID.Replace("#", "-");
-                    var url = $"https://www.leagueofgraphs.com/summoner/{account.server}/{formattedRiotId}";
-
-                    var html = await http.GetStringAsync(url);
-                    if (string.IsNullOrWhiteSpace(html)) continue;
-
-                    var doc = new HtmlDocument();
-                    doc.LoadHtml(html);
-
-                    var rankingBox = doc.DocumentNode.SelectSingleNode("//div[contains(@class,'summoner-rankings')]");
-                    if (rankingBox == null) continue;
-
-                    string? soloRank = null;
-                    string? flexRank = null;
-
-                    // Parse Soloqueue
-                    var soloNode =
-                        rankingBox.SelectSingleNode(
-                            ".//span[contains(@class,'queue') and contains(text(),'Soloqueue')]");
-                    if (soloNode != null)
-                    {
-                        var tier = rankingBox.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText
-                            .Trim();
-                        var lp = rankingBox.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText
-                            .Trim();
-                        var wins = rankingBox.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText
-                            .Trim();
-                        var losses = rankingBox.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText
-                            .Trim();
-
-                        if (!string.IsNullOrWhiteSpace(tier))
-                            soloRank = $"{tier} {lp} LP, {wins}W / {losses}L";
                     }
 
-                    Dispatcher.Invoke(() => progressWindow.FollowOwner());
-                    // Parse Flex queue
-                    var flexNode =
-                        rankingBox.SelectSingleNode(".//div[contains(@class,'queueName') and contains(text(),'Flex')]");
-                    if (flexNode != null)
-                    {
-                        var container =
-                            flexNode.SelectSingleNode("./ancestor::div[contains(@class,'img-align-block')]");
-                        var tier = container?.SelectSingleNode(".//div[contains(@class,'leagueTier')]")?.InnerText
-                            .Trim();
-                        var lp = container?.SelectSingleNode(".//span[contains(@class,'leaguePoints')]")?.InnerText
-                            .Trim();
-                        var wins = container?.SelectSingleNode(".//span[contains(@class,'winsNumber')]")?.InnerText
-                            .Trim();
-                        var losses = container?.SelectSingleNode(".//span[contains(@class,'lossesNumber')]")?.InnerText
-                            .Trim();
+                    var formattedRiotId = account.riotID.Replace("#", "-").Trim();
+                    var encodedRiotId = Uri.EscapeDataString(formattedRiotId);
+                    var url = $"https://p1.xdx.gg/rid/1/{encodedRiotId}";
+                    DebugConsole.WriteLine($"[Accounts] Updating rank for {accountLabel} from {url}");
 
-                        if (!string.IsNullOrWhiteSpace(tier))
-                            flexRank = $"{tier} {lp} LP, {wins}W / {losses}L";
+                    // Rotate user agent
+                    http.DefaultRequestHeaders.UserAgent.Clear();
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgents[random.Next(userAgents.Length)]);
+
+                    // Clear and set realistic headers for each request
+                    http.DefaultRequestHeaders.Accept.Clear();
+                    http.DefaultRequestHeaders.Accept.ParseAdd("application/xml");
+                    http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+                    http.DefaultRequestHeaders.Accept.ParseAdd("*/*");
+                    http.DefaultRequestHeaders.AcceptLanguage.Clear();
+                    http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+                    http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en;q=0.9");
+                    http.DefaultRequestHeaders.AcceptEncoding.Clear();
+                    http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip");
+                    http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("deflate");
+                    http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("br");
+                    http.DefaultRequestHeaders.Connection.Clear();
+                    http.DefaultRequestHeaders.Connection.Add("keep-alive");
+                    http.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                    {
+                        NoCache = true
+                    };
+
+                    // Add common browser headers
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"");
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Mobile", "?0");
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Platform", "\"Windows\"");
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Dest", "empty");
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Mode", "cors");
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Site", "same-site");
+                    http.DefaultRequestHeaders.Referrer = new Uri("https://xdx.gg/");
+
+                    var response = await http.GetAsync(url);
+                    response.EnsureSuccessStatusCode();
+
+                    var payload = await response.Content.ReadAsStringAsync();
+                    if (string.IsNullOrWhiteSpace(payload))
+                    {
+                        DebugConsole.WriteLine($"[Accounts] Rank update returned empty payload for {accountLabel}.",
+                            ConsoleColor.Yellow);
+                        continue;
                     }
 
-                    // Update ranks if parsed
+                    var data = JObject.Parse(payload);
+
+                    var soloRank = BuildRankFromXdxApi(data, "solo");
                     if (!string.IsNullOrWhiteSpace(soloRank))
                     {
                         account.rank = soloRank;
                         anyChanges = true;
                     }
 
+                    var flexRank = BuildRankFromXdxApi(data, "flex");
                     if (!string.IsNullOrWhiteSpace(flexRank))
                     {
                         account.rank2 = flexRank;
                         anyChanges = true;
                     }
 
-                    await Task.Delay(800); // prevent rate limiting
+                    var (lastPlayed, latestMatchSummary) = ParseLatestMatchFromXdxApi(data);
+                    if (!string.IsNullOrWhiteSpace(lastPlayed))
+                    {
+                        account.lastPlayed = lastPlayed;
+                        anyChanges = true;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(latestMatchSummary))
+                    {
+                        account.leagueMatchHistory = latestMatchSummary;
+                        anyChanges = true;
+                    }
+
+                    Dispatcher.Invoke(() => progressWindow.FollowOwner());
+
+                    if (string.IsNullOrWhiteSpace(soloRank) && string.IsNullOrWhiteSpace(flexRank))
+                    {
+                        DebugConsole.WriteLine(
+                            $"[Accounts] Rank update could not find xdx API ranking data for {accountLabel}.",
+                            ConsoleColor.Yellow);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(soloRank) && string.IsNullOrWhiteSpace(flexRank))
+                        DebugConsole.WriteLine(
+                            $"[Accounts] Rank update found page data for {accountLabel} but no solo or flex rank values.",
+                            ConsoleColor.Yellow);
+                    else
+                        DebugConsole.WriteLine(
+                            $"[Accounts] Rank update succeeded for {accountLabel}. Solo: {soloRank ?? "N/A"}, Flex: {flexRank ?? "N/A"}");
+
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ignore individual account errors
+                    _logger.Warn(ex, "UpdateAllRanks failed for {Account}", accountLabel);
+                    DebugConsole.WriteLine(
+                        $"[Accounts] Rank update failed for {accountLabel}: {ex.GetType().Name} - {ex.Message}",
+                        ConsoleColor.Red);
                 }
+
+                await Task.Delay(2000);
 
                 // Update progress bar
                 Dispatcher.Invoke(() => progressWindow.UpdateProgress(processed));
@@ -1747,6 +1995,11 @@ public partial class Accounts : Page
                 await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
                 Dispatcher.Invoke(() => AccountsDataGrid.Items.Refresh());
+                DebugConsole.WriteLine("[Accounts] Rank update completed with changes saved.");
+            }
+            else
+            {
+                DebugConsole.WriteLine("[Accounts] Rank update completed with no changes.");
             }
         }
         finally
@@ -1788,9 +2041,7 @@ public partial class Accounts : Page
 
             AccountsDataGrid.ItemsSource = null;
             AccountsDataGrid.ItemsSource = ActualAccountlists;
-
-            AccountsDataGrid.Items.SortDescriptions.Clear();
-            AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("level", ListSortDirection.Descending));
+            ApplyLeagueSortToGrid();
 
             AccountsDataGrid.Items.Refresh();
         }
@@ -1806,6 +2057,172 @@ public partial class Accounts : Page
         if (File.Exists(Misc.Settings.settingsloaded.riotPath))
             return true;
         return false;
+    }
+
+    private string? BuildRankFromXdxApi(JObject data, string prefix)
+    {
+        var tier = NormalizeLeagueTier(data[$"{prefix}-tier"]?.ToString());
+        if (string.IsNullOrWhiteSpace(tier))
+            return null;
+
+        if (tier.Equals("Unranked", StringComparison.OrdinalIgnoreCase))
+            return tier;
+
+        var division = NormalizeHtmlText(data[$"{prefix}-division"]?.ToString());
+        var lp = NormalizeHtmlText(data[$"{prefix}-lp"]?.ToString());
+        var wins = NormalizeHtmlText(data[$"{prefix}-wins"]?.ToString());
+        var losses = NormalizeHtmlText(data[$"{prefix}-losses"]?.ToString());
+
+        var rankParts = new List<string> { tier };
+        if (!string.IsNullOrWhiteSpace(division) && !tier.Equals("Master", StringComparison.OrdinalIgnoreCase) &&
+            !tier.Equals("Grandmaster", StringComparison.OrdinalIgnoreCase) &&
+            !tier.Equals("Challenger", StringComparison.OrdinalIgnoreCase))
+            rankParts.Add(division);
+
+        if (!string.IsNullOrWhiteSpace(lp))
+            rankParts.Add($"{lp} LP");
+
+        var rankText = string.Join(" ", rankParts.Where(x => !string.IsNullOrWhiteSpace(x)));
+        if (!string.IsNullOrWhiteSpace(wins) && !string.IsNullOrWhiteSpace(losses))
+            rankText = $"{rankText}, {wins}W / {losses}L";
+
+        return rankText;
+    }
+
+    private (string? LastPlayed, string? Summary) ParseLatestMatchFromXdxApi(JObject data)
+    {
+        try
+        {
+            var matches = data["matches"] as JArray;
+            if (matches == null || matches.Count == 0 || matches[0] is not JArray latestMatch || latestMatch.Count < 4)
+            {
+                _logger.Info("[Accounts] xdx latest match parse skipped: no match data found.");
+                DebugConsole.WriteLine("[Accounts] xdx latest match parse skipped: no match data found.",
+                    ConsoleColor.Yellow);
+                return (null, null);
+            }
+
+            var championId = latestMatch[1]?.ToObject<int?>();
+            var queueId = latestMatch[2]?.ToObject<int?>();
+            var playedAtUnix = latestMatch[3]?.ToObject<long?>();
+
+            var queue = GetQueueNameFromId(queueId);
+            var playedAt = playedAtUnix.HasValue ? DateTimeOffset.FromUnixTimeSeconds(playedAtUnix.Value).LocalDateTime : (DateTime?)null;
+            var timeAgo = playedAt.HasValue ? GetRelativeTimeText(playedAt.Value) : null;
+
+            var summaryParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(queue)) summaryParts.Add(queue);
+            if (!string.IsNullOrWhiteSpace(timeAgo)) summaryParts.Add(timeAgo);
+
+            var summary = summaryParts.Count > 0 ? string.Join(" | ", summaryParts) : null;
+            var lastPlayed = playedAt?.ToString("g");
+            return (lastPlayed, summary);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn(ex, "[Accounts] xdx latest match parse failed.");
+            DebugConsole.WriteLine($"[Accounts] xdx latest match parse failed: {ex.Message}", ConsoleColor.Red);
+            return (null, null);
+        }
+    }
+
+  
+    private string GetQueueNameFromId(int? queueId)
+    {
+        return queueId switch
+        {
+            420 => "Solo/Duo",
+            440 => "Flex 5v5",
+            450 => "ARAM",
+            1700 => "Arena",
+            _ when queueId.HasValue => $"Queue {queueId.Value}",
+            _ => string.Empty
+        };
+    }
+
+    private string GetRelativeTimeText(DateTime timestamp)
+    {
+        var elapsed = DateTime.Now - timestamp;
+        if (elapsed.TotalMinutes < 1)
+            return "just now";
+
+        if (elapsed.TotalHours < 1)
+        {
+            var minutes = Math.Max(1, (int)Math.Floor(elapsed.TotalMinutes));
+            return $"{minutes} minute{(minutes == 1 ? string.Empty : "s")} ago";
+        }
+
+        if (elapsed.TotalDays < 1)
+        {
+            var hours = Math.Max(1, (int)Math.Floor(elapsed.TotalHours));
+            return $"{hours} hour{(hours == 1 ? string.Empty : "s")} ago";
+        }
+
+        var days = Math.Max(1, (int)Math.Floor(elapsed.TotalDays));
+        return $"{days} day{(days == 1 ? string.Empty : "s")} ago";
+    }
+
+    private string NormalizeHtmlText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var decoded = System.Net.WebUtility.HtmlDecode(value);
+        return Regex.Replace(decoded ?? string.Empty, @"\s+", " ").Trim();
+    }
+
+    private string NormalizeLeagueTier(string? value)
+    {
+        var normalized = NormalizeHtmlText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(normalized.ToLowerInvariant());
+    }
+
+    private string? ConvertRelativeTimeToLocalString(string? relativeTime)
+    {
+        var normalized = NormalizeHtmlText(relativeTime);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        if (DateTime.TryParse(normalized, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out var parsedLocal))
+            return parsedLocal.ToString("g");
+
+        if (DateTime.TryParse(normalized, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out parsedLocal))
+            return parsedLocal.ToString("g");
+
+        var match = Regex.Match(normalized,
+            @"^(?<value>\d+|a|an|one)\s+(?<unit>minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago$",
+            RegexOptions.IgnoreCase);
+        if (!match.Success)
+            return null;
+
+        var amountText = match.Groups["value"].Value;
+        var amount = amountText.Equals("a", StringComparison.OrdinalIgnoreCase) ||
+                     amountText.Equals("an", StringComparison.OrdinalIgnoreCase) ||
+                     amountText.Equals("one", StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : int.TryParse(amountText, out var parsedAmount)
+                ? parsedAmount
+                : 0;
+
+        if (amount <= 0)
+            return null;
+
+        var unit = match.Groups["unit"].Value.ToLowerInvariant();
+        var timestamp = unit switch
+        {
+            "minute" or "minutes" => DateTime.Now.AddMinutes(-amount),
+            "hour" or "hours" => DateTime.Now.AddHours(-amount),
+            "day" or "days" => DateTime.Now.AddDays(-amount),
+            "week" or "weeks" => DateTime.Now.AddDays(-7 * amount),
+            "month" or "months" => DateTime.Now.AddMonths(-amount),
+            "year" or "years" => DateTime.Now.AddYears(-amount),
+            _ => DateTime.Now
+        };
+
+        return timestamp.ToString("g");
     }
 
 
@@ -1951,6 +2368,8 @@ public partial class Accounts : Page
                             Loot = GetField("Loot", 12) ?? "",
                             Loots = TryParseInt(GetField("Loots", 13)),
                             rank2 = GetField("rank2", 14) ?? "",
+                            lastPlayed = GetField("lastPlayed", -1) ?? "",
+                            leagueMatchHistory = GetField("leagueMatchHistory", -1) ?? "",
                             note = GetField("note", 15) ?? "",
                             valorantAgents = GetField("valorantAgents", 16) ?? "",
                             valorantContracts = GetField("valorantContracts", 17) ?? "",
@@ -2038,10 +2457,14 @@ public partial class Accounts : Page
                             case "Loot":
                                 secondWindow = new DisplayDataWithSearch(selectedrow.Loot);
                                 break;
+                            case "Last Played":
+                                if (e.ClickCount >= 2 && !string.IsNullOrWhiteSpace(selectedrow.leagueMatchHistory))
+                                    secondWindow = new DisplayDataWithSearch(selectedrow.leagueMatchHistory);
+                                break;
                             case "RiotID"
                                 : //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
                                 var url =
-                                    $"https:/www.op.gg/summoners/{RegionHelperUtil.RegionParser(selectedrow.server)}/{selectedrow.riotID.Replace("#", "-")}";
+                                    $"https://www.leagueofgraphs.com/summoner/{selectedrow.server}/{selectedrow.riotID.Replace("#", "-")}";
                                 OpenUrl(url);
                                 break;
                         }

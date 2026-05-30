@@ -2,6 +2,8 @@ using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -12,11 +14,18 @@ namespace League_Account_Manager.Misc;
 internal static class AccountFileStore
 {
     private const string EncryptionHeader = "LAMENC1";
+    private const string StorageSchema = "LAM.Accounts";
+    private const int StorageVersion = 2;
     private const int SaltSize = 16;
     private const int NonceSize = 12;
     private const int TagSize = 16;
     private const int KeySize = 32;
     private const int Pbkdf2Iterations = 100_000;
+    private static readonly IReadOnlyList<IAccountTransferFormat> TransferFormats = new List<IAccountTransferFormat>
+    {
+        new StructuredJsonTransferFormat(),
+        new CsvTransferFormat()
+    };
 
     public static bool IsEncryptionEnabled => Settings.settingsloaded.AccountFileEncryptionEnabled;
 
@@ -24,7 +33,7 @@ internal static class AccountFileStore
 
     public static string GetAccountsFilePath()
     {
-        return Path.Combine(AppContext.BaseDirectory, $"{Settings.settingsloaded.filename}.csv");
+        return Path.Combine(AppContext.BaseDirectory, $"{Settings.settingsloaded.filename}.LAM");
     }
 
     public static string? GetPassword()
@@ -62,21 +71,66 @@ internal static class AccountFileStore
         if (!File.Exists(filePath)) return new List<Utils.AccountList>();
 
         List<Utils.AccountList> records;
+        var rewritten = false;
 
         try
         {
-            records = await LoadForMigrationAsync(filePath, config, GetPassword());
+            var loadResult = await LoadForMigrationAsync(filePath, config, GetPassword());
+            records = NormalizeStructuredCollections(loadResult.Records);
         }
         catch (CryptographicException)
         {
-            records = await PromptPasswordUntilSuccessAsync(filePath, config);
+            records = NormalizeStructuredCollections(await PromptPasswordUntilSuccessAsync(filePath, config));
         }
 
         var data = await File.ReadAllBytesAsync(filePath);
-        if (IsEncryptionEnabled && !IsEncrypted(data))
-            await SaveEncryptedAsync(filePath, records, config, GetPassword());
-        else if (!IsEncryptionEnabled && IsEncrypted(data))
-            await SavePlaintextAsync(filePath, records, config);
+        var normalizedContent = WriteStorageToString(records);
+
+        if (IsEncryptionEnabled)
+        {
+            var password = GetPassword();
+            if (string.IsNullOrWhiteSpace(password))
+                throw new InvalidOperationException("Account file encryption password not set.");
+
+            var shouldRewrite = true;
+            if (IsEncrypted(data))
+                try
+                {
+                    var currentContent = Decrypt(data, password);
+                    shouldRewrite = !string.Equals(currentContent, normalizedContent, StringComparison.Ordinal);
+                }
+                catch (CryptographicException)
+                {
+                    shouldRewrite = true;
+                }
+
+            if (shouldRewrite)
+            {
+                await SaveEncryptedAsync(filePath, records, config, password);
+                rewritten = true;
+            }
+        }
+        else
+        {
+            var currentContent = IsEncrypted(data) ? null : Encoding.UTF8.GetString(data);
+            if (currentContent == null || !string.Equals(currentContent, normalizedContent, StringComparison.Ordinal))
+            {
+                await SavePlaintextAsync(filePath, records, config);
+                rewritten = true;
+            }
+        }
+
+        if (rewritten)
+        {
+            try
+            {
+                var reloaded = await LoadForMigrationAsync(filePath, config, GetPassword());
+                records = NormalizeStructuredCollections(reloaded.Records);
+            }
+            catch
+            {
+            }
+        }
 
         return records;
     }
@@ -101,6 +155,92 @@ internal static class AccountFileStore
     public static void Save(string filePath, IEnumerable<Utils.AccountList> records, CsvConfiguration config)
     {
         SaveAsync(filePath, records, config).GetAwaiter().GetResult();
+    }
+
+    public static string GetTransferFileDialogFilter()
+    {
+        var formatEntries = TransferFormats
+            .Select(f =>
+                $"{f.DisplayName} ({string.Join(';', f.Extensions.Select(e => $"*{e}"))})|{string.Join(';', f.Extensions.Select(e => $"*{e}"))}");
+
+        var allPatterns = string.Join(';', TransferFormats.SelectMany(f => f.Extensions).Distinct().Select(e => $"*{e}"));
+        return string.Join("|", formatEntries.Concat(new[] { $"All supported files|{allPatterns}" }));
+    }
+
+    public static async Task<List<Utils.AccountList>> ImportAsync(string sourcePath, CsvConfiguration config)
+    {
+        await WaitForFileUnlockAsync(sourcePath);
+        var data = await File.ReadAllBytesAsync(sourcePath);
+        if (data.Length == 0)
+            return new List<Utils.AccountList>();
+
+        string content;
+        if (IsEncrypted(data))
+        {
+            while (true)
+            {
+                var password = PromptForPassword("Enter the password to decrypt the import file.");
+                if (string.IsNullOrWhiteSpace(password))
+                    throw new InvalidOperationException("Import canceled. Password is required for encrypted files.");
+
+                try
+                {
+                    content = Decrypt(data, password);
+                    break;
+                }
+                catch (CryptographicException)
+                {
+                }
+            }
+        }
+        else
+        {
+            content = Encoding.UTF8.GetString(data);
+        }
+
+        return NormalizeStructuredCollections(ParseTransferContent(sourcePath, content, config));
+    }
+
+    public static async Task ExportAsync(string destinationPath, IEnumerable<Utils.AccountList> records,
+        CsvConfiguration config, bool encryptExport, string? encryptionPassword)
+    {
+        var format = ResolveTransferFormatByPath(destinationPath);
+        var content = format.Serialize(records.ToList(), config);
+
+        await WaitForFileUnlockAsync(destinationPath);
+
+        if (encryptExport)
+        {
+            if (string.IsNullOrWhiteSpace(encryptionPassword))
+                throw new InvalidOperationException("Export password is required when encryption is enabled.");
+
+            var encrypted = Encrypt(content, encryptionPassword);
+            await File.WriteAllBytesAsync(destinationPath, encrypted);
+            return;
+        }
+
+        await File.WriteAllTextAsync(destinationPath, content);
+    }
+
+    public static async Task ImportIntoCurrentStoreAsync(string sourcePath, CsvConfiguration config,
+        bool combineAndDedupe)
+    {
+        var importedRecords = await ImportAsync(sourcePath, config);
+        if (!combineAndDedupe)
+        {
+            await SaveAsync(GetAccountsFilePath(), importedRecords, config);
+            return;
+        }
+
+        var existingRecords = await LoadAsync(GetAccountsFilePath(), config);
+        var merged = existingRecords
+            .Concat(importedRecords)
+            .GroupBy(x => ((x.username ?? string.Empty).Trim().ToLowerInvariant(),
+                (x.password ?? string.Empty).Trim()))
+            .Select(g => g.Last())
+            .ToList();
+
+        await SaveAsync(GetAccountsFilePath(), merged, config);
     }
 
     private static string? PromptForPassword(string message)
@@ -139,7 +279,7 @@ internal static class AccountFileStore
 
             try
             {
-                var records = await LoadForMigrationAsync(filePath, config, password);
+                var records = (await LoadForMigrationAsync(filePath, config, password)).Records;
                 SetPassword(password);
                 return records;
             }
@@ -159,7 +299,7 @@ internal static class AccountFileStore
             return;
         }
 
-        var records = await LoadForMigrationAsync(filePath, config, currentPassword);
+        var records = (await LoadForMigrationAsync(filePath, config, currentPassword)).Records;
 
         if (encrypt)
         {
@@ -173,12 +313,12 @@ internal static class AccountFileStore
         await SavePlaintextAsync(filePath, records, config);
     }
 
-    private static async Task<List<Utils.AccountList>> LoadForMigrationAsync(string filePath, CsvConfiguration config,
+    private static async Task<StorageReadResult> LoadForMigrationAsync(string filePath, CsvConfiguration config,
         string? password)
     {
         await WaitForFileUnlockAsync(filePath);
         var data = await File.ReadAllBytesAsync(filePath);
-        if (data.Length == 0) return new List<Utils.AccountList>();
+        if (data.Length == 0) return new StorageReadResult(new List<Utils.AccountList>(), false);
 
         if (IsEncrypted(data))
         {
@@ -186,18 +326,18 @@ internal static class AccountFileStore
                 throw new InvalidOperationException("Account file encryption password not set.");
 
             var csvText = Decrypt(data, password);
-            return ReadCsvFromString(csvText, config);
+            return ReadStorageFromString(csvText, config);
         }
 
         var plainText = Encoding.UTF8.GetString(data);
-        return ReadCsvFromString(plainText, config);
+        return ReadStorageFromString(plainText, config);
     }
 
     private static async Task SavePlaintextAsync(string filePath, IEnumerable<Utils.AccountList> records,
         CsvConfiguration config)
     {
         await WaitForFileUnlockAsync(filePath);
-        var csvText = WriteCsvToString(records, config);
+        var csvText = WriteStorageToString(records);
         await File.WriteAllTextAsync(filePath, csvText);
     }
 
@@ -208,9 +348,107 @@ internal static class AccountFileStore
             throw new InvalidOperationException("Account file encryption password not set.");
 
         await WaitForFileUnlockAsync(filePath);
-        var csvText = WriteCsvToString(records, config);
+        var csvText = WriteStorageToString(records);
         var encrypted = Encrypt(csvText, password);
         await File.WriteAllBytesAsync(filePath, encrypted);
+    }
+
+    private static StorageReadResult ReadStorageFromString(string content, CsvConfiguration config)
+    {
+        if (TryReadStructuredStorage(content, out var records))
+            return new StorageReadResult(records, false);
+
+        if (TryReadLegacyJsonStorage(content, out records))
+            return new StorageReadResult(records, true);
+
+        return new StorageReadResult(ReadCsvFromString(content, config), true);
+    }
+
+    private static List<Utils.AccountList> ParseTransferContent(string sourcePath, string content, CsvConfiguration config)
+    {
+        var detected = ReadStorageFromString(content, config);
+        if (detected.Records.Count > 0)
+            return detected.Records;
+
+        var format = ResolveTransferFormatByPath(sourcePath);
+        return format.Deserialize(content, config);
+    }
+
+    private static IAccountTransferFormat ResolveTransferFormatByPath(string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (string.IsNullOrWhiteSpace(extension))
+            return TransferFormats[0];
+
+        var format = TransferFormats.FirstOrDefault(f =>
+            f.Extensions.Any(e => string.Equals(e, extension, StringComparison.OrdinalIgnoreCase)));
+
+        if (format != null)
+            return format;
+
+        throw new InvalidOperationException($"Unsupported file format: '{extension}'.");
+    }
+
+    private static bool TryReadStructuredStorage(string content, out List<Utils.AccountList> records)
+    {
+        records = new List<Utils.AccountList>();
+        if (string.IsNullOrWhiteSpace(content))
+            return false;
+
+        try
+        {
+            var envelope = JsonSerializer.Deserialize<StorageEnvelope>(content);
+            if (envelope == null ||
+                !string.Equals(envelope.Schema, StorageSchema, StringComparison.Ordinal) ||
+                envelope.Version <= 0)
+                return false;
+
+            records = envelope.Accounts ?? new List<Utils.AccountList>();
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryReadLegacyJsonStorage(string content, out List<Utils.AccountList> records)
+    {
+        records = new List<Utils.AccountList>();
+        if (string.IsNullOrWhiteSpace(content))
+            return false;
+
+        try
+        {
+            var node = JsonNode.Parse(content);
+            if (node == null)
+                return false;
+
+            if (node is JsonArray array)
+            {
+                records = array.Deserialize<List<Utils.AccountList>>() ?? new List<Utils.AccountList>();
+                return true;
+            }
+
+            if (node is not JsonObject obj)
+                return false;
+
+            foreach (var key in new[] { "accounts", "Accounts", "records", "Records", "data", "Data" })
+            {
+                var listNode = obj[key];
+                if (listNode is not JsonArray listArray)
+                    continue;
+
+                records = listArray.Deserialize<List<Utils.AccountList>>() ?? new List<Utils.AccountList>();
+                return true;
+            }
+
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static async Task WaitForFileUnlockAsync(string filePath)
@@ -290,6 +528,8 @@ internal static class AccountFileStore
                     skins = GetField("skins", 9) ?? "",
                     Loot = GetField("Loot", 12) ?? "",
                     rank2 = GetField("rank2", 14) ?? "",
+                    lastPlayed = GetField("lastPlayed", -1) ?? "",
+                    leagueMatchHistory = GetField("leagueMatchHistory", -1) ?? "",
                     note = GetField("note", 15) ?? "",
                     valorantAgents = GetField("valorantAgents", 16) ?? "",
                     valorantContracts = GetField("valorantContracts", 17) ?? "",
@@ -336,7 +576,7 @@ internal static class AccountFileStore
         var headers = new[]
         {
             "username", "password", "riotID", "level", "server", "be", "rp", "rank",
-            "champions", "skins", "Champions", "Skins", "Loot", "Loots", "rank2", "note",
+            "champions", "skins", "Champions", "Skins", "Loot", "Loots", "rank2", "lastPlayed", "leagueMatchHistory", "note",
             "valorantAgents", "valorantContracts", "valorantSprays", "valorantGunBuddies",
             "valorantCards", "valorantSkins", "valorantSkinVariants", "valorantTitles",
             "valorantVp", "valorantRp", "valorantKc", "valorantLevel", "valorantRank", "valorantServer", "valorantXp"
@@ -377,6 +617,8 @@ internal static class AccountFileStore
             csv.WriteField(r.Loot ?? "");
             csv.WriteField(lootsCount.ToString());
             csv.WriteField(r.rank2 ?? "");
+            csv.WriteField(r.lastPlayed ?? "");
+            csv.WriteField(r.leagueMatchHistory ?? "");
             csv.WriteField(r.note ?? "");
             csv.WriteField(r.valorantAgents ?? "");
             csv.WriteField(r.valorantContracts ?? "");
@@ -398,6 +640,194 @@ internal static class AccountFileStore
 
         writer.Flush();
         return writer.ToString();
+    }
+
+    private static string WriteStorageToString(IEnumerable<Utils.AccountList> records)
+    {
+        var normalizedRecords = NormalizeStructuredCollections(records.ToList());
+        var envelope = new StorageEnvelope
+        {
+            Schema = StorageSchema,
+            Version = StorageVersion,
+            Accounts = normalizedRecords
+        };
+
+        var node = JsonSerializer.SerializeToNode(envelope) as JsonObject;
+        if (node == null)
+            return JsonSerializer.Serialize(envelope);
+
+        if (node["Accounts"] is JsonArray accountsArray)
+            foreach (var accountNode in accountsArray.OfType<JsonObject>())
+            {
+                accountNode.Remove("champions");
+                accountNode.Remove("skins");
+                accountNode.Remove("Loot");
+                accountNode.Remove("valorantAgents");
+                accountNode.Remove("valorantContracts");
+                accountNode.Remove("valorantSprays");
+                accountNode.Remove("valorantGunBuddies");
+                accountNode.Remove("valorantCards");
+                accountNode.Remove("valorantSkins");
+                accountNode.Remove("valorantSkinVariants");
+                accountNode.Remove("valorantTitles");
+            }
+
+        return node.ToJsonString();
+    }
+
+    private static List<Utils.AccountList> NormalizeStructuredCollections(List<Utils.AccountList> records)
+    {
+        foreach (var record in records)
+        {
+            record.championsData = NormalizeStructuredEntries(record.championsData, record.champions);
+            record.skinsData = NormalizeStructuredEntries(record.skinsData, record.skins);
+            record.lootData = NormalizeStructuredEntries(record.lootData, record.Loot);
+
+            if (string.IsNullOrWhiteSpace(record.champions))
+                record.champions = SerializeDelimitedEntries(record.championsData);
+            if (string.IsNullOrWhiteSpace(record.skins))
+                record.skins = SerializeDelimitedEntries(record.skinsData);
+            if (string.IsNullOrWhiteSpace(record.Loot))
+                record.Loot = SerializeDelimitedEntries(record.lootData);
+
+            record.valorantAgentsData = NormalizeStructuredEntries(record.valorantAgentsData, record.valorantAgents);
+            record.valorantContractsData = NormalizeStructuredEntries(record.valorantContractsData, record.valorantContracts);
+            record.valorantSpraysData = NormalizeStructuredEntries(record.valorantSpraysData, record.valorantSprays);
+            record.valorantGunBuddiesData = NormalizeStructuredEntries(record.valorantGunBuddiesData, record.valorantGunBuddies);
+            record.valorantCardsData = NormalizeStructuredEntries(record.valorantCardsData, record.valorantCards);
+            record.valorantSkinsData = NormalizeStructuredEntries(record.valorantSkinsData, record.valorantSkins);
+            record.valorantSkinVariantsData = NormalizeStructuredEntries(record.valorantSkinVariantsData, record.valorantSkinVariants);
+            record.valorantTitlesData = NormalizeStructuredEntries(record.valorantTitlesData, record.valorantTitles);
+
+            if (string.IsNullOrWhiteSpace(record.valorantAgents))
+                record.valorantAgents = SerializeDelimitedEntries(record.valorantAgentsData);
+            if (string.IsNullOrWhiteSpace(record.valorantContracts))
+                record.valorantContracts = SerializeDelimitedEntries(record.valorantContractsData);
+            if (string.IsNullOrWhiteSpace(record.valorantSprays))
+                record.valorantSprays = SerializeDelimitedEntries(record.valorantSpraysData);
+            if (string.IsNullOrWhiteSpace(record.valorantGunBuddies))
+                record.valorantGunBuddies = SerializeDelimitedEntries(record.valorantGunBuddiesData);
+            if (string.IsNullOrWhiteSpace(record.valorantCards))
+                record.valorantCards = SerializeDelimitedEntries(record.valorantCardsData);
+            if (string.IsNullOrWhiteSpace(record.valorantSkins))
+                record.valorantSkins = SerializeDelimitedEntries(record.valorantSkinsData);
+            if (string.IsNullOrWhiteSpace(record.valorantSkinVariants))
+                record.valorantSkinVariants = SerializeDelimitedEntries(record.valorantSkinVariantsData);
+            if (string.IsNullOrWhiteSpace(record.valorantTitles))
+                record.valorantTitles = SerializeDelimitedEntries(record.valorantTitlesData);
+
+            if (record.Champions == 0)
+                record.Champions = record.championsData?.Count ?? 0;
+            if (record.Skins == 0)
+                record.Skins = record.skinsData?.Count ?? 0;
+            if (record.Loots == 0)
+                record.Loots = record.lootData?.Count ?? 0;
+        }
+
+        return records;
+    }
+
+    private static string SerializeDelimitedEntries(List<Utils.StructuredDataEntry>? entries)
+    {
+        if (entries == null || entries.Count == 0)
+            return string.Empty;
+
+        return string.Join(":", entries.Select(e =>
+            string.Join("|", e.name ?? string.Empty, e.icon ?? string.Empty, e.value ?? string.Empty)));
+    }
+
+    private static List<Utils.StructuredDataEntry> ParseDelimitedEntries(string? value)
+    {
+        var entries = new List<Utils.StructuredDataEntry>();
+        if (string.IsNullOrWhiteSpace(value))
+            return entries;
+
+        value = value.Trim();
+
+        if (!value.Contains('|'))
+        {
+            foreach (var token in value.Split(':', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var name = token.Trim();
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                entries.Add(new Utils.StructuredDataEntry
+                {
+                    name = name,
+                    icon = string.Empty,
+                    value = string.Empty
+                });
+            }
+
+            return entries;
+        }
+
+        var rawTokens = value.Split(new[] { ':' }, StringSplitOptions.None);
+        var lines = new List<string>();
+        for (var i = 0; i < rawTokens.Length; i++)
+        {
+            var current = rawTokens[i];
+            var pipeCount = current.Count(c => c == '|');
+            while (pipeCount < 2 && i + 1 < rawTokens.Length)
+            {
+                i++;
+                current = current + ":" + rawTokens[i];
+                pipeCount = current.Count(c => c == '|');
+            }
+
+            current = current.Trim();
+            if (!string.IsNullOrEmpty(current))
+                lines.Add(current);
+        }
+
+        foreach (var line in lines)
+        {
+            var parts = line.Split('|');
+            var entry = new Utils.StructuredDataEntry
+            {
+                name = parts.Length >= 1 ? parts[0].Trim() : string.Empty,
+                icon = parts.Length >= 2 ? parts[1].Trim() : string.Empty,
+                value = parts.Length >= 3 ? parts[2].Trim() : string.Empty
+            };
+            entries.Add(entry);
+        }
+
+        return entries;
+    }
+
+    private static List<Utils.StructuredDataEntry> NormalizeStructuredEntries(List<Utils.StructuredDataEntry>? existing,
+        string? legacy)
+    {
+        var parsedFromLegacy = ParseDelimitedEntries(legacy);
+        if (existing == null || existing.Count == 0)
+            return parsedFromLegacy;
+
+        var normalized = existing
+            .Select(e => new Utils.StructuredDataEntry
+            {
+                name = (e.name ?? string.Empty).TrimStart(':').Trim(),
+                icon = e.icon ?? string.Empty,
+                value = e.value ?? string.Empty,
+                extra = e.extra
+            })
+            .Where(e => !string.IsNullOrWhiteSpace(e.name) || !string.IsNullOrWhiteSpace(e.icon) ||
+                        !string.IsNullOrWhiteSpace(e.value))
+            .ToList();
+
+        if (normalized.Count == 0)
+            return parsedFromLegacy;
+
+        var single = normalized.Count == 1 ? normalized[0] : null;
+        if (single != null && string.IsNullOrWhiteSpace(single.icon) && string.IsNullOrWhiteSpace(single.value) &&
+            (single.name?.Contains(':') == true))
+        {
+            var reparsed = ParseDelimitedEntries(single.name);
+            if (reparsed.Count > 0)
+                return reparsed;
+        }
+
+        return normalized;
     }
 
     private static int TryParseInt(string? value)
@@ -464,5 +894,71 @@ internal static class AccountFileStore
         }
 
         return Encoding.UTF8.GetString(plainBytes);
+    }
+
+    private sealed class StorageEnvelope
+    {
+        public string Schema { get; set; } = string.Empty;
+        public int Version { get; set; }
+        public List<Utils.AccountList>? Accounts { get; set; }
+    }
+
+    private interface IAccountTransferFormat
+    {
+        string DisplayName { get; }
+        IReadOnlyList<string> Extensions { get; }
+        string Serialize(List<Utils.AccountList> records, CsvConfiguration config);
+        List<Utils.AccountList> Deserialize(string content, CsvConfiguration config);
+    }
+
+    private sealed class StructuredJsonTransferFormat : IAccountTransferFormat
+    {
+        public string DisplayName => "LAM Structured JSON";
+        public IReadOnlyList<string> Extensions => new[] { ".lam", ".lamjson", ".json" };
+
+        public string Serialize(List<Utils.AccountList> records, CsvConfiguration config)
+        {
+            _ = config;
+            var envelope = new StorageEnvelope
+            {
+                Schema = StorageSchema,
+                Version = StorageVersion,
+                Accounts = records
+            };
+            return JsonSerializer.Serialize(envelope);
+        }
+
+        public List<Utils.AccountList> Deserialize(string content, CsvConfiguration config)
+        {
+            return ReadStorageFromString(content, config).Records;
+        }
+    }
+
+    private sealed class CsvTransferFormat : IAccountTransferFormat
+    {
+        public string DisplayName => "Legacy CSV";
+        public IReadOnlyList<string> Extensions => new[] { ".csv" };
+
+        public string Serialize(List<Utils.AccountList> records, CsvConfiguration config)
+        {
+            return WriteCsvToString(records, config);
+        }
+
+        public List<Utils.AccountList> Deserialize(string content, CsvConfiguration config)
+        {
+            return ReadCsvFromString(content, config);
+        }
+    }
+
+    private sealed class StorageReadResult
+    {
+        public StorageReadResult(List<Utils.AccountList> records, bool usedLegacyFormat)
+        {
+            Records = records;
+            UsedLegacyFormat = usedLegacyFormat;
+        }
+
+        public List<Utils.AccountList> Records { get; }
+        public bool UsedLegacyFormat { get; }
     }
 }

@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -9,33 +10,66 @@ using System.Windows.Media;
 
 namespace League_Account_Manager.Misc;
 
-public static class DebugConsole
+public static class 
+    DebugConsole
 {
     private static DebugConsoleWindow? _window;
     private static DebugConsoleWriter? _writer;
+    private static readonly TextWriter _originalOut = Console.Out;
+    private static readonly object _sync = new();
+    private static readonly Queue<(string Message, ConsoleColor Color)> _pending = new();
+    private const int MaxPendingEntries = 1000;
 
     public static void WriteLine(string message, ConsoleColor color = ConsoleColor.White)
     {
-        var previous = Console.ForegroundColor;
-        Console.ForegroundColor = color;
-        Console.WriteLine(message);
-        Console.ForegroundColor = previous;
+        Debug.WriteLine(message);
+
+        DebugConsoleWindow? window;
+
+        lock (_sync)
+        {
+            if (_window == null)
+            {
+                _pending.Enqueue((message, color));
+                while (_pending.Count > MaxPendingEntries)
+                    _pending.Dequeue();
+
+                var previous = Console.ForegroundColor;
+                Console.ForegroundColor = color;
+                _originalOut.WriteLine(message);
+                Console.ForegroundColor = previous;
+                return;
+            }
+
+            window = _window;
+        }
+
+        window.AppendLine(message, color);
     }
 
     public static void Initialize(Window owner)
     {
-        if (_window != null)
-            return;
-
-        _window = new DebugConsoleWindow
+        lock (_sync)
         {
-            Owner = owner,
-            WindowStartupLocation = WindowStartupLocation.CenterScreen
-        };
+            if (_window != null)
+                return;
 
-        _writer = new DebugConsoleWriter((text, color) => _window?.AppendLine(text, color));
-        Console.SetOut(_writer);
-        Console.SetError(_writer);
+            _window = new DebugConsoleWindow
+            {
+                Owner = owner,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+
+            _writer = new DebugConsoleWriter((text, color) => _window?.AppendLine(text, color));
+            Console.SetOut(_writer);
+            Console.SetError(_writer);
+
+            while (_pending.Count > 0)
+            {
+                var (message, color) = _pending.Dequeue();
+                _window.AppendLine(message, color);
+            }
+        }
     }
 
     public static void ToggleVisibility()

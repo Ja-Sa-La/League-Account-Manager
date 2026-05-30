@@ -63,15 +63,24 @@ internal static class ProxyLoginTokenManager
 
     public static void RegisterLoginUriScheme()
     {
+        LogFlow("URI", "RegisterLoginUriScheme invoked.");
         try
         {
             var exePath = Environment.ProcessPath;
             if (string.IsNullOrWhiteSpace(exePath))
+            {
+                LogFlow("URI", "Skipping URI scheme registration: executable path is empty.", ConsoleColor.Yellow);
                 return;
+            }
+
+            LogFlow("URI", $"Registering URI scheme '{LoginUriScheme}' for executable '{exePath}'.");
 
             using var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{LoginUriScheme}");
             if (key == null)
+            {
+                LogFlow("URI", "Failed to create URI scheme registry key.", ConsoleColor.Red);
                 return;
+            }
 
             key.SetValue(string.Empty, "URL:League Account Manager Login");
             key.SetValue("URL Protocol", string.Empty);
@@ -81,39 +90,61 @@ internal static class ProxyLoginTokenManager
 
             using var commandKey = key.CreateSubKey(@"shell\open\command");
             commandKey?.SetValue(string.Empty, $"\"{exePath}\" \"%1\"");
+
+            LogFlow("URI", $"URI scheme '{LoginUriScheme}' registered successfully.");
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine($"[ProxyLoginToken] Failed to register URI scheme: {ex.Message}");
+            LogFlow("URI", $"Failed to register URI scheme: {ex.Message}", ConsoleColor.Red);
         }
     }
 
     public static async Task TryHandleLoginUriAsync(string[]? args)
     {
-        DebugConsole.WriteLine("[ProxyLoginToken] Handling Uri");
+        LogFlow("URI", "TryHandleLoginUriAsync invoked.");
         if (args == null || args.Length == 0)
+        {
+            LogFlow("URI", "No startup args provided; URI handling skipped.", ConsoleColor.Yellow);
             return;
+        }
+
+        LogFlow("URI", $"Startup args count: {args.Length}");
 
         var uriArg = args.FirstOrDefault(arg =>
             arg.StartsWith($"{LoginUriScheme}://", StringComparison.OrdinalIgnoreCase) ||
             arg.StartsWith("https://redirect.leagueaccountmanager.xyz/", StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrWhiteSpace(uriArg))
+        {
+            LogFlow("URI", "No supported login URI found in startup args.", ConsoleColor.Yellow);
             return;
+        }
+
+        LogFlow("URI", $"Matched startup URI: {uriArg}");
 
         var token = ExtractTokenFromText(uriArg);
         if (string.IsNullOrWhiteSpace(token))
         {
-            DebugConsole.WriteLine("[ProxyLoginToken] Login URI missing token.");
+            LogFlow("URI", "Login URI missing token.", ConsoleColor.Red);
             return;
         }
 
+        LogFlow("URI", $"Token extracted from URI successfully. Length={token.Length}");
+
         var product = GetProductFromEncodedTokenOrDefault(token);
-        DebugConsole.WriteLine($"[ProxyLoginToken] Token product detected: {product}");
+        LogFlow("URI", $"Token product detected: {product}");
 
         if (product == ProductValorant)
+        {
+            LogFlow("URI", "Dispatching token login to Valorant handler.");
             await UseLoginTokenValorantAsync(token);
+        }
         else
+        {
+            LogFlow("URI", "Dispatching token login to League handler.");
             await UseLoginTokenAsync(token);
+        }
+
+        LogFlow("URI", "TryHandleLoginUriAsync completed.");
     }
 
     public static async Task CaptureLoginTokenAsync(string responseText, bool? persistLogin = false,
@@ -172,13 +203,15 @@ internal static class ProxyLoginTokenManager
 
     public static async Task<bool> UseLoginTokenAsync()
     {
+        LogFlow("League", "UseLoginTokenAsync invoked (clipboard source).");
         var encodedToken = await TryGetLoginTokenFromClipboardAsync();
         if (string.IsNullOrWhiteSpace(encodedToken))
         {
-            DebugConsole.WriteLine("[ProxyLoginToken] Clipboard does not contain a login token.");
+            LogFlow("League", "Clipboard does not contain a login token.", ConsoleColor.Yellow);
             return false;
         }
 
+        LogFlow("League", "Token extracted from clipboard successfully.");
         return await UseLoginTokenAsync(encodedToken);
     }
 
@@ -186,10 +219,19 @@ internal static class ProxyLoginTokenManager
     {
         try
         {
+            LogFlow("League", "Token login flow started.");
             if (!await CheckLeague()) throw new Exception("League not installed");
+            LogFlow("League", "Riot executable path validated.");
+
+            LogFlow("League", "Killing existing client processes (KillLeagueFunc2).");
             Utils.KillLeagueFunc2();
             var riotProcess = Process.Start(Settings.settingsloaded.riotPath,
                 "--launch-product=league_of_legends --launch-patchline=live");
+            LogFlow("League", riotProcess != null
+                ? $"Riot launch command executed. PID={riotProcess.Id}"
+                : "Riot launch command executed. Process object is null.");
+
+            LogFlow("League", "Waiting for Riot client process to appear...");
             var num = 0;
             while (true)
             {
@@ -200,13 +242,15 @@ internal static class ProxyLoginTokenManager
 
                 Thread.Sleep(200);
                 num++;
-                if (num == 20)
+                if (num == 200)
                 {
-                    DebugConsole.WriteLine("[ProxyLoginToken] Riot client is not running.");
+                    LogFlow("League", "Riot client process did not appear in time.", ConsoleColor.Red);
                     return false;
                 }
             }
+            LogFlow("League", "Riot client process detected.");
 
+            LogFlow("League", "Waiting for /rso-auth ready state...");
             while (true)
             {
                 var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
@@ -222,44 +266,49 @@ internal static class ProxyLoginTokenManager
                     }
                     catch
                     {
+                        LogFlow("League", "Ready-state payload parse failed; retrying.", ConsoleColor.Yellow);
                     }
                 }
 
                 await Task.Delay(200);
             }
+            LogFlow("League", "Riot ready state reached.");
 
             byte[] encrypted;
             try
             {
                 encrypted = Convert.FromBase64String(encodedToken);
+                LogFlow("League", "Base64 token decode successful.");
             }
             catch (FormatException)
             {
-                DebugConsole.WriteLine("[ProxyLoginToken] Login token is not valid base64.");
+                LogFlow("League", "Login token is not valid base64.", ConsoleColor.Red);
                 return false;
             }
 
             var payload = JsonSerializer.Deserialize<LoginTokenPayload>(encrypted, JsonOptions);
             if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
             {
-                DebugConsole.WriteLine("[ProxyLoginToken] Login token payload missing or invalid.");
+                LogFlow("League", "Login token payload missing or invalid.", ConsoleColor.Red);
                 return false;
             }
+            LogFlow("League", "Token payload deserialized successfully.");
 
             DebugConsole.WriteLine(
                 $"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
 
             var loginPayload = JsonSerializer.Serialize(payload, JsonOptions);
-            DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v1/session/login-token payload.");
+            LogFlow("League", "Sending /rso-auth/v1/session/login-token payload.");
             dynamic? credentialsResponse;
             try
             {
                 credentialsResponse =
                     await Lcu.Connector("riot", "put", "/rso-auth/v1/session/login-token", loginPayload);
+                LogFlow("League", "/rso-auth/v1/session/login-token request completed.");
             }
             catch (Exception ex)
             {
-                DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v1/session/login-token failed: {ex}");
+                LogFlow("League", $"/rso-auth/v1/session/login-token failed: {ex.Message}", ConsoleColor.Red);
                 return false;
             }
 
@@ -270,6 +319,7 @@ internal static class ProxyLoginTokenManager
                 if (!string.IsNullOrWhiteSpace(errorBody) &&
                     errorBody.Contains("auth_failure", StringComparison.OrdinalIgnoreCase))
                 {
+                    LogFlow("League", "Riot API rejected login token (auth_failure).", ConsoleColor.Red);
                     Notif.notificationManager.Show("Invalid Token",
                         "The login token is not valid.",
                         NotificationType.Error);
@@ -278,29 +328,33 @@ internal static class ProxyLoginTokenManager
             }
 
             await LogResponseAsync("/rso-auth/v1/session/login-token", credentialsResponse);
+            LogFlow("League", "Preparing /rso-auth/v2/authorizations payload.");
             var authorizationPayload = JsonSerializer.Serialize(new
             {
                 clientId = "riot-client",
                 trustLevels = new[] { "always_trusted" }
             }, JsonOptions);
 
-            DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v2/authorizations payload.");
+            LogFlow("League", "Sending /rso-auth/v2/authorizations payload.");
             dynamic? authorizationResponse;
             try
             {
                 authorizationResponse =
                     await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
+                LogFlow("League", "/rso-auth/v2/authorizations request completed.");
             }
             catch (Exception ex)
             {
-                DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v2/authorizations failed: {ex}");
+                LogFlow("League", $"/rso-auth/v2/authorizations failed: {ex.Message}", ConsoleColor.Red);
                 return false;
             }
 
             await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
 
             var success = credentialsResponse != null && authorizationResponse != null;
-            DebugConsole.WriteLine($"[ProxyLoginToken] Token login completed: {success}");
+            LogFlow("League", $"Token authentication stage completed: {success}");
+
+            LogFlow("League", "Checking EULA acceptance state...");
             while (true)
             {
                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
@@ -309,6 +363,7 @@ internal static class ProxyLoginTokenManager
                 if (status == "\"Accepted\"") break;
                 if (status == "\"AcceptanceRequired\"")
                 {
+                    LogFlow("League", "EULA acceptance required; sending acceptance request.");
                     await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
                     Thread.Sleep(200);
                 }
@@ -317,38 +372,53 @@ internal static class ProxyLoginTokenManager
                     Thread.Sleep(500);
                 }
             }
+            LogFlow("League", "EULA accepted.");
 
+            LogFlow("League", "Launching League product patchline.");
             await Lcu.Connector("riot", "post",
                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
+            LogFlow("League", "League product launch request sent successfully.");
+            LogFlow("League", $"UseLoginTokenAsync finished. Success={success}");
 
             return success;
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine($"[ProxyLoginToken] Failed to use login token: {ex}");
+            LogFlow("League", $"Failed to use login token: {ex}", ConsoleColor.Red);
             return false;
         }
     }
 
     public static async Task<bool> UseLoginTokenValorantAsync()
     {
+        LogFlow("Valorant", "UseLoginTokenValorantAsync invoked (clipboard source).");
         var encodedToken = await TryGetLoginTokenFromClipboardAsync();
         if (string.IsNullOrWhiteSpace(encodedToken))
         {
-            DebugConsole.WriteLine("[ProxyLoginToken] Clipboard does not contain a login token.");
+            LogFlow("Valorant", "Clipboard does not contain a login token.", ConsoleColor.Yellow);
             return false;
         }
 
+        LogFlow("Valorant", "Token extracted from clipboard successfully.");
         return await UseLoginTokenValorantAsync(encodedToken);
     }
     private static async Task<bool> UseLoginTokenValorantAsync(string encodedToken)
     {
         try
         {
+            LogFlow("Valorant", "Token login flow started.");
             if (!await CheckLeague()) throw new Exception("valorant not installed");
+            LogFlow("Valorant", "Riot executable path validated.");
+
+            LogFlow("Valorant", "Killing existing client processes (KillLeagueFunc2).");
             Utils.KillLeagueFunc2();
             var riotProcess = Process.Start(Settings.settingsloaded.riotPath,
                 "--launch-product=valorant --launch-patchline=live");
+            LogFlow("Valorant", riotProcess != null
+                ? $"Riot launch command executed. PID={riotProcess.Id}"
+                : "Riot launch command executed. Process object is null.");
+
+            LogFlow("Valorant", "Waiting for Riot client process to appear...");
             var num = 0;
             while (true)
             {
@@ -361,11 +431,13 @@ internal static class ProxyLoginTokenManager
                 num++;
                 if (num == 20)
                 {
-                    DebugConsole.WriteLine("[ProxyLoginToken] Riot client is not running.");
+                    LogFlow("Valorant", "Riot client process did not appear in time.", ConsoleColor.Red);
                     return false;
                 }
             }
+            LogFlow("Valorant", "Riot client process detected.");
 
+            LogFlow("Valorant", "Waiting for /rso-auth ready state...");
             while (true)
             {
                 var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
@@ -381,44 +453,49 @@ internal static class ProxyLoginTokenManager
                     }
                     catch
                     {
+                        LogFlow("Valorant", "Ready-state payload parse failed; retrying.", ConsoleColor.Yellow);
                     }
                 }
 
                 await Task.Delay(200);
             }
+            LogFlow("Valorant", "Riot ready state reached.");
 
             byte[] encrypted;
             try
             {
                 encrypted = Convert.FromBase64String(encodedToken);
+                LogFlow("Valorant", "Base64 token decode successful.");
             }
             catch (FormatException)
             {
-                DebugConsole.WriteLine("[ProxyLoginToken] Login token is not valid base64.");
+                LogFlow("Valorant", "Login token is not valid base64.", ConsoleColor.Red);
                 return false;
             }
 
             var payload = JsonSerializer.Deserialize<LoginTokenPayload>(encrypted, JsonOptions);
             if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
             {
-                DebugConsole.WriteLine("[ProxyLoginToken] Login token payload missing or invalid.");
+                LogFlow("Valorant", "Login token payload missing or invalid.", ConsoleColor.Red);
                 return false;
             }
+            LogFlow("Valorant", "Token payload deserialized successfully.");
 
             DebugConsole.WriteLine(
                 $"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
 
             var loginPayload = JsonSerializer.Serialize(payload, JsonOptions);
-            DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v1/session/login-token payload.");
+            LogFlow("Valorant", "Sending /rso-auth/v1/session/login-token payload.");
             dynamic? credentialsResponse;
             try
             {
                 credentialsResponse =
                     await Lcu.Connector("riot", "put", "/rso-auth/v1/session/login-token", loginPayload);
+                LogFlow("Valorant", "/rso-auth/v1/session/login-token request completed.");
             }
             catch (Exception ex)
             {
-                DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v1/session/login-token failed: {ex}");
+                LogFlow("Valorant", $"/rso-auth/v1/session/login-token failed: {ex.Message}", ConsoleColor.Red);
                 return false;
             }
 
@@ -429,6 +506,7 @@ internal static class ProxyLoginTokenManager
                 if (!string.IsNullOrWhiteSpace(errorBody) &&
                     errorBody.Contains("auth_failure", StringComparison.OrdinalIgnoreCase))
                 {
+                    LogFlow("Valorant", "Riot API rejected login token (auth_failure).", ConsoleColor.Red);
                     Notif.notificationManager.Show("Invalid Token",
                         "The login token is not valid.",
                         NotificationType.Error);
@@ -437,29 +515,32 @@ internal static class ProxyLoginTokenManager
             }
 
             await LogResponseAsync("/rso-auth/v1/session/login-token", credentialsResponse);
+            LogFlow("Valorant", "Preparing /rso-auth/v2/authorizations payload.");
             var authorizationPayload = JsonSerializer.Serialize(new
             {
                 clientId = "riot-client",
                 trustLevels = new[] { "always_trusted" }
             }, JsonOptions);
 
-            DebugConsole.WriteLine("[ProxyLoginToken] Sending /rso-auth/v2/authorizations payload.");
+            LogFlow("Valorant", "Sending /rso-auth/v2/authorizations payload.");
             dynamic? authorizationResponse;
             try
             {
                 authorizationResponse =
                     await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
+                LogFlow("Valorant", "/rso-auth/v2/authorizations request completed.");
             }
             catch (Exception ex)
             {
-                DebugConsole.WriteLine($"[ProxyLoginToken] /rso-auth/v2/authorizations failed: {ex}");
+                LogFlow("Valorant", $"/rso-auth/v2/authorizations failed: {ex.Message}", ConsoleColor.Red);
                 return false;
             }
 
             await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
 
             var success = credentialsResponse != null && authorizationResponse != null;
-            DebugConsole.WriteLine($"[ProxyLoginToken] Token login completed: {success}");
+            LogFlow("Valorant", $"Token authentication stage completed: {success}");
+            LogFlow("Valorant", "Checking EULA acceptance state...");
             while (true)
             {
                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
@@ -468,6 +549,7 @@ internal static class ProxyLoginTokenManager
                 if (status == "\"Accepted\"") break;
                 if (status == "\"AcceptanceRequired\"")
                 {
+                    LogFlow("Valorant", "EULA acceptance required; sending acceptance request.");
                     await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
                     Thread.Sleep(200);
                 }
@@ -476,18 +558,28 @@ internal static class ProxyLoginTokenManager
                     Thread.Sleep(500);
                 }
             }
+            LogFlow("Valorant", "EULA accepted.");
 
+            LogFlow("Valorant", "Launching Valorant product patchline.");
             await Lcu.Connector("riot", "post",
                 "/product-launcher/v1/products/valorant/patchlines/live", "");
+            LogFlow("Valorant", "Valorant product launch request sent successfully.");
+            LogFlow("Valorant", $"UseLoginTokenValorantAsync finished. Success={success}");
 
             return success;
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine($"[ProxyLoginToken] Failed to use login token: {ex}");
+            LogFlow("Valorant", $"Failed to use login token: {ex}", ConsoleColor.Red);
             return false;
         }
     }
+
+    private static void LogFlow(string flow, string message, ConsoleColor color = ConsoleColor.White)
+    {
+        DebugConsole.WriteLine($"[ProxyLoginToken][{flow}] {message}", color);
+    }
+
     private static async Task LogResponseAsync(string endpoint, object? response)
     {
         if (response is not HttpResponseMessage httpResponse)
@@ -572,15 +664,25 @@ internal static class ProxyLoginTokenManager
 
     private static string? ExtractTokenFromText(string text)
     {
+        LogFlow("URI", "ExtractTokenFromText started.");
         var tokenFromMarkdown = ExtractTokenFromMarkdown(text);
         if (!string.IsNullOrWhiteSpace(tokenFromMarkdown))
+        {
+            LogFlow("URI", "Token extracted from markdown wrapper.");
             return tokenFromMarkdown;
+        }
 
-        return ExtractTokenFromUri(text);
+        var tokenFromUri = ExtractTokenFromUri(text);
+        if (!string.IsNullOrWhiteSpace(tokenFromUri))
+            LogFlow("URI", "Token extracted from direct URI.");
+        else
+            LogFlow("URI", "Token extraction failed from provided text.", ConsoleColor.Yellow);
+        return tokenFromUri;
     }
 
     private static string? ExtractTokenFromMarkdown(string text)
     {
+        LogFlow("URI", "Attempting markdown token extraction.");
         var openParen = text.IndexOf('(');
         if (openParen < 0)
             return null;
@@ -593,32 +695,48 @@ internal static class ProxyLoginTokenManager
         if (string.IsNullOrWhiteSpace(url))
             return null;
 
+        LogFlow("URI", "Markdown URL found, attempting URI token extraction.");
+
         return ExtractTokenFromUri(url);
     }
 
     private static string? ExtractTokenFromUri(string uriText)
     {
+        LogFlow("URI", "Attempting URI token extraction.");
         if (!Uri.TryCreate(uriText, UriKind.Absolute, out var uri))
+        {
+            LogFlow("URI", "Invalid URI text; cannot parse absolute URI.", ConsoleColor.Yellow);
             return null;
+        }
 
         if (uri.Scheme.Equals(LoginUriScheme, StringComparison.OrdinalIgnoreCase))
         {
             if (!uri.Host.Equals(LoginUriHost, StringComparison.OrdinalIgnoreCase))
+            {
+                LogFlow("URI", $"Unsupported custom URI host '{uri.Host}'.", ConsoleColor.Yellow);
                 return null;
+            }
         }
         else if (uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
         {
             if (!uri.Host.Equals("redirect.leagueaccountmanager.xyz", StringComparison.OrdinalIgnoreCase))
+            {
+                LogFlow("URI", $"Unsupported HTTPS host '{uri.Host}'.", ConsoleColor.Yellow);
                 return null;
+            }
         }
         else
         {
+            LogFlow("URI", $"Unsupported URI scheme '{uri.Scheme}'.", ConsoleColor.Yellow);
             return null;
         }
 
         var query = uri.Query.TrimStart('?');
         if (string.IsNullOrWhiteSpace(query))
+        {
+            LogFlow("URI", "URI query string is empty.", ConsoleColor.Yellow);
             return null;
+        }
 
         foreach (var segment in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -630,9 +748,11 @@ internal static class ProxyLoginTokenManager
                 continue;
 
             var value = parts.Length > 1 ? parts[1] : string.Empty;
+            LogFlow("URI", "Token parameter found in URI query.");
             return Uri.UnescapeDataString(value);
         }
 
+        LogFlow("URI", "Token parameter not found in URI query.", ConsoleColor.Yellow);
         return null;
     }
 
