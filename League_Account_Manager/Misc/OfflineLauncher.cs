@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Formats.Asn1;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -19,6 +20,17 @@ internal class OfflineLauncher
 {
     private const string RiotClientConfigBaseUrl = "https://clientconfig.rpg.riotgames.com";
     private const string GeoPasUrl = "https://riot-geo.pas.si.riotgames.com/pas/v1/service/chat";
+    private const string LocalhostDomain = "localhost.leagueaccountmanager.xyz";
+    private const string HostsEntryIp = "127.0.0.1";
+    private const string HostsEntryComment = "# Localhost mapping used by League Account Manager offline launcher";
+    private static readonly string CachedCertificatePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "League Account Manager",
+        "OfflineLauncher",
+        "localhostCert.pfx");
+    private static readonly string HostsFilePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.System),
+        "drivers/etc/hosts");
     private readonly ConcurrentDictionary<int, ClientConfigProxy> ActiveProxies = new();
 
     private readonly HttpClient SharedHttpClient = new();
@@ -31,7 +43,14 @@ internal class OfflineLauncher
         string? extraRiotClientArgs = null,
         CancellationToken cancellationToken = default)
     {
-        var chatProxy = new ChatProxy();
+        EnsureHostsEntry();
+
+        var serverCertificate = await GetProxyCertificateAsync(cancellationToken);
+        if (serverCertificate is null)
+            throw new InvalidOperationException(
+                "Offline launcher was unable to obtain the certificate required to proxy the chat connection.");
+
+        var chatProxy = new ChatProxy(serverCertificate);
         await chatProxy.StartAsync(cancellationToken);
         var configProxy = await StartClientConfigProxyAsync(SharedHttpClient, chatProxy, cancellationToken);
 
@@ -83,7 +102,7 @@ internal class OfflineLauncher
 
         DebugConsole.WriteLine($"[OfflineLauncher] Config proxy listening on {prefix}");
 
-        var proxy = new ClientConfigProxy(listener, prefix);
+        var proxy = new ClientConfigProxy(listener, prefix.TrimEnd('/'));
 
         _ = Task.Run(async () =>
         {
@@ -94,7 +113,7 @@ internal class OfflineLauncher
                 {
                     ctx = await listener.GetContextAsync();
                     var requestId = Interlocked.Increment(ref _configRequestCounter);
-                    var rawUrl = ctx.Request.RawUrl ?? "/";
+                    var rawUrl = NormalizeConfigPath(ctx.Request.RawUrl);
                     var upstreamUrl = RiotClientConfigBaseUrl + rawUrl;
                     DebugConsole.WriteLine(
                         $"[OfflineLauncher] Config request #{requestId}: {ctx.Request.HttpMethod} {rawUrl}");
@@ -141,6 +160,14 @@ internal class OfflineLauncher
         var value = src.Headers[srcName];
         if (!string.IsNullOrWhiteSpace(value))
             dst.Headers.TryAddWithoutValidation(dstName, value);
+    }
+
+    private static string NormalizeConfigPath(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl))
+            return "/";
+
+        return "/" + rawUrl.TrimStart('/');
     }
 
     private async Task<string> TryPatchConfigForOfflineAsync(
@@ -203,20 +230,208 @@ internal class OfflineLauncher
         if (!string.IsNullOrWhiteSpace(chatHost) && chatPort > 0)
         {
             chatProxy.SetUpstream(chatHost, chatPort);
-            config["chat.host"] = "127.0.0.1";
+            config["chat.host"] = LocalhostDomain;
             config["chat.port"] = chatProxy.Port;
             if (config["chat.affinities"] is JsonObject affinities)
                 foreach (var key in affinities.ToList())
-                    affinities[key.Key] = "127.0.0.1";
-
-            if (config["chat.allow_bad_cert.enabled"] is not null)
-                config["chat.allow_bad_cert.enabled"] = true;
+                    affinities[key.Key] = LocalhostDomain;
 
             DebugConsole.WriteLine(
-                $"[OfflineLauncher] Patched chat route {chatHost}:{chatPort} -> 127.0.0.1:{chatProxy.Port} for {rawUrl}");
+                $"[OfflineLauncher] Patched chat route {chatHost}:{chatPort} -> {LocalhostDomain}:{chatProxy.Port} for {rawUrl}");
         }
 
         return config.ToJsonString();
+    }
+
+    private async Task<X509Certificate2?> GetProxyCertificateAsync(CancellationToken cancellationToken)
+    {
+        var cachedCert = GetCachedCertificate();
+        if (cachedCert is not null && cachedCert.NotAfter > DateTime.Now.AddDays(20))
+        {
+            DebugConsole.WriteLine(
+                $"[OfflineLauncher] Using cached localhost certificate valid until {cachedCert.NotAfter:u}.");
+            return cachedCert;
+        }
+
+        try
+        {
+            DebugConsole.WriteLine("[OfflineLauncher] Downloading updated localhost certificate.");
+            using var httpClient = new HttpClient();
+            var certBytes = await httpClient.GetByteArrayAsync("https://redirect.leagueaccountmanager.xyz/cert.pfx", cancellationToken);
+            var certificate = new X509Certificate2(certBytes);
+
+            if (!CertificateMatchesDomain(certificate, LocalhostDomain))
+            {
+                DebugConsole.WriteLine(
+                    $"[OfflineLauncher] Downloaded certificate does not match expected domain {LocalhostDomain}.");
+                certificate.Dispose();
+                return null;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(CachedCertificatePath)!);
+            File.WriteAllBytes(CachedCertificatePath, certBytes);
+            return certificate;
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[OfflineLauncher] Failed to obtain localhost certificate: {ex}");
+            return null;
+        }
+    }
+
+    private X509Certificate2? GetCachedCertificate()
+    {
+        if (!File.Exists(CachedCertificatePath))
+            return null;
+
+        try
+        {
+            var certificate = new X509Certificate2(File.ReadAllBytes(CachedCertificatePath));
+            if (CertificateMatchesDomain(certificate, LocalhostDomain))
+                return certificate;
+
+            DebugConsole.WriteLine(
+                $"[OfflineLauncher] Cached localhost certificate does not match expected domain {LocalhostDomain}; deleting cache.");
+            certificate.Dispose();
+
+            try
+            {
+                File.Delete(CachedCertificatePath);
+            }
+            catch (Exception deleteEx)
+            {
+                DebugConsole.WriteLine(
+                    $"[OfflineLauncher] Failed to delete invalid cached localhost certificate: {deleteEx.Message}");
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[OfflineLauncher] Failed to load cached localhost certificate: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static bool CertificateMatchesDomain(X509Certificate2 certificate, string expectedDomain)
+    {
+        try
+        {
+            foreach (var extension in certificate.Extensions)
+            {
+                if (extension.Oid?.Value != "2.5.29.17")
+                    continue;
+
+                var reader = new AsnReader(extension.RawData, AsnEncodingRules.DER);
+                var sequence = reader.ReadSequence();
+
+                while (sequence.HasData)
+                {
+                    var tag = sequence.PeekTag();
+                    if (tag.HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 2)))
+                    {
+                        var dnsName = sequence.ReadCharacterString(UniversalTagNumber.IA5String,
+                            new Asn1Tag(TagClass.ContextSpecific, 2));
+                        if (string.Equals(dnsName, expectedDomain, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                    else
+                    {
+                        sequence.ReadEncodedValue();
+                    }
+                }
+
+                return false;
+            }
+
+            var dnsNameFromCertificate = certificate.GetNameInfo(X509NameType.DnsName, false);
+            if (string.Equals(dnsNameFromCertificate, expectedDomain, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return certificate.Subject.Contains($"CN={expectedDomain}", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[OfflineLauncher] Failed to validate certificate domain: {ex.Message}");
+            return false;
+        }
+    }
+
+    private void EnsureHostsEntry()
+    {
+        if (HostsEntryExists())
+            return;
+
+        var result = System.Windows.MessageBox.Show(
+            $"Stealth login requires a hosts file entry for {LocalhostDomain}. If you press Yes, League Account Manager will try to add `{HostsEntryIp} {LocalhostDomain}` to your hosts file and may request administrator permissions. If you press No, stealth login will be canceled.",
+            "League Account Manager",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question,
+            System.Windows.MessageBoxResult.Yes);
+
+        if (result != System.Windows.MessageBoxResult.Yes)
+            throw new InvalidOperationException("Offline launcher canceled because the hosts file entry is missing.");
+
+        try
+        {
+            var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"$hostsPath = '{EscapePowerShellSingleQuotedString(HostsFilePath)}'; $entry = '{EscapePowerShellSingleQuotedString(HostsEntryIp)} {EscapePowerShellSingleQuotedString(LocalhostDomain)}'; $comment = '{EscapePowerShellSingleQuotedString(HostsEntryComment)}'; if (-not (Test-Path -LiteralPath $hostsPath)) {{ throw 'Hosts file not found.' }}; $content = Get-Content -LiteralPath $hostsPath -Raw; if ($content -notmatch '(?im)^\\s*127\\.0\\.0\\.1\\s+localhost\\.leagueaccountmanager\\.xyz(?:\\s|$)') {{ Add-Content -LiteralPath $hostsPath -Value \"`r`n$comment`r`n$entry\" }}\"",
+                UseShellExecute = true,
+                Verb = "runas"
+            });
+
+            process?.WaitForExit();
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[OfflineLauncher] Failed to elevate for hosts update: {ex.Message}");
+        }
+
+        if (HostsEntryExists())
+            return;
+
+        throw new InvalidOperationException(
+            "Offline launcher was unable to add the required hosts file entry.");
+    }
+
+    private bool HostsEntryExists()
+    {
+        try
+        {
+            if (!File.Exists(HostsFilePath))
+                return false;
+
+            foreach (var line in File.ReadLines(HostsFilePath))
+            {
+                var content = line.Split('#', 2)[0].Trim();
+                if (string.IsNullOrWhiteSpace(content))
+                    continue;
+
+                var parts = content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2)
+                    continue;
+
+                if (!string.Equals(parts[0], HostsEntryIp, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (parts.Skip(1).Any(host => string.Equals(host, LocalhostDomain, StringComparison.OrdinalIgnoreCase)))
+                    return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[OfflineLauncher] Failed to read hosts file: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static string EscapePowerShellSingleQuotedString(string value)
+    {
+        return value.Replace("'", "''");
     }
 
     private bool LooksLikeJsonObject(string content)
@@ -249,12 +464,17 @@ internal class OfflineLauncher
             public string? ValorantVersion;
         }
 
-        private readonly X509Certificate2 _certificate = CreateTemporaryCertificate();
+        private readonly X509Certificate2 _certificate;
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
         private long _chatConnectionCounter;
         private volatile bool _disposed;
         private string? _upstreamHost;
         private int _upstreamPort;
+
+        public ChatProxy(X509Certificate2 certificate)
+        {
+            _certificate = certificate;
+        }
 
         public int Port { get; private set; }
 
@@ -366,7 +586,7 @@ internal class OfflineLauncher
                 if (text.Contains("<presence", StringComparison.OrdinalIgnoreCase) &&
                     text.Contains("</presence>", StringComparison.OrdinalIgnoreCase))
                 {
-                    TryCaptureValorantVersion(text, state, connectionId);
+                    await TryCaptureValorantVersionAsync(text, state, connectionId, incomingSsl, token);
                     var rewritten = RewritePresenceToOffline(text);
                     if (!ReferenceEquals(rewritten, text))
                     {
@@ -428,7 +648,8 @@ internal class OfflineLauncher
             }
         }
 
-        private void TryCaptureValorantVersion(string content, PresenceInjectionState state, long connectionId)
+        private async Task TryCaptureValorantVersionAsync(string content, PresenceInjectionState state, long connectionId,
+            SslStream clientSsl, CancellationToken token)
         {
             if (!string.IsNullOrWhiteSpace(state.ValorantVersion))
                 return;
@@ -439,6 +660,9 @@ internal class OfflineLauncher
 
             state.ValorantVersion = version;
             DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: extracted VALORANT version '{version}'.");
+
+            if (state.InsertedStealthUser)
+                await SendStealthPresenceAsync(clientSsl, connectionId, state, token, force: true);
         }
 
         private static string? TryExtractValorantVersion(string content)
@@ -475,9 +699,9 @@ internal class OfflineLauncher
         }
 
         private async Task SendStealthPresenceAsync(SslStream clientSsl, long connectionId, PresenceInjectionState state,
-            CancellationToken token)
+            CancellationToken token, bool force = false)
         {
-            if (state.SentStealthPresence)
+            if (state.SentStealthPresence && !force)
                 return;
 
             state.SentStealthPresence = true;
@@ -523,7 +747,7 @@ internal class OfflineLauncher
                  },
                  "playerPresenceData":
                  {
-                     "playerCardId": "99bdfb9b-4ee9-a057-5b62-b2ae6309abf8",
+                     "playerCardId": "83958320-4a43-27d4-d497-6ea181bef1aa",
                      "playerTitleId": "e3ca05a4-4e44-9afe-3791-7d96ca8f71fa",
                      "accountLevel": 999,
                      "competitiveTier": 0,
@@ -547,7 +771,8 @@ internal class OfflineLauncher
 
             var payload = Encoding.UTF8.GetBytes(presenceMessage);
             await clientSsl.WriteAsync(payload.AsMemory(0, payload.Length), token);
-            DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: sent stealth fake presence.");
+            DebugConsole.WriteLine(
+                $"[OfflineLauncher] Chat request #{connectionId}: {(force ? "resent" : "sent")} stealth fake presence.");
         }
 
         private string RewritePresenceToOffline(string content)
@@ -611,20 +836,6 @@ internal class OfflineLauncher
 
                 return content;
             }
-        }
-
-        private static X509Certificate2 CreateTemporaryCertificate()
-        {
-            using var rsa = RSA.Create(2048);
-            var req = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            req.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
-            req.CertificateExtensions.Add(
-                new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
-                    false));
-            req.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(req.PublicKey, false));
-
-            var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(30));
-            return new X509Certificate2(cert.Export(X509ContentType.Pfx));
         }
     }
 

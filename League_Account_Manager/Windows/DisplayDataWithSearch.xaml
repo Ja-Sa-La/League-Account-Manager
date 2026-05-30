@@ -3,7 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" Height="620"
         Width="560" WindowStyle="None" WindowStartupLocation="CenterScreen" Background="#FF1F1F1F"
-        MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated" ResizeMode="NoResize">
+        MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated" ResizeMode="NoResize"
+        LocationChanged="Window_LocationOrSizeChanged" SizeChanged="Window_LocationOrSizeChanged"
+        Closed="Window_Closed">
     <Grid Background="#FF1F1F1F" Margin="0,0,0,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -31,18 +33,19 @@
 
         <Border Grid.Row="2" Background="#FF2A2A2A" BorderBrush="#FF4C4C4C" BorderThickness="1" CornerRadius="6"
                 Padding="8" Margin="0,0,0,8">
-            <ScrollViewer MouseDown="Window_MouseDownDatadisplay" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer MouseDown="Window_MouseDownDatadisplay"
+                          VerticalScrollBarVisibility="Auto" MouseLeave="OnItemsListMouseLeave">
                 <ItemsControl Name="ItemsList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#FF323232" CornerRadius="6" Padding="10" Margin="0,8,0,8">
+                            <Border Background="#FF323232" CornerRadius="6" Padding="10" Margin="0,8,0,8"
+                                    MouseEnter="OnItemHoverEnter">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="65" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Icon placeholder and image -->
                                     <Grid>
                                         <Border Height="60" MinWidth="60" Background="#FF454545" CornerRadius="4"
                                                 HorizontalAlignment="Left" VerticalAlignment="Center">
@@ -51,7 +54,6 @@
                                         </Border>
                                     </Grid>
 
-                                    <!-- Item text and optional price -->
                                     <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0"
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" Foreground="White" TextWrapping="Wrap"

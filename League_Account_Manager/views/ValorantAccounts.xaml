@@ -74,6 +74,7 @@
                 <DataGrid x:Name="ValorantAccountsDataGrid" SelectionUnit="FullRow"
                           KeyDown="OnAccountsKeyDown"
                           MouseLeftButtonDown="OnAccountsMouseLeftButtonDown"
+                          Sorting="OnValorantAccountsDataGridSorting"
                           IsReadOnly="True"
                           HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
                           SelectionMode="Single" Background="#FF202020" BorderBrush="#FF4C4C4C" Margin="0"

@@ -8,7 +8,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:shell="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     mc:Ignorable="d"
-    Title="League Account Manager" Height="800" Width="1400"
+    Title="League Account Manager" Height="800" Width="1500"
     AllowsTransparency="True" ResizeMode="CanResize" SizeChanged="MainWindow_OnSizeChanged"
     xmlns:notifications="clr-namespace:Notification.Wpf.Controls;assembly=Notification.Wpf"
     xmlns:Page="clr-namespace:League_Account_Manager.views"
@@ -22,7 +22,7 @@
         <Grid
             x:Name="RootMainGrid"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch" Height="800" Width="1400">
+            VerticalAlignment="Stretch" Height="800" Width="1500">
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="50" />
