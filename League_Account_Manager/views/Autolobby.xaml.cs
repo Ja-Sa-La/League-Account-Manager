@@ -323,6 +323,11 @@ public partial class Autolobby : Page
         ToggleTask("AutoAcceptMessage", StartAutoMessageTask, sender);
     }
 
+    private void OnToggleAutoMuteClick(object sender, RoutedEventArgs e)
+    {
+        ToggleTask("AutoMuteAll", StartAutoMuteTask, sender);
+    }
+
     // =====================================================
     // AUTO ACCEPT
     // =====================================================
@@ -344,6 +349,114 @@ public partial class Autolobby : Page
             }
 
             await Task.Delay(3000, ct);
+        }
+    }
+
+    // =====================================================
+    // AUTO MUTE TEAMMATES
+    // =====================================================
+
+    private readonly HashSet<string> _mutedThisChampSelect = new();
+    private string _muteSessionKey = string.Empty;
+
+    private async Task StartAutoMuteTask(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var session = champselectJObject;
+                if (session != null &&
+                    session.TryGetValue("myTeam", out var myTeamToken) &&
+                    myTeamToken is JArray myTeam)
+                {
+                    // new champ select -> forget who we muted last time
+                    var sessionKey = session["gameId"]?.ToString() ?? "";
+                    if (sessionKey != _muteSessionKey)
+                    {
+                        _muteSessionKey = sessionKey;
+                        _mutedThisChampSelect.Clear();
+                    }
+
+                    // authoritative muted list, so we never toggle someone back off
+                    var alreadyMuted = new HashSet<string>();
+                    try
+                    {
+                        var mutedResp = await Lcu.Connector("league", "get",
+                            "/lol-champ-select/v1/muted-players", "");
+                        var mutedBody = await mutedResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        foreach (var m in JArray.Parse(mutedBody))
+                        {
+                            var p = m["puuid"]?.ToString();
+                            var op = m["obfuscatedPuuid"]?.ToString();
+                            if (!string.IsNullOrEmpty(p)) alreadyMuted.Add(p);
+                            if (!string.IsNullOrEmpty(op)) alreadyMuted.Add(op);
+                        }
+                    }
+                    catch
+                    {
+                        // list unavailable outside champ select; fall back to local tracking
+                    }
+
+                    var localCellId = session["localPlayerCellId"]?.ToString();
+
+                    foreach (var t in myTeam)
+                    {
+                        if (t is not JObject member)
+                            continue;
+                        if (member["cellId"]?.ToString() == localCellId)
+                            continue; // never mute ourselves
+
+                        var puuid = member["puuid"]?.ToString() ?? "";
+                        var obfuscatedPuuid = member["obfuscatedPuuid"]?.ToString() ?? "";
+                        var summonerId = member["summonerId"]?.Value<long>() ?? 0;
+
+                        // bots have no identity to mute
+                        if (string.IsNullOrEmpty(puuid) && string.IsNullOrEmpty(obfuscatedPuuid) && summonerId == 0)
+                            continue;
+
+                        var key = !string.IsNullOrEmpty(puuid) ? puuid
+                            : !string.IsNullOrEmpty(obfuscatedPuuid) ? obfuscatedPuuid
+                            : "cell:" + member["cellId"];
+
+                        if (_mutedThisChampSelect.Contains(key))
+                            continue;
+                        if (alreadyMuted.Contains(puuid) || alreadyMuted.Contains(obfuscatedPuuid))
+                        {
+                            _mutedThisChampSelect.Add(key);
+                            continue;
+                        }
+
+                        var body = new JObject
+                        {
+                            ["puuid"] = puuid,
+                            ["summonerId"] = summonerId,
+                            ["obfuscatedPuuid"] = obfuscatedPuuid,
+                            ["obfuscatedSummonerId"] = member["obfuscatedSummonerId"]?.Value<long>() ?? 0
+                        };
+                        var resp = await Lcu.Connector("league", "post",
+                            "/lol-champ-select/v1/toggle-player-muted",
+                            body.ToString(Newtonsoft.Json.Formatting.None));
+
+                        if (resp != null && resp.IsSuccessStatusCode)
+                        {
+                            _mutedThisChampSelect.Add(key);
+                            Log($"AutoMute: muted teammate in cell {member["cellId"]}");
+                        }
+                        else
+                        {
+                            Log($"AutoMute: mute request failed for cell {member["cellId"]} " +
+                                $"({resp?.StatusCode.ToString() ?? "no response"})");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in AutoMute");
+            }
+
+            await Task.Delay(2000, ct);
         }
     }
 
