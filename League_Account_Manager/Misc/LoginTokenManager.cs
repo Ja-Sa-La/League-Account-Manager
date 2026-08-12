@@ -478,167 +478,38 @@ public static class LoginTokenManager
 
     private static async Task<bool> AutomateLoginAsync(string riotProcessName, string username, string password)
     {
-        var attempts = 0;
-        while (attempts < 500)
+        var hwnd = await RiotUiLogin.WaitForLoginWindowAsync();
+        if (hwnd == IntPtr.Zero)
         {
-            attempts++;
-            DebugConsole.WriteLine($"[Token] Login automation attempt {attempts}");
-            try
-            {
-                var app = Application.Attach(riotProcessName);
-                using var automation = new UIA3Automation();
-                var window = app.GetMainWindow(automation);
-                var content = window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
-                if (content == null)
-                {
-                    DebugConsole.WriteLine("[Token] Could not find content window");
-                    await Task.Delay(300);
-                    continue;
-                }
-
-                var usernameField = content.FindFirstDescendant(cf => cf.ByAutomationId("username"))?.AsTextBox();
-                var passwordField = content.FindFirstDescendant(cf => cf.ByAutomationId("password"))?.AsTextBox();
-                var rememberBox = content.FindFirstDescendant(cf => cf.ByAutomationId("remember-me"))?.AsCheckBox() ??
-                                  content.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox))
-                                      ?.AsCheckBox();
-                if (rememberBox == null)
-                    DebugConsole.WriteLine(
-                        "[Token] Remember-me checkbox not found by automationId; using first checkbox");
-
-                var siblings = content.FindAllChildren();
-                AutomationElement? signInElement = null;
-                if (rememberBox != null)
-                {
-                    var count = Array.IndexOf(siblings, rememberBox) + 1;
-                    while (siblings.Length >= count)
-                    {
-                        var maybeButton = siblings[count++].AsButton();
-                        if (maybeButton != null && maybeButton.ControlType == ControlType.Button)
-                        {
-                            signInElement = maybeButton;
-                            break;
-                        }
-                    }
-                }
-
-                signInElement ??= siblings
-                    .Select(x => x.AsButton())
-                    .FirstOrDefault(b => b != null && b.ControlType == ControlType.Button);
-
-                if (usernameField == null || passwordField == null || signInElement == null)
-                {
-                    DebugConsole.WriteLine("[Token] Missing username/password/sign-in controls");
-                    await Task.Delay(300);
-                    continue;
-                }
-
-                usernameField.Text = username;
-                passwordField.Text = password;
-
-                if (rememberBox != null && rememberBox.IsChecked != true)
-                    try
-                    {
-                        rememberBox.Focus();
-                        rememberBox.Patterns.Toggle.Pattern.Toggle();
-                        await Task.Delay(100);
-                        rememberBox.IsChecked = true;
-                        DebugConsole.WriteLine("[Token] Enabled remember-me checkbox via toggle");
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            rememberBox.IsChecked = true;
-                            DebugConsole.WriteLine("[Token] Enabled remember-me checkbox via IsChecked");
-                        }
-                        catch
-                        {
-                        }
-                    }
-
-                while (!signInElement.IsEnabled)
-                {
-                    DebugConsole.WriteLine("[Token] Waiting for sign-in button to enable");
-                    await Task.Delay(200);
-                }
-
-                await Task.Delay(1000);
-                signInElement.AsButton()?.Invoke();
-                DebugConsole.WriteLine("[Token] Sign-in invoked");
-
-                await Task.Delay(500);
-
-                var restartLogin = false;
-                var cancelLogin = false;
-                var loginErrorChecks = 0;
-
-                while (true)
-                {
-                    try
-                    {
-                        var loginError = window.FindFirstDescendant(cf =>
-                            cf.ByControlType(ControlType.ToolTip).And(cf.ByName("Login error")));
-                        if (loginError != null)
-                        {
-                            loginErrorChecks++;
-                            DebugConsole.WriteLine($"[Token] Login error tooltip detected (check {loginErrorChecks})");
-
-                            if (loginErrorChecks >= 2)
-                            {
-                                cancelLogin = true;
-                                break;
-                            }
-
-                            restartLogin = true;
-                            break;
-                        }
-                    }
-                    catch
-                    {
-                    }
-
-                    var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
-                    string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    DebugConsole.WriteLine($"[Token] EULA status: {status}");
-                    if (status == "\"Accepted\"")
-                        break;
-                    if (status == "\"AcceptanceRequired\"")
-                    {
-                        DebugConsole.WriteLine("[Token] Accepting EULA");
-                        await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                        await Task.Delay(200);
-                    }
-                    else
-                    {
-                        await Task.Delay(500);
-                    }
-                }
-
-                if (cancelLogin)
-                {
-                    DebugConsole.WriteLine("[Token] Canceling login after repeated errors");
-                    return false;
-                }
-
-                if (restartLogin)
-                {
-                    DebugConsole.WriteLine("[Token] Restarting login flow after error");
-                    await Task.Delay(500);
-                    continue;
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "Retrying login automation for token generation");
-                DebugConsole.WriteLine($"[Token] Login automation error: {ex.Message}");
-                await Task.Delay(500);
-            }
+            DebugConsole.WriteLine("[Token] Riot Client window never appeared");
+            return false;
         }
 
-        DebugConsole.WriteLine("[Token] Exhausted login automation attempts");
+        // give the sign-in page time to render inside the window
+        await Task.Delay(4000);
 
+        var checkedStaySignedIn = false;
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            DebugConsole.WriteLine($"[Token] Typing credentials (attempt {attempt})");
+            // the remember-me box is a blind toggle and the form starts
+            // unchecked, so only tick it once
+            if (await RiotUiLogin.EnterCredentialsAsync(username, password, !checkedStaySignedIn))
+                checkedStaySignedIn = true;
+            else
+                await Task.Delay(2000);
+
+            if (await RiotUiLogin.WaitForAuthAsync(TimeSpan.FromSeconds(20)))
+                return true;
+        }
+
+        // possibly a captcha the user has to solve; wait while the client runs
+        DebugConsole.WriteLine("[Token] Login not confirmed yet; waiting (captcha may need the user)");
+        while (RiotUiLogin.RiotClientRunning)
+            if (await RiotUiLogin.WaitForAuthAsync(TimeSpan.FromSeconds(5)))
+                return true;
+
+        DebugConsole.WriteLine("[Token] Riot Client closed before login completed");
         return false;
     }
 

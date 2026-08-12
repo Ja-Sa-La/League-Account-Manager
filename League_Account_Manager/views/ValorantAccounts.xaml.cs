@@ -431,234 +431,48 @@ public partial class ValorantAccounts : Page
             }
 
 
-            while (true)
+            var hwnd = await RiotUiLogin.WaitForLoginWindowAsync();
+            if (hwnd == IntPtr.Zero)
             {
-                if (Process.GetProcessesByName("Riot Client").Length != 0)
+                DebugConsole.WriteLine("[ValorantAccounts] Riot Client window never appeared", ConsoleColor.Yellow);
+                return;
+            }
+
+            // give the sign-in page time to render inside the window
+            await Task.Delay(4000);
+
+            var loggedIn = false;
+            for (var attempt = 1; attempt <= 3 && !loggedIn; attempt++)
+            {
+                DebugConsole.WriteLine($"[ValorantAccounts] Typing credentials (attempt {attempt})");
+                if (!await RiotUiLogin.EnterCredentialsAsync(SelectedUsername, SelectedPassword))
                 {
-                    riotval = "Riot Client";
-                    break;
+                    await Task.Delay(2000);
+                    continue;
                 }
 
-                if (Process.GetProcessesByName("RiotClientUx").Length != 0)
-                {
-                    riotval = "RiotClientUx";
-                    break;
-                }
+                loggedIn = await RiotUiLogin.WaitForAuthAsync(TimeSpan.FromSeconds(20));
+            }
 
-
-                Thread.Sleep(200);
-                num++;
-                if (num == 80)
+            // still not authenticated: a captcha or login error may need the user;
+            // keep waiting while the client is running instead of retyping over it
+            while (!loggedIn)
+            {
+                if (!RiotUiLogin.RiotClientRunning)
                 {
-                    DebugConsole.WriteLine("[ValorantAccounts] Timed out waiting for Riot client process",
+                    DebugConsole.WriteLine("[ValorantAccounts] Riot Client closed before login completed",
                         ConsoleColor.Yellow);
                     return;
                 }
+
+                loggedIn = await RiotUiLogin.WaitForAuthAsync(TimeSpan.FromSeconds(5));
             }
 
-            DebugConsole.WriteLine($"[ValorantAccounts] Attached to process: {riotval}");
-
-            var loginAttempts = 0;
-
-            while (true)
-                try
-                {
-                    var restartLogin = false;
-                    var cancelLogin = false;
-                    var app = Application.Attach(riotval);
-
-                    using (var automation = new UIA3Automation())
-                    {
-                        AutomationElement window = app.GetMainWindow(automation);
-                        var riotcontent =
-                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
-
-
-                        var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
-                            .AsTextBox();
-                        if (usernameField == null) throw new Exception("Username field not found");
-
-
-                        // Find the password field
-                        var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
-                            .AsTextBox();
-                        if (passwordField == null) throw new Exception("Password field not found");
-
-
-                        var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
-                        if (riotcontent == null) throw new Exception("Riot content not found");
-                        if (checkbox == null) throw new Exception("Checkbox field not found");
-
-                        var siblings = riotcontent.FindAllChildren();
-                        if (checkbox.Parent == null) throw new Exception("Checkbox parent not found");
-                        var count = Array.IndexOf(siblings, checkbox) + 1;
-                        if (siblings.Length <= count) throw new Exception("Not enough siblings found for the checkbox");
-                        dynamic signInElement = null;
-                        while (siblings.Length >= count)
-                        {
-                            signInElement = siblings[count++].AsButton();
-
-                            if (signInElement.ControlType != ControlType.Button) continue;
-                            break;
-                        }
-
-                        usernameField.Text = SelectedUsername;
-                        passwordField.Text = SelectedPassword;
-                        if (signInElement != null)
-                        {
-                            while (!signInElement.IsEnabled) Thread.Sleep(200);
-                            DebugConsole.WriteLine("[ValorantAccounts] Sign-in button enabled, invoking login");
-                            signInElement.Invoke();
-
-                            // brief pause to allow any login error tooltip to appear
-                            await Task.Delay(500);
-
-                            while (true)
-                            {
-                                try
-                                {
-                                    // look for a Tooltip with name "Login error" in the same window
-                                    var loginError = window.FindFirstDescendant(cf =>
-                                        cf.ByControlType(ControlType.ToolTip).And(cf.ByName("Login error")));
-                                    if (loginError != null)
-                                    {
-                                        loginAttempts++;
-                                        DebugConsole.WriteLine(
-                                            $"[ValorantAccounts] Login error tooltip detected (attempt {loginAttempts})",
-                                            ConsoleColor.Yellow);
-
-                                        var errorText = string.Empty;
-                                        try
-                                        {
-                                            errorText = loginError
-                                                .FindFirstDescendant(cf => cf.ByControlType(ControlType.Text)
-                                                    .And(cf.ByName(
-                                                        "Your login credentials don't match an account in our system.")))
-                                                ?.Name;
-                                        }
-                                        catch
-                                        {
-                                        }
-
-                                        if (string.IsNullOrWhiteSpace(errorText))
-                                        {
-                                            try
-                                            {
-                                                errorText = loginError.Name;
-                                            }
-                                            catch
-                                            {
-                                            }
-
-                                            if (string.IsNullOrWhiteSpace(errorText))
-                                                try
-                                                {
-                                                    errorText = loginError.Properties.Name.Value;
-                                                }
-                                                catch
-                                                {
-                                                }
-                                        }
-
-                                        var invalidCreds = !string.IsNullOrWhiteSpace(errorText) &&
-                                                           errorText.Contains(
-                                                               "Your login credentials don't match an account in our system.",
-                                                               StringComparison.OrdinalIgnoreCase);
-
-                                        if (invalidCreds)
-                                        {
-                                            // Mark account as invalid login
-                                            var existingNote = ActualAccountlists?.FindLast(x =>
-                                                x.username == SelectedUsername && x.password == SelectedPassword)?.note;
-                                            ActualAccountlists?.RemoveAll(x =>
-                                                x.username == SelectedUsername && x.password == SelectedPassword);
-                                            ActualAccountlists?.Add(new Utils.AccountList
-                                            {
-                                                username = SelectedUsername,
-                                                password = SelectedPassword,
-                                                riotID = "Invalid Login",
-                                                level = 0,
-                                                server = "INVALID",
-                                                be = 0,
-                                                rp = 0,
-                                                rank = "Invalid Login",
-                                                champions = "",
-                                                Champions = 0,
-                                                skins = "",
-                                                Skins = 0,
-                                                Loot = "",
-                                                Loots = 0,
-                                                rank2 = "Invalid Login",
-                                                note = existingNote
-                                            });
-
-                                            // persist immediately
-                                            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(),
-                                                ActualAccountlists, config);
-
-                                            DebugConsole.WriteLine(
-                                                "[ValorantAccounts] Invalid login detected, account updated");
-                                            return; // pause/stop login processing
-                                        }
-
-                                        if (loginAttempts >= 3)
-                                        {
-                                            cancelLogin = true;
-                                            DebugConsole.WriteLine(
-                                                "[ValorantAccounts] Max login attempts reached, canceling login",
-                                                ConsoleColor.Yellow);
-                                            break;
-                                        }
-
-                                        restartLogin = true;
-                                        break;
-                                    }
-                                }
-                                catch
-                                {
-                                }
-
-                                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
-                                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
-                                if (status == "\"Accepted\"") break;
-                                if (status == "\"AcceptanceRequired\"")
-                                {
-                                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                                    Thread.Sleep(200);
-                                }
-                                else
-                                {
-                                    Thread.Sleep(500);
-                                }
-                            }
-
-                            if (cancelLogin) return;
-
-                            if (restartLogin)
-                            {
-                                DebugConsole.WriteLine("[ValorantAccounts] Retrying login automation");
-                                await Task.Delay(500);
-                                continue;
-                            }
-
-                            DebugConsole.WriteLine("[ValorantAccounts] Login accepted, launching Valorant product");
-                            await Lcu.Connector("riot", "post",
-                                "/product-launcher/v1/products/valorant/patchlines/live", "");
-                            DebugConsole.WriteLine("[ValorantAccounts] Triggering Valorant account pull after login");
-                            OnPullDataClick(this, new RoutedEventArgs());
-                            break;
-                        }
-
-                        Thread.Sleep(500);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn(ex, "Transient error during login automation");
-                    DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                    Thread.Sleep(200);
-                }
+            DebugConsole.WriteLine("[ValorantAccounts] Login accepted, launching Valorant product");
+            await Lcu.Connector("riot", "post",
+                "/product-launcher/v1/products/valorant/patchlines/live", "");
+            DebugConsole.WriteLine("[ValorantAccounts] Triggering Valorant account pull after login");
+            OnPullDataClick(this, new RoutedEventArgs());
         }
         catch (Exception exception)
         {
@@ -1605,80 +1419,39 @@ public partial class ValorantAccounts : Page
 
             var automationTask = Task.Run(async () =>
             {
-                var riotval = string.Empty;
-                var attempts = 0;
-
-                while (string.IsNullOrEmpty(riotval))
+                var hwnd = await RiotUiLogin.WaitForLoginWindowAsync();
+                if (hwnd == IntPtr.Zero)
                 {
-                    if (Process.GetProcessesByName("Riot Client").Length != 0)
-                        riotval = "Riot Client";
-                    else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
-                        riotval = "RiotClientUx";
-
-                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 80)
-                        break;
-
-                    await Task.Delay(200);
+                    DebugConsole.WriteLine("[ValorantAccounts] Riot Client window never appeared", ConsoleColor.Yellow);
+                    return;
                 }
 
-                if (string.IsNullOrEmpty(riotval))
-                    return;
+                await Task.Delay(3000);
 
+                var typed = 0;
                 while (!tokenDetectedTask.IsCompleted)
-                    try
+                {
+                    if (typed < 3)
                     {
-                        var app = Application.Attach(riotval);
-
-                        using (var automation = new UIA3Automation())
-                        {
-                            AutomationElement window = app.GetMainWindow(automation);
-                            var riotcontent =
-                                window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
-
-                            var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
-                                .AsTextBox();
-                            var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
-                                .AsTextBox();
-                            var checkbox =
-                                riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
-
-                            if (usernameField == null || passwordField == null || checkbox == null)
-                            {
-                                await Task.Delay(200);
-                                continue;
-                            }
-
-                            var siblings = riotcontent.FindAllChildren();
-                            var count = Array.IndexOf(siblings, checkbox) + 1;
-                            dynamic signInElement = null;
-                            while (siblings.Length >= count)
-                            {
-                                signInElement = siblings[count++].AsButton();
-                                if (signInElement != null && signInElement.ControlType == ControlType.Button)
-                                    break;
-                            }
-
-                            usernameField.Text = SelectedUsername;
-                            passwordField.Text = SelectedPassword;
-
-                            if (signInElement != null)
-                            {
-                                while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
-                                    await Task.Delay(200);
-
-                                if (!tokenDetectedTask.IsCompleted)
-                                    signInElement.Invoke();
-                            }
-
-                            await Task.Delay(500);
-                        }
+                        DebugConsole.WriteLine(
+                            $"[ValorantAccounts] Typing credentials for token capture (attempt {typed + 1})");
+                        if (await RiotUiLogin.EnterCredentialsAsync(SelectedUsername, SelectedPassword))
+                            typed++;
+                        else
+                            await Task.Delay(2000);
                     }
-                    catch (Exception ex)
+
+                    // give the proxy time to see the token before retyping;
+                    // after 3 attempts just wait (captcha may need the user)
+                    var waited = 0;
+                    while (!tokenDetectedTask.IsCompleted && waited < 20000)
                     {
-                        _logger.Warn(ex, "Transient error during login automation");
-                        DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                        await Task.Delay(200);
+                        await Task.Delay(500);
+                        waited += 500;
                     }
+
+                    if (!RiotUiLogin.RiotClientRunning) return;
+                }
             });
 
 
