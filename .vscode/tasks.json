@@ -1,0 +1,75 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build League_Account_Manager",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/League_Account_Manager/League_Account_Manager.csproj",
+                "--configuration",
+                "Debug"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build League_Account_Manager (Release)",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/League_Account_Manager/League_Account_Manager.csproj",
+                "--configuration",
+                "Release"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": "build"
+        },
+        {
+            "label": "publish League_Account_Manager (Release)",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "publish",
+                "${workspaceFolder}/League_Account_Manager/League_Account_Manager.csproj",
+                "--configuration",
+                "Release",
+                "--runtime",
+                "win-x64",
+                "/p:PublishProfile=FolderProfile"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": "build"
+        },
+        {
+            "label": "test League_Account_Manager",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "${workspaceFolder}/League_Account_Manager.Tests/League_Account_Manager.Tests.csproj"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": "test"
+        },
+        {
+            "label": "test League_Account_Manager with coverage",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "${workspaceFolder}/League_Account_Manager.Tests/League_Account_Manager.Tests.csproj",
+                "--collect:XPlat Code Coverage",
+                "--results-directory",
+                "${workspaceFolder}/TestResults"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": "test"
+        }
+    ]
+}

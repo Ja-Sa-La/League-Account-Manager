@@ -37,23 +37,9 @@ public partial class ChangeName : Window
         {
             var name = NameTextBox.Text;
             var tag = TaglineTextBox.Text;
-            HttpResponseMessage resp = null;
-            JObject body = null;
-            Process.Start(Settings.settingsloaded.riotPath);
-            if (tag == null)
-            {
-                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",
-                    "{\"gameName\":\"" + name + "\",\"tagLine\":\"\"}");
-                body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-            }
-            else
-            {
-                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v1/aliases",
-                    "{\"gameName\":\"" + name + "\",\"tagLine\":\"" + tag + "\"}");
-                body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-            }
+            var body = await SendAliasRequestAsync("/player-account/aliases/v1/aliases", name, tag);
 
-            if ((bool)body["isSuccess"])
+            if (body["isSuccess"]?.Value<bool>() == true)
             {
                 ErrorMessageLabel.Content = "Namechange was succesful!";
                 ErrorMessageLabel.Visibility = Visibility.Visible;
@@ -81,23 +67,9 @@ public partial class ChangeName : Window
         {
             var name = NameTextBox.Text;
             var tag = TaglineTextBox.Text;
-            HttpResponseMessage resp = null;
-            JObject body = null;
-            Process.Start(Settings.settingsloaded.riotPath);
-            if (tag == null)
-            {
-                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
-                    "{\"gameName\":\"" + name + "\",\"tagLine\":\"\"}");
-                body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-            }
-            else
-            {
-                resp = await Lcu.Connector("riot", "post", "/player-account/aliases/v2/validity",
-                    "{\"gameName\":\"" + name + "\",\"tagLine\":\"" + tag + "\"}");
-                body = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
-            }
+            var body = await SendAliasRequestAsync("/player-account/aliases/v2/validity", name, tag);
 
-            if ((bool)body["isValid"])
+            if (body["isValid"]?.Value<bool>() == true)
             {
                 ErrorMessageLabel.Content = "Namechange name is valid";
                 ErrorMessageLabel.Visibility = Visibility.Visible;
@@ -117,5 +89,25 @@ public partial class ChangeName : Window
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
             LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
         }
+    }
+
+    private static async Task<JObject> SendAliasRequestAsync(string endpoint, string name, string tag)
+    {
+        var riotPath = Settings.settingsloaded.riotPath;
+        if (string.IsNullOrWhiteSpace(riotPath))
+            throw new InvalidOperationException("Riot client path is not configured.");
+
+        Process.Start(new ProcessStartInfo { FileName = riotPath, UseShellExecute = true });
+        var payload = new JObject
+        {
+            ["gameName"] = name,
+            ["tagLine"] = tag
+        };
+        var response = await Lcu.Connector("riot", "post", endpoint,
+            payload.ToString(Newtonsoft.Json.Formatting.None)) as HttpResponseMessage;
+        if (response == null)
+            throw new InvalidOperationException("Riot client did not return a response.");
+
+        return JObject.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
     }
 }

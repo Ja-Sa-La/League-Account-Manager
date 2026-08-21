@@ -90,8 +90,9 @@ public partial class MiscTools : Page
                                       "\n";
                     }
                 }
-                catch (Exception e)
+                catch (Exception exception)
                 {
+                    Logger.Warn(exception, "Failed to delete {Path}", path);
                     deletionLog = deletionLog + "Failed to delete item or item does not exist: " + path +
                                   " , make sure that LAM is running as admin\n";
                 }
@@ -189,12 +190,16 @@ public partial class MiscTools : Page
         try
         {
             Utils.KillLeagueFunc();
-            var installPath = (string)Registry.GetValue(
+            var installPath = Registry.GetValue(
                 @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live",
-                "UninstallString", null);
-            if (installPath != null)
+                "UninstallString", null) as string;
+            if (string.IsNullOrWhiteSpace(installPath))
+            {
                 Notif.notificationManager.Show("Error", "League of legends is not installed or missing registry keys",
                     NotificationType.Notification, "WindowArea", onClick: Notif.donothing);
+                return;
+            }
+
             var pattern = "\"(.*?)\"";
             var match = Regex.Match(installPath, pattern);
 

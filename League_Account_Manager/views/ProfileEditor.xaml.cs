@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -16,23 +17,22 @@ namespace League_Account_Manager.views;
 /// </summary>
 public partial class ProfileEditor : Page
 {
-    private readonly List<IconData>? list = new();
-    private readonly List<IconData>? listSkins = new();
+    private readonly List<IconData> list = new();
+    private readonly List<IconData> listSkins = new();
     private bool loaded;
-    private IconData? SelectedIcon = new();
-    private IconData? SelectedSkin = new();
+    private IconData? SelectedIcon;
+    private IconData? SelectedSkin;
 
     public ProfileEditor()
     {
         InitializeComponent();
-        LoadDataAsync();
     }
 
     public List<string>? QueueList { get; set; }
     public List<string>? RankList { get; set; }
     public List<string>? TierList { get; set; }
 
-    private async void LoadDataAsync()
+    private async Task LoadDataAsync()
     {
         while (true)
             try
@@ -49,7 +49,7 @@ public partial class ProfileEditor : Page
 
                 break; // If all methods complete successfully, break the loop
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 Notif.notificationManager.Show("Error",
                     "League of Legends client is not running! waiting 5 seconds to try again",
@@ -61,7 +61,7 @@ public partial class ProfileEditor : Page
     }
 
 
-    private async Task<bool> CheckLeagueClientProcess()
+    private Task<bool> CheckLeagueClientProcess()
     {
         var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
         if (leagueclientprocess.Length == 0)
@@ -70,18 +70,18 @@ public partial class ProfileEditor : Page
                 NotificationType.Notification,
                 "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-            return false;
+            return Task.FromResult(false);
         }
 
-        return true;
+        return Task.FromResult(true);
     }
 
     private async Task<string> ExecuteCommand(string module, string method, string endpoint, string data)
     {
         if (!await CheckLeagueClientProcess())
             return "";
-        var resp = await Lcu.Connector(module, method, endpoint, data);
-        return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var resp = await Lcu.Connector(module, method, endpoint, data) as HttpResponseMessage;
+        return resp == null ? string.Empty : await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
     private async void OnDisableChatClick(object sender, RoutedEventArgs e)
@@ -219,6 +219,9 @@ public partial class ProfileEditor : Page
     {
         try
         {
+            if (SelectedIcon == null)
+                return;
+
             var responseBody2 = await ExecuteCommand("league", "put", "/lol-summoner/v1/current-summoner/icon/",
                 "{\"profileIconId\": " + SelectedIcon.ID + "}");
             DebugConsole.WriteLine(responseBody2);
@@ -236,6 +239,9 @@ public partial class ProfileEditor : Page
     {
         try
         {
+            if (SelectedSkin == null)
+                return;
+
             var responseBody2 = await ExecuteCommand("league", "post",
                 "/lol-summoner/v1/current-summoner/summoner-profile/",
                 "{\"key\": \"backgroundSkinId\",\"value\": " + SelectedSkin.ID + "}");
@@ -270,22 +276,32 @@ public partial class ProfileEditor : Page
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0) return;
 
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
-                    "inventoryType=[%22SUMMONER_ICON%22]");
+                    "inventoryType=[%22SUMMONER_ICON%22]") as HttpResponseMessage;
+                if (resp == null)
+                    return;
+
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
 
                 JArray tmp = JArray.Parse(responseBody2);
 
                 foreach (var item in tmp)
+                {
+                    var itemId = item["itemId"]?.ToString();
+                    var name = item["localizations"]?["en_US"]?["name"]?.ToString();
+                    if (string.IsNullOrWhiteSpace(itemId) || string.IsNullOrWhiteSpace(name))
+                        continue;
+
                     list.Add(new IconData
                     {
-                        Name = item["localizations"]["en_US"]["name"].ToString(),
-                        ID = item["itemId"].ToString(),
-                        IconUrl = $"https://cdn.communitydragon.org/latest/profile-icon/{item["itemId"]}"
+                        Name = name,
+                        ID = itemId,
+                        IconUrl = $"https://cdn.communitydragon.org/latest/profile-icon/{itemId}"
                     });
+                }
 
                 Dispatcher.Invoke(() =>
                 {
@@ -309,26 +325,33 @@ public partial class ProfileEditor : Page
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0) return;
 
-            Task.Run(async () =>
+            await Task.Run(async () =>
             {
                 var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
-                    "inventoryType=[%22CHAMPION_SKIN%22]");
+                    "inventoryType=[%22CHAMPION_SKIN%22]") as HttpResponseMessage;
+                if (resp == null)
+                    return;
+
                 var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 JArray tmp = JArray.Parse(responseBody2);
                 foreach (var item in tmp)
                 {
-                    if (item["subInventoryType"].ToString() == "RECOLOR")
+                    if (item["subInventoryType"]?.ToString() == "RECOLOR")
                         continue;
 
                     var champReq = item["itemRequirements"]
                         ?.FirstOrDefault(r => r["inventoryType"]?.ToString() == "CHAMPION");
                     var champId = champReq != null ? champReq["itemId"]?.Value<int>() ?? 0 : 0;
-                    var skinItemId = item["itemId"].Value<int>();
-                    var skinShortId = skinItemId % 100;
+                    var skinItemId = item["itemId"]?.Value<int?>();
+                    var name = item["localizations"]?["en_US"]?["name"]?.ToString();
+                    if (!skinItemId.HasValue || string.IsNullOrWhiteSpace(name))
+                        continue;
+
+                    var skinShortId = skinItemId.Value % 100;
                     listSkins.Add(new IconData
                     {
-                        Name = item["localizations"]["en_US"]["name"].ToString(),
-                        ID = skinItemId.ToString(),
+                        Name = name,
+                        ID = skinItemId.Value.ToString(),
                         IconUrl = champId > 0
                             ? $"https://cdn.communitydragon.org/latest/champion/{champId}/tile/skin/{skinShortId}"
                             : null
@@ -384,10 +407,10 @@ public partial class ProfileEditor : Page
     }
 
 
-    private void OnProfileEditorLoaded(object sender, RoutedEventArgs e)
+    private async void OnProfileEditorLoaded(object sender, RoutedEventArgs e)
     {
         loaded = true;
-        LoadDataAsync();
+        await LoadDataAsync();
     }
 
     private void OnProfileEditorUnloaded(object sender, RoutedEventArgs e)
@@ -398,9 +421,9 @@ public partial class ProfileEditor : Page
 
     public class IconData
     {
-        public string Name { get; set; }
-        public string ID { get; set; }
-        public string IconUrl { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ID { get; set; } = string.Empty;
+        public string? IconUrl { get; set; }
 
         public override string ToString()
         {

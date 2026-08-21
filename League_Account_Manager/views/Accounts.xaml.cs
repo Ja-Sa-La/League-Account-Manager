@@ -55,7 +55,6 @@ public partial class Accounts : Page
     private DateTime _lastFileChange = DateTime.MinValue;
     private DateTime _lastKnownFileWrite = DateTime.MinValue;
     private bool _pendingReload;
-    private INotification? _progressNotification;
     private bool Executing;
     private FileSystemWatcher? fileWatcher;
 
@@ -69,7 +68,7 @@ public partial class Accounts : Page
         AccountFileStore.AccountsFileUpdated += OnAccountsFileUpdated;
     }
 
-    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
+    public static List<Utils.AccountList> ActualAccountlists { get; set; } = new();
     public static event Action? PullDataCompleted;
 
     private async void Accounts_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -109,7 +108,7 @@ public partial class Accounts : Page
                 if (!IsLoaded) return;
                 _pendingReload = false;
                 await LoadDataAsync();
-            });
+            }).Task.Unwrap();
         }
         catch { }
     }
@@ -169,7 +168,7 @@ public partial class Accounts : Page
         try
         {
             // Refresh account list when password is entered at startup
-            await Dispatcher.InvokeAsync(async () => { await LoadDataAsync(); });
+            await Dispatcher.InvokeAsync(LoadDataAsync).Task.Unwrap();
         }
         catch
         {
@@ -399,8 +398,9 @@ public partial class Accounts : Page
 
         await LoadDataAsync();
 
-        if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true) return;
-        await Dispatcher.InvokeAsync(() =>
+        var dispatcher = Dispatcher;
+        if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished) return;
+        await dispatcher.InvokeAsync(() =>
         {
             ApplyLeagueSortToGrid();
         }, DispatcherPriority.Background, CancellationToken.None);
@@ -427,7 +427,7 @@ public partial class Accounts : Page
                     _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
                 }
 
-                ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
+                ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
                 Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
             });
 
@@ -573,8 +573,8 @@ public partial class Accounts : Page
                     }
 
                 // Update account as banned
-                ActualAccountlists?.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
-                ActualAccountlists?.Add(new Utils.AccountList
+                ActualAccountlists.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
+                ActualAccountlists.Add(new Utils.AccountList
                 {
                     username = SelectedUsername,
                     password = SelectedPassword,
@@ -745,16 +745,19 @@ public partial class Accounts : Page
                             var lootId = thing["lootId"]?.ToString();
                             if (string.IsNullOrEmpty(lootId)) continue;
 
-                            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "");
+                            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "")
+                                as HttpResponseMessage;
                             if (resp == null) continue;
 
                             var responseBody = await resp.Content.ReadAsStringAsync();
                             var Loot = JObject.Parse(responseBody);
 
-                            string lootText = !string.IsNullOrEmpty(Loot["itemDesc"]?.ToString())
-                                ? Loot["itemDesc"]?.ToString()
-                                : !string.IsNullOrEmpty(Loot["localizedName"]?.ToString())
-                                    ? Loot["localizedName"]?.ToString()
+                            var itemDescription = Loot["itemDesc"]?.ToString();
+                            var localizedName = Loot["localizedName"]?.ToString();
+                            var lootText = !string.IsNullOrEmpty(itemDescription)
+                                ? itemDescription
+                                : !string.IsNullOrEmpty(localizedName)
+                                    ? localizedName
                                     : Loot["asset"]?.ToString() ?? string.Empty;
 
                             // Map tilePath/imagePath to raw.communitydragon.org paths
@@ -881,35 +884,9 @@ public partial class Accounts : Page
                             }
                         }
 
-            // Build ranks
-            string BuildRankString(JToken? token, string queueName)
-            {
-                try
-                {
-                    if (token == null) return "Unranked";
-
-                    var tier = token["queueMap"]?[queueName]?["tier"]?.ToString();
-                    if (string.IsNullOrEmpty(tier)) return "Unranked";
-
-                    var division = token["queueMap"]?[queueName]?["division"]?.ToString();
-                    var lp = token["queueMap"]?[queueName]?["leaguePoints"]?.ToString() ?? "0";
-                    var wins = token["queueMap"]?[queueName]?["wins"]?.ToString() ?? "0";
-                    var losses = token["queueMap"]?[queueName]?["losses"]?.ToString() ?? "0";
-
-                    if (tier == "MASTER" || tier == "GRANDMASTER" || tier == "CHALLENGER")
-                        return $"{tier} {lp} LP, {wins} Wins, {losses} Losses";
-
-                    return $"{tier} {division} {lp} LP, {wins} Wins, {losses} Losses";
-                }
-                catch
-                {
-                    return "Unranked";
-                }
-            }
-
             var rankedInfo = rankedTask.Result;
-            var Rank = BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
-            var Rank2 = BuildRankString(rankedInfo, "RANKED_FLEX_SR");
+            var Rank = ApiResponseParser.BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
+            var Rank2 = ApiResponseParser.BuildRankString(rankedInfo, "RANKED_FLEX_SR");
 
             var skinInfo = skinTask.Result;
             var skinList = new List<string>();
@@ -1024,8 +1001,8 @@ public partial class Accounts : Page
                         if (prices != null && prices.Count > 0)
                         {
                             var p = prices.First;
-                            var cost = p["cost"]?.ToString();
-                            var currency = p["currency"]?.ToString();
+                            var cost = p?["cost"]?.ToString();
+                            var currency = p?["currency"]?.ToString();
                             if (!string.IsNullOrWhiteSpace(cost))
                                 price = !string.IsNullOrWhiteSpace(currency) ? $"{cost} {currency}" : cost;
                         }
@@ -1139,14 +1116,14 @@ public partial class Accounts : Page
             var region = regionTask.Result ?? JObject.Parse("{\"region\":\"UNKNOWN\"}");
 
             // Update ActualAccountlists
-            var existingAccount = ActualAccountlists?.FindLast(x =>
+            var existingAccount = ActualAccountlists.FindLast(x =>
                 x.username == SelectedUsername && x.password == SelectedPassword);
             var preservedLastPlayed = existingAccount?.lastPlayed;
             if (!string.IsNullOrWhiteSpace(matchHistoryData.LastPlayed))
                 preservedLastPlayed = matchHistoryData.LastPlayed;
-            ActualAccountlists?.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
+            ActualAccountlists.RemoveAll(x => x.username == SelectedUsername && x.password == SelectedPassword);
 
-            ActualAccountlists?.Add(new Utils.AccountList
+            ActualAccountlists.Add(new Utils.AccountList
             {
                 username = SelectedUsername,
                 password = SelectedPassword,
@@ -1236,14 +1213,7 @@ public partial class Accounts : Page
             var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
-            try
-            {
-                return JObject.Parse(body);
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
+            return ApiResponseParser.ParseSummoner(body);
         });
     }
 
@@ -1258,53 +1228,7 @@ public partial class Accounts : Page
             var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return default;
 
-            try
-            {
-                var parsed = JObject.Parse(body);
-                var games = parsed["games"]?["games"] as JArray;
-                if (games == null || games.Count == 0)
-                    return default;
-
-                DateTimeOffset? latestMatchDate = null;
-                var historyEntries = new List<string>();
-
-                foreach (var game in games)
-                {
-                    var gameCreationDate = game["gameCreationDate"]?.ToString();
-                    if (string.IsNullOrWhiteSpace(gameCreationDate))
-                        continue;
-
-                    if (!DateTimeOffset.TryParse(gameCreationDate, out DateTimeOffset parsedDate))
-                        continue;
-
-                    if (latestMatchDate == null || parsedDate > latestMatchDate.Value)
-                        latestMatchDate = parsedDate;
-
-                    var localDate = parsedDate.LocalDateTime.ToString("g");
-                    var gameMode = game["gameMode"]?.ToString() ?? "Unknown";
-                    var queueId = game["queueId"]?.ToString() ?? "?";
-                    var durationSeconds = game["gameDuration"]?.ToObject<int?>() ?? 0;
-                    var durationText = TimeSpan.FromSeconds(Math.Max(0, durationSeconds)).ToString(@"mm\:ss");
-
-                    var participant = game["participants"]?.FirstOrDefault();
-                    var championId = participant?["championId"]?.ToString() ?? "?";
-                    var win = participant?["stats"]?["win"]?.ToObject<bool?>();
-                    var kills = participant?["stats"]?["kills"]?.ToObject<int?>() ?? 0;
-                    var deaths = participant?["stats"]?["deaths"]?.ToObject<int?>() ?? 0;
-                    var assists = participant?["stats"]?["assists"]?.ToObject<int?>() ?? 0;
-                    var result = win == true ? "Win" : win == false ? "Loss" : "Unknown";
-
-                    var details =
-                        $"{result} | Q:{queueId} | {gameMode} | Champ:{championId} | KDA {kills}/{deaths}/{assists} | {durationText}";
-                    historyEntries.Add($"{localDate}||{details}");
-                }
-
-                return (latestMatchDate?.LocalDateTime.ToString("g"), string.Join(":", historyEntries));
-            }
-            catch (JsonException)
-            {
-                return default;
-            }
+            return ApiResponseParser.ParseMatchHistory(body);
         });
     }
 
@@ -1352,7 +1276,7 @@ public partial class Accounts : Page
 
     private Task<Utils.Wallet?> GetWalletAsync()
     {
-        return RetryAsync(async () =>
+        return RetryAsync<Utils.Wallet>(async () =>
         {
             var resp = await Lcu.Connector("league", "get",
                 "/lol-inventory/v1/wallet?currencyTypes=[%22RP%22,%22lol_blue_essence%22]", "");
@@ -1361,19 +1285,7 @@ public partial class Accounts : Page
             var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
-            try
-            {
-                var json = JToken.Parse(body);
-                return new Utils.Wallet
-                {
-                    be = json["lol_blue_essence"]?.ToObject<int>() ?? 0,
-                    rp = json["RP"]?.ToObject<int>() ?? 0
-                };
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
+            return ApiResponseParser.ParseWallet(body);
         });
     }
 
@@ -1387,16 +1299,10 @@ public partial class Accounts : Page
             var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
-            try
-            {
-                var parsed = JToken.Parse(body);
+            var parsed = ApiResponseParser.ParseRankedStats(body);
+            if (parsed != null)
                 DebugConsole.WriteLine("[Accounts] Ranked stats fetched");
-                return parsed;
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
+            return parsed;
         });
     }
 
@@ -1528,8 +1434,6 @@ public partial class Accounts : Page
             DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
 
             Utils.KillLeagueFunc();
-            Process[] leagueProcess;
-            Process riotProcess;
             var num = 0;
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
@@ -1540,13 +1444,11 @@ public partial class Accounts : Page
             switch (clickedButton.Name)
             {
                 case "Login":
-                    riotProcess = Process.Start(Misc.Settings.settingsloaded.riotPath,
-                        "--launch-product=league_of_legends --launch-patchline=live");
+                    StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
                     break;
 
                 case "Stealthlogin":
-                    riotProcess =
-                        await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath);
+                    await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath);
                     break;
             }
 
@@ -1581,9 +1483,11 @@ public partial class Accounts : Page
 
                     using (var automation = new UIA3Automation())
                     {
-                        AutomationElement window = app.GetMainWindow(automation);
+                        var window = app.GetMainWindow(automation) ??
+                                     throw new Exception("Riot window not found");
                         var riotcontent =
-                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND")) ??
+                            throw new Exception("Riot content not found");
 
 
                         var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
@@ -1598,7 +1502,6 @@ public partial class Accounts : Page
 
 
                         var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
-                        if (riotcontent == null) throw new Exception("Riot content not found");
                         if (checkbox == null) throw new Exception("Checkbox field not found");
 
                         var siblings = riotcontent.FindAllChildren();
@@ -1606,8 +1509,8 @@ public partial class Accounts : Page
                         DebugConsole.WriteLine(siblings.Length.ToString());
                         var count = Array.IndexOf(siblings, checkbox) + 1;
                         if (siblings.Length <= count) throw new Exception("Not enough siblings found for the checkbox");
-                        dynamic signInElement = null;
-                        while (siblings.Length >= count)
+                        dynamic? signInElement = null;
+                        while (count < siblings.Length)
                         {
                             signInElement = siblings[count++].AsButton();
 
@@ -1618,8 +1521,8 @@ public partial class Accounts : Page
                             break;
                         }
 
-                        usernameField.Text = SelectedUsername;
-                        passwordField.Text = SelectedPassword;
+                        usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
+                        passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
                         if (signInElement != null)
                         {
                             while (!signInElement.IsEnabled) await Task.Delay(200);
@@ -1680,11 +1583,11 @@ public partial class Accounts : Page
                                         if (invalidCreds)
                                         {
                                             // Mark account as invalid login
-                                            var existingNote = ActualAccountlists?.FindLast(x =>
+                                            var existingNote = ActualAccountlists.FindLast(x =>
                                                 x.username == SelectedUsername && x.password == SelectedPassword)?.note;
-                                            ActualAccountlists?.RemoveAll(x =>
+                                            ActualAccountlists.RemoveAll(x =>
                                                 x.username == SelectedUsername && x.password == SelectedPassword);
-                                            ActualAccountlists?.Add(new Utils.AccountList
+                                            ActualAccountlists.Add(new Utils.AccountList
                                             {
                                                 username = SelectedUsername,
                                                 password = SelectedPassword,
@@ -1758,7 +1661,7 @@ public partial class Accounts : Page
 
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-                            WaitForSummonerReadyAsync();
+                            await WaitForSummonerReadyAsync();
                             break;
                         }
 
@@ -1785,7 +1688,8 @@ public partial class Accounts : Page
         {
             try
             {
-                var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "");
+                var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "")
+                    as HttpResponseMessage;
 
                 if (resp != null && resp.IsSuccessStatusCode) // Ensure HTTP 200
                 {
@@ -2030,12 +1934,12 @@ public partial class Accounts : Page
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (confirm != MessageBoxResult.Yes) return;
 
-            ActualAccountlists?.RemoveAll(r =>
+            ActualAccountlists.RemoveAll(r =>
                 r.username == selectedrow.username &&
                 r.password == selectedrow.password &&
                 r.server == selectedrow.server);
 
-            ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
+            ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
 
             await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
@@ -2230,6 +2134,104 @@ public partial class Accounts : Page
     {
         Utils.KillLeagueFunc();
     }
+    private void Accounts_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var row = ItemsControl.ContainerFromElement(AccountsDataGrid, source) as DataGridRow;
+        if (row?.Item is not Utils.AccountList account)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        AccountsDataGrid.SelectedItem = account;
+        AccountsDataGrid.ScrollIntoView(account);
+    }
+
+    private void AccountsContextKillClient_Click(object sender, RoutedEventArgs e) => OnKillClientClick(sender, e);
+    private void CopySelectedAccount(string text)
+    {
+        if (AccountsDataGrid.SelectedItem is Utils.AccountList account)
+            System.Windows.Clipboard.SetText(text);
+    }
+
+    private Utils.AccountList? GetSelectedAccount() => AccountsDataGrid.SelectedItem as Utils.AccountList;
+    private void AccountsContextCopyUsername_Click(object sender, RoutedEventArgs e) => CopySelectedAccount(GetSelectedAccount()?.username ?? string.Empty);
+    private void AccountsContextCopyPassword_Click(object sender, RoutedEventArgs e) => CopySelectedAccount(GetSelectedAccount()?.password ?? string.Empty);
+    private void AccountsContextCopyCredentials_Click(object sender, RoutedEventArgs e)
+    {
+        var account = GetSelectedAccount();
+        CopySelectedAccount(account == null ? string.Empty : $"{account.username}:{account.password}");
+    }
+    private void AccountsContextCopyBasicLeagueFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.League);
+    private void AccountsContextCopyBasicLeagueSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.League);
+    private void AccountsContextCopyBasicValorantFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Valorant);
+    private void AccountsContextCopyBasicValorantSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Valorant);
+    private void AccountsContextCopyBasicBothFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Both);
+    private void AccountsContextCopyBasicBothSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Both);
+    private void AccountsContextCopyFullLeagueFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.League);
+    private void AccountsContextCopyFullLeagueSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.League);
+    private void AccountsContextCopyFullValorantFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Valorant);
+    private void AccountsContextCopyFullValorantSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Valorant);
+    private void AccountsContextCopyFullBothFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Both);
+    private void AccountsContextCopyFullBothSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Both);
+    private void CopyFormattedAccount(bool fullDetails, Utils.AccountCopyFormat format, Utils.AccountCopySection section)
+    {
+        var account = GetSelectedAccount();
+        if (account != null)
+            CopySelectedAccount(Utils.FormatAccountForCopy(account, fullDetails, format, section));
+    }
+
+    private void AccountsContextOpenOpGg_Click(object sender, RoutedEventArgs e) => OpenLeagueLookup("https://www.op.gg/summoners/{0}/{1}");
+    private void AccountsContextOpenLeagueOfGraphs_Click(object sender, RoutedEventArgs e) => OpenLeagueLookup("https://www.leagueofgraphs.com/summoner/{0}/{1}");
+    private void AccountsContextOpenValorantTracker_Click(object sender, RoutedEventArgs e) => OpenValorantTrackerLookup();
+
+    private void OpenLeagueLookup(string urlTemplate)
+    {
+        var account = GetSelectedAccount();
+        if (account == null || string.IsNullOrWhiteSpace(account.riotID) || string.IsNullOrWhiteSpace(account.server))
+            return;
+
+        var region = Uri.EscapeDataString(account.server.Trim().ToLowerInvariant());
+        var riotId = Uri.EscapeDataString(account.riotID.Trim().Replace("#", "-"));
+        OpenExternalUrl(string.Format(urlTemplate, region, riotId));
+    }
+
+    private void OpenValorantTrackerLookup()
+    {
+        var account = GetSelectedAccount();
+        if (account == null || string.IsNullOrWhiteSpace(account.riotID))
+            return;
+
+        var riotId = Uri.EscapeDataString(account.riotID.Trim());
+        OpenExternalUrl($"https://tracker.gg/valorant/profile/riot/{riotId}");
+    }
+
+    private static void OpenExternalUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            DebugConsole.WriteLine($"[Accounts] Failed to open lookup URL: {exception.Message}", ConsoleColor.Yellow);
+        }
+    }
+
+    private void AccountsContextLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login" }, e);
+    private void AccountsContextStealthLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Stealthlogin" }, e);
+    private void AccountsContextSecondClient_Click(object sender, RoutedEventArgs e) => OnSecondaryClientClick(sender, e);
+    private void AccountsContextGenerateToken_Click(object sender, RoutedEventArgs e) => GenerateLoginToken_OnClick(sender, e);
+    private void AccountsContextUseToken_Click(object sender, RoutedEventArgs e) => UseLoginToken_OnClick(sender, e);
+    private void AccountsContextNameChange_Click(object sender, RoutedEventArgs e) => OnNameChangeClick(sender, e);
+    private void AccountsContextRemoveDuplicates_Click(object sender, RoutedEventArgs e) => OnRemoveDuplicatesClick(sender, e);
+    private void AccountsContextDelete_Click(object sender, RoutedEventArgs e) => OnDeleteClick(sender, e);
 
     private async void OnOpenLeagueClick(object sender, RoutedEventArgs e)
     {
@@ -2247,8 +2249,12 @@ public partial class Accounts : Page
 
     private void OpenLeague()
     {
-        Process.Start(Misc.Settings.settingsloaded.riotPath,
-            "--launch-product=league_of_legends --launch-patchline=live");
+        StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
+    }
+
+    private static void StartRiotClient(string arguments)
+    {
+        Utils.StartRiotClient(Misc.Settings.settingsloaded.riotPath, arguments);
     }
 
     private async void OnFilterTextChanged(object sender, TextChangedEventArgs e)
@@ -2424,13 +2430,15 @@ public partial class Accounts : Page
 
     private async void OnAccountsMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        var dataGrid = sender as DataGrid;
+        if (sender is not DataGrid dataGrid || !dataGrid.CurrentCell.IsValid)
+            return;
+
         if (!Executing)
         {
             Executing = true;
             try
             {
-                if (dataGrid != null && dataGrid.CurrentCell != null)
+                if (dataGrid.CurrentCell.IsValid)
                 {
                     var selectedColumn = dataGrid.CurrentCell.Column;
 
@@ -2463,6 +2471,7 @@ public partial class Accounts : Page
                                 break;
                             case "RiotID"
                                 : //otherwise will open op.gg could add this functionality only to "rank" or "riot id" column alternatively 
+                                if (string.IsNullOrWhiteSpace(selectedrow.riotID)) break;
                                 var url =
                                     $"https://www.leagueofgraphs.com/summoner/{selectedrow.server}/{selectedrow.riotID.Replace("#", "-")}";
                                 OpenUrl(url);
@@ -2510,7 +2519,7 @@ public partial class Accounts : Page
 
     private void OnSecondaryClientClick(object sender, RoutedEventArgs e)
     {
-        Process.Start(Misc.Settings.settingsloaded.riotPath,
+        StartRiotClient(
             "--launch-product=league_of_legends --launch-patchline=live --allow-multiple-clients");
     }
 
@@ -2524,8 +2533,7 @@ public partial class Accounts : Page
         if ((Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) && e.Key == Key.C)
         {
             var dataGrid = AccountsDataGrid;
-            if (dataGrid == null) return;
-            if (dataGrid != null && dataGrid.CurrentCell != null)
+            if (dataGrid?.CurrentCell.IsValid == true)
             {
                 var selectedColumn = dataGrid.CurrentCell.Column;
 
@@ -2589,13 +2597,8 @@ public partial class Accounts : Page
             ProxyLoginTokenManager.ResetCaptureSignal();
 
             Utils.KillLeagueFunc();
-            Process[] leagueProcess;
-            Process riotProcess;
-            var num = 0;
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
-
-            var loginAttempts = 0;
 
             await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
                 persistLogin: persist,
@@ -2632,9 +2635,20 @@ public partial class Accounts : Page
 
                         using (var automation = new UIA3Automation())
                         {
-                            AutomationElement window = app.GetMainWindow(automation);
+                            var window = app.GetMainWindow(automation);
+                            if (window == null)
+                            {
+                                await Task.Delay(200);
+                                continue;
+                            }
+
                             var riotcontent =
                                 window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+                            if (riotcontent == null)
+                            {
+                                await Task.Delay(200);
+                                continue;
+                            }
 
                             var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
                                 .AsTextBox();
@@ -2651,16 +2665,19 @@ public partial class Accounts : Page
 
                             var siblings = riotcontent.FindAllChildren();
                             var count = Array.IndexOf(siblings, checkbox) + 1;
-                            dynamic signInElement = null;
-                            while (siblings.Length >= count)
+                            FlaUI.Core.AutomationElements.Button? signInElement = null;
+                            while (count < siblings.Length)
                             {
-                                signInElement = siblings[count++].AsButton();
-                                if (signInElement != null && signInElement.ControlType == ControlType.Button)
+                                var candidate = siblings[count++].AsButton();
+                                if (candidate != null && candidate.ControlType == ControlType.Button)
+                                {
+                                    signInElement = candidate;
                                     break;
+                                }
                             }
 
-                            usernameField.Text = SelectedUsername;
-                            passwordField.Text = SelectedPassword;
+                            usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
+                            passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
 
                             if (signInElement != null)
                             {

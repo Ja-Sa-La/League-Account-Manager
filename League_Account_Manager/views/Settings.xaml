@@ -13,6 +13,13 @@
                    HorizontalAlignment="Right" Width="153" Height="45" />
         <CheckBox Name="savesettingsupdates" Content="Check for updates automatically" Margin="10,10,0,0"
                   VerticalAlignment="Top" Width="261" />
+        <Label Content="Update releases" HorizontalAlignment="Left" Margin="310,5,0,0" VerticalAlignment="Top"
+               Height="25" Width="120" />
+        <ComboBox x:Name="ReleaseChannel" HorizontalAlignment="Left" Margin="430,8,0,0" VerticalAlignment="Top"
+                  Width="120" SelectedIndex="0">
+            <ComboBoxItem Content="Stable releases only" />
+            <ComboBoxItem Content="Stable and beta releases" />
+        </ComboBox>
         <ui:TextBox Name="settingssaveinfobox" HorizontalAlignment="Left" Margin="10,88,0,0" TextWrapping="Wrap"
                     Text="" VerticalAlignment="Top" MinWidth="228" Width="228" />
         <Label Content="Save file name" HorizontalAlignment="Left" Margin="10,58,0,0" VerticalAlignment="Top"

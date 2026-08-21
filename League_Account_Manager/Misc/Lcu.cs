@@ -13,19 +13,17 @@ internal class Lcu
     private const string ValorantClientPlatformHeader =
         "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
 
-    public static Vals Riot = new() { path = "", port = "", token = "", Value = "", version = null };
+    public static Vals Riot = new() { path = "", port = "", token = "", Value = "" };
     public static Vals League;
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern nint FindWindow(string strClassName, string strWindowName);
 
-    public static async Task<(string RiotPort, string RiotToken, string LeaguePort, string LeagueToken)> GetClientInfo()
+    public static Task<(string RiotPort, string RiotToken, string LeaguePort, string LeagueToken)> GetClientInfo()
     {
         var ingame = Process.GetProcessesByName("League of Legends");
         if (ingame.Length != 0)
-            return ("0", "0", "0", "0");
-        string[] portSplit = { "1", "2" }, tokenSplit;
-        byte[] token;
+            return Task.FromResult(("0", "0", "0", "0"));
         string riotPort = "", riotToken = "", leaguePort = "", leagueToken = "";
 
         var riotProcess = Process.GetProcessesByName("Riot Client");
@@ -41,12 +39,8 @@ internal class Lcu
                 {
                     ProcessCommandLine.Retrieve(ritoprocess, out var value);
                     SetRiotValues(ritoprocess, value);
-                    if (Riot.port[1].ToString() != "2")
+                    if (TryGetConnectionDetails(Riot, out riotPort, out riotToken, out _))
                     {
-                        portSplit = Riot.port.Split("=");
-                        tokenSplit = Riot.token.Split("=");
-                        riotPort = portSplit[1];
-                        riotToken = tokenSplit[1];
                         break;
                     }
                 }
@@ -56,31 +50,31 @@ internal class Lcu
         }
         else if (leagueClientProcess != null)
         {
-            ProcessCommandLine.Retrieve(leagueClientProcess, out var value);
-            SetRiotValues(leagueClientProcess, value, true);
-            portSplit = Riot.port.Split("=");
-            tokenSplit = Riot.token.Split("=");
-            riotPort = portSplit[1];
-            riotToken = tokenSplit[1];
+            try
+            {
+                ProcessCommandLine.Retrieve(leagueClientProcess, out var value);
+                SetRiotValues(leagueClientProcess, value, true);
+                TryGetConnectionDetails(Riot, out riotPort, out riotToken, out _);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         var leagueClientProcess2 = Process.GetProcessesByName("LeagueClientUx");
-        if (leagueClientProcess2 != null)
-            foreach (var leagueprocess in leagueClientProcess2)
-                try
-                {
-                    ProcessCommandLine.Retrieve(leagueprocess, out var value);
-                    SetLeagueValues(leagueprocess, value);
-                    portSplit = League.port.Split("=");
-                    tokenSplit = League.token.Split("=");
-                    leaguePort = portSplit[1];
-                    leagueToken = tokenSplit[1];
-                }
-                catch (Exception)
-                {
-                }
+        foreach (var leagueprocess in leagueClientProcess2)
+            try
+            {
+                ProcessCommandLine.Retrieve(leagueprocess, out var value);
+                SetLeagueValues(leagueprocess, value);
+                if (TryGetConnectionDetails(League, out leaguePort, out leagueToken, out _))
+                    break;
+            }
+            catch (Exception)
+            {
+            }
 
-        return (riotPort, riotToken, leaguePort, leagueToken);
+        return Task.FromResult((riotPort, riotToken, leaguePort, leagueToken));
     }
 
     public static async Task<dynamic> Connector(string target, string mode, string endpoint, string data)
@@ -88,14 +82,6 @@ internal class Lcu
         var ingame = Process.GetProcessesByName("League of Legends");
         if (ingame.Length != 0)
             return "";
-        var clientHandler = new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
-        };
-        var client = new HttpClient(clientHandler);
-
-        string[] portSplit = { "1", "2" }, tokenSplit;
-        byte[] token;
         if (target == "riot")
         {
             var riotProcess = Process.GetProcessesByName("Riot Client");
@@ -127,32 +113,35 @@ internal class Lcu
             {
                 return 0;
             }
-
-            portSplit = Riot.port.Split("=");
-            tokenSplit = Riot.token.Split("=");
-            token = Encoding.UTF8.GetBytes("riot:" + tokenSplit[1]);
-            SetClientHeaders(client, portSplit[1], token, Riot.version.FileVersion);
         }
         else
         {
             var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueClientProcess == null) return 0;
+            if (leagueClientProcess.Length == 0) return 0;
             foreach (var leagueprocess in leagueClientProcess)
                 try
                 {
                     ProcessCommandLine.Retrieve(leagueprocess, out var value);
                     SetLeagueValues(leagueprocess, value);
-                    portSplit = League.port.Split("=");
-                    tokenSplit = League.token.Split("=");
-                    token = Encoding.UTF8.GetBytes("riot:" + tokenSplit[1]);
-                    SetClientHeaders(client, portSplit[1], token, League.version.FileVersion);
+                    break;
                 }
                 catch (Exception)
                 {
                 }
         }
 
-        return await SendRequest(client, mode, endpoint, data, portSplit[1]);
+        var values = target == "riot" ? Riot : League;
+        if (!TryGetConnectionDetails(values, out var port, out var authToken, out var version))
+            return 0;
+
+        var clientHandler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+        };
+        var client = new HttpClient(clientHandler);
+        var token = Encoding.UTF8.GetBytes("riot:" + authToken);
+        SetClientHeaders(client, port, token, version);
+        return await SendRequest(client, mode, endpoint, data, port);
     }
 
     public static async Task<(HttpClient Client, string AccessToken, string EntitlementsToken, string Puuid, string
@@ -207,7 +196,8 @@ internal class Lcu
         Riot.port = showMatch(Riot.Value, isLeagueClient ? "--riotclient-app-port=(\\d*)" : "-app-port=(\\d*)");
         Riot.token = showMatch(Riot.Value,
             isLeagueClient ? "--riotclient-auth-token=([\\w-]*)" : "--remoting-auth-token=([\\w-]*)");
-        Riot.path = process.MainModule.FileName;
+        Riot.path = process.MainModule?.FileName ??
+                throw new InvalidOperationException("Unable to read the Riot client executable path.");
         Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
     }
 
@@ -216,8 +206,26 @@ internal class Lcu
         League.Value = value;
         League.port = showMatch(League.Value, "--app-port=(\\d*)");
         League.token = showMatch(League.Value, "--remoting-auth-token=([\\w-]*)");
-        League.path = process.MainModule.FileName;
+        League.path = process.MainModule?.FileName ??
+                      throw new InvalidOperationException("Unable to read the League client executable path.");
         League.version = FileVersionInfo.GetVersionInfo(League.path);
+    }
+
+    private static bool TryGetConnectionDetails(Vals values, out string port, out string token, out string version)
+    {
+        port = string.Empty;
+        token = string.Empty;
+        version = values.version?.FileVersion ?? string.Empty;
+
+        var portParts = values.port.Split('=', 2);
+        var tokenParts = values.token.Split('=', 2);
+        if (portParts.Length != 2 || tokenParts.Length != 2 ||
+            string.IsNullOrWhiteSpace(portParts[1]) || string.IsNullOrWhiteSpace(tokenParts[1]))
+            return false;
+
+        port = portParts[1];
+        token = tokenParts[1];
+        return true;
     }
 
     private static void SetClientHeaders(HttpClient client, string port, byte[] token, string version)
@@ -295,14 +303,14 @@ internal class Lcu
         public string port { get; set; }
         public string token { get; set; }
         public string path { get; set; }
-        public FileVersionInfo version { get; set; }
+        public FileVersionInfo? version { get; set; }
     }
 }
 
 public static class ProcessCommandLine
 {
     private static bool ReadStructFromProcessMemory<TStruct>(
-        nint hProcess, nint lpBaseAddress, out TStruct val)
+        nint hProcess, nint lpBaseAddress, out TStruct val) where TStruct : struct
     {
         val = default;
         var structSize = Marshal.SizeOf<TStruct>();
@@ -331,7 +339,7 @@ public static class ProcessCommandLine
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var rc = 0;
-            commandLine = null;
+            commandLine = string.Empty;
             var hProcess = Win32Native.OpenProcess(
                 Win32Native.OpenProcessDesiredAccessFlags.PROCESS_QUERY_INFORMATION |
                 Win32Native.OpenProcessDesiredAccessFlags.PROCESS_VM_READ, false, (uint)process.Id);
@@ -363,7 +371,7 @@ public static class ProcessCommandLine
                                             if (Win32Native.ReadProcessMemory(hProcess,
                                                     ruppInfo.CommandLine.Buffer, memCL, clLen, out len))
                                             {
-                                                commandLine = Marshal.PtrToStringUni(memCL);
+                                                commandLine = Marshal.PtrToStringUni(memCL) ?? string.Empty;
                                                 rc = 0;
                                             }
                                             else
@@ -430,6 +438,12 @@ public static class ProcessCommandLine
             };
 
             using var cmdProcess = Process.Start(startInfo);
+            if (cmdProcess == null)
+            {
+                commandLine = string.Empty;
+                return -1;
+            }
+
             cmdProcess.WaitForExit();
             commandLine = cmdProcess.StandardOutput.ReadToEnd().Trim();
             return cmdProcess.ExitCode;

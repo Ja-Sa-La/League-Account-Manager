@@ -80,12 +80,67 @@
                 <DataGrid x:Name="AccountsDataGrid" SelectionUnit="FullRow"
                           KeyDown="Accounts_OnKeyDown"
                           MouseLeftButtonDown="OnAccountsMouseLeftButtonDown"
+                          ContextMenuOpening="Accounts_ContextMenuOpening"
                           Sorting="OnAccountsDataGridSorting"
                           IsReadOnly="True"
                           HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
                           SelectionMode="Single" Background="#FF202020" BorderBrush="#FF4C4C4C" Margin="0"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Copy data">
+                                <MenuItem Header="Username" Click="AccountsContextCopyUsername_Click" />
+                                <MenuItem Header="Password" Click="AccountsContextCopyPassword_Click" />
+                                <MenuItem Header="Username:Password" Click="AccountsContextCopyCredentials_Click" />
+                                <Separator />
+                                <MenuItem Header="Basic details">
+                                    <MenuItem Header="League">
+                                        <MenuItem Header="Formatted" Click="AccountsContextCopyBasicLeagueFormatted_Click" />
+                                        <MenuItem Header="Simple string" Click="AccountsContextCopyBasicLeagueSimple_Click" />
+                                    </MenuItem>
+                                    <MenuItem Header="VALORANT">
+                                        <MenuItem Header="Formatted" Click="AccountsContextCopyBasicValorantFormatted_Click" />
+                                        <MenuItem Header="Simple string" Click="AccountsContextCopyBasicValorantSimple_Click" />
+                                    </MenuItem>
+                                    <MenuItem Header="Both">
+                                        <MenuItem Header="Formatted" Click="AccountsContextCopyBasicBothFormatted_Click" />
+                                        <MenuItem Header="Simple string" Click="AccountsContextCopyBasicBothSimple_Click" />
+                                    </MenuItem>
+                                </MenuItem>
+                                <MenuItem Header="Full details">
+                                    <MenuItem Header="League">
+                                        <MenuItem Header="Formatted" Click="AccountsContextCopyFullLeagueFormatted_Click" />
+                                        <MenuItem Header="Simple string" Click="AccountsContextCopyFullLeagueSimple_Click" />
+                                    </MenuItem>
+                                    <MenuItem Header="VALORANT">
+                                        <MenuItem Header="Formatted" Click="AccountsContextCopyFullValorantFormatted_Click" />
+                                        <MenuItem Header="Simple string" Click="AccountsContextCopyFullValorantSimple_Click" />
+                                    </MenuItem>
+                                    <MenuItem Header="Both">
+                                        <MenuItem Header="Formatted" Click="AccountsContextCopyFullBothFormatted_Click" />
+                                        <MenuItem Header="Simple string" Click="AccountsContextCopyFullBothSimple_Click" />
+                                    </MenuItem>
+                                </MenuItem>
+                            </MenuItem>
+                            <MenuItem Header="Lookups">
+                                <MenuItem Header="OP.GG" Click="AccountsContextOpenOpGg_Click" />
+                                <MenuItem Header="League of Graphs" Click="AccountsContextOpenLeagueOfGraphs_Click" />
+                                <MenuItem Header="VALORANT Tracker" Click="AccountsContextOpenValorantTracker_Click" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="Login" Click="AccountsContextLogin_Click" />
+                            <MenuItem Header="Stealth login" Click="AccountsContextStealthLogin_Click" />
+                            <MenuItem Header="Second client" Click="AccountsContextSecondClient_Click" />
+                            <Separator />
+                            <MenuItem Header="Generate login token" Click="AccountsContextGenerateToken_Click" />
+                            <MenuItem Header="Login with token" Click="AccountsContextUseToken_Click" />
+                            <MenuItem Header="Name change" Click="AccountsContextNameChange_Click" />
+                            <Separator />
+                            <MenuItem Header="Remove duplicates" Click="AccountsContextRemoveDuplicates_Click" />
+                            <MenuItem Header="Delete account" Click="AccountsContextDelete_Click" />
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                     <DataGrid.Columns>
                         <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
                         <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />

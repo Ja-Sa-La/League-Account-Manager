@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using League_Account_Manager.Misc;
@@ -10,18 +11,23 @@ namespace League_Account_Manager.views;
 
 public partial class Autolobby : Page
 {
+    private const int ChampionActionPollIntervalMs = 200;
+    private const int ChampionActionLockInThresholdMs = 1250;
+
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
+    private readonly CancellationTokenSource _pageLifetimeCts = new();
+    private bool _backgroundWorkersStarted;
 
     private readonly List<IconData> listChamps = new();
     private readonly ConcurrentDictionary<string, ToggleTaskInfo> toggles = new();
     private string _lastQueuePhase = string.Empty;
     private string _lastTimerPhase = string.Empty;
 
-    private Chat champSelect;
-    private JObject champselectaction;
-    private JObject champselectJObject;
-    private JObject ChampselectTeamJObject;
-    private JObject queueJObject;
+    private Chat? champSelect;
+    private JObject? champselectaction;
+    private JObject? champselectJObject;
+    private JObject? ChampselectTeamJObject;
+    private JObject? queueJObject;
 
     private bool sentmsg;
 
@@ -29,9 +35,20 @@ public partial class Autolobby : Page
     {
         InitializeComponent();
 
-        Task.Run(BackgroundDataFunction1);
-        Task.Run(BackgroundDataFunction2);
-        Task.Run(LoadBuyableData);
+        Loaded += Autolobby_Loaded;
+    }
+
+    private void Autolobby_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_backgroundWorkersStarted)
+            return;
+
+        _backgroundWorkersStarted = true;
+        var token = _pageLifetimeCts.Token;
+
+        Task.Run(() => BackgroundDataFunction1(token), token);
+        Task.Run(() => BackgroundDataFunction2(token), token);
+        Task.Run(() => LoadBuyableData(token), token);
     }
 
     private void Log(string message)
@@ -116,16 +133,18 @@ public partial class Autolobby : Page
     // LOAD CHAMPION DATA
     // =====================================================
 
-    private async Task LoadBuyableData()
+    private async Task LoadBuyableData(CancellationToken ct)
     {
         try
         {
+            ct.ThrowIfCancellationRequested();
             var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
             var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             LogResponse("Summoner info", responseBody);
 
             var summonerdata = JObject.Parse(responseBody);
 
+            ct.ThrowIfCancellationRequested();
             resp = await Lcu.Connector("league", "get",
                 $"/lol-champions/v1/inventories/{(string)summonerdata["summonerId"]}/champions-minimal", "");
 
@@ -138,11 +157,18 @@ public partial class Autolobby : Page
             listChamps.Clear();
 
             foreach (var champ in champList)
+            {
+                var name = champ["name"]?.ToString();
+                var id = champ["id"]?.ToString();
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(id))
+                    continue;
+
                 listChamps.Add(new IconData
                 {
-                    Name = champ["name"]?.ToString(),
-                    ID = champ["id"]?.ToString()
+                    Name = name!,
+                    ID = id!
                 });
+            }
 
             await Dispatcher.InvokeAsync(() =>
             {
@@ -155,7 +181,10 @@ public partial class Autolobby : Page
                 ban1Champion.OriginalItemsSource = listChamps;
                 ban2Champion.OriginalItemsSource = listChamps;
                 ban3Champion.OriginalItemsSource = listChamps;
-            });
+            }, System.Windows.Threading.DispatcherPriority.Normal, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -167,9 +196,9 @@ public partial class Autolobby : Page
     // BACKGROUND LOOPS (RUN FOREVER)
     // =====================================================
 
-    private async Task BackgroundDataFunction1()
+    private async Task BackgroundDataFunction1(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
@@ -263,14 +292,15 @@ public partial class Autolobby : Page
                 _logger.Error(ex, "Error in BackgroundDataFunction1");
             }
 
-            // Faster polling to avoid missing champ select state changes
-            await Task.Delay(2000);
+            await Task.Delay(queueJObject?["phase"]?.ToString() == "ChampSelect"
+                ? ChampionActionPollIntervalMs
+                : 1000, ct);
         }
     }
 
-    private async Task BackgroundDataFunction2()
+    private async Task BackgroundDataFunction2(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
@@ -295,7 +325,7 @@ public partial class Autolobby : Page
                 _logger.Error(ex, "Error in BackgroundDataFunction2");
             }
 
-            await Task.Delay(1000);
+            await Task.Delay(1000, ct);
         }
     }
 
@@ -435,8 +465,8 @@ public partial class Autolobby : Page
                             ["obfuscatedSummonerId"] = member["obfuscatedSummonerId"]?.Value<long>() ?? 0
                         };
                         var resp = await Lcu.Connector("league", "post",
-                            "/lol-champ-select/v1/toggle-player-muted",
-                            body.ToString(Newtonsoft.Json.Formatting.None));
+                                           "/lol-champ-select/v1/toggle-player-muted",
+                                           body.ToString(Newtonsoft.Json.Formatting.None)) as HttpResponseMessage;
 
                         if (resp != null && resp.IsSuccessStatusCode)
                         {
@@ -466,29 +496,7 @@ public partial class Autolobby : Page
 
     private async Task StartAutoPickTask(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                if (champselectaction != null &&
-                    champselectaction["type"]?.ToString() == "pick" &&
-                    !(champselectaction["completed"]?.Value<bool>() ?? false))
-                {
-                    var champId = await getpickchampid();
-
-                    if (!string.IsNullOrEmpty(champId))
-                        await Lcu.Connector("league", "patch",
-                            "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
-                            "{\"completed\":true,\"championId\":" + champId + "}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "Error in AutoPick");
-            }
-
-            await Task.Delay(1000, ct);
-        }
+        await RunChampionActionTask("pick", getpickchampid, ct);
     }
 
     private async Task<string> getpickchampid()
@@ -552,7 +560,7 @@ public partial class Autolobby : Page
                 if (!int.TryParse(champ.ID, out var champIdInt))
                     continue;
 
-                if (!pickableIds.Contains(champIdInt))
+                if (!ChampSelectActionTiming.IsChampionAvailable(pickableIds, champIdInt))
                     continue;
 
                 var myBans = champselectJObject["bans"]?["myTeamBans"]?.Values<int>() ?? Enumerable.Empty<int>();
@@ -581,31 +589,132 @@ public partial class Autolobby : Page
 
     private async Task StartAutoBanTask(CancellationToken ct)
     {
+        await RunChampionActionTask("ban", getbanchampid, ct);
+    }
+
+    private async Task RunChampionActionTask(string actionType, Func<Task<string>> resolveChampionId,
+        CancellationToken ct)
+    {
+        string? hoveredActionId = null;
+        string? hoveredChampionId = null;
+        string? resolvedActionId = null;
+        string? resolvedChampionId = null;
+        string? deadlineActionId = null;
+        DateTimeOffset? actionDeadline = null;
+
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                if (champselectaction != null &&
-                    champselectaction["type"]?.ToString() == "ban" &&
-                    !(champselectaction["completed"]?.Value<bool>() ?? false))
+                var action = champselectaction;
+                if (action == null ||
+                    !string.Equals(action["type"]?.ToString(), actionType, StringComparison.OrdinalIgnoreCase) ||
+                    (action["completed"]?.Value<bool>() ?? false))
                 {
-                    await Task.Delay(1000, ct);
-
-                    var champId = await getbanchampid();
-
-                    if (!string.IsNullOrEmpty(champId))
-                        await Lcu.Connector("league", "patch",
-                            "/lol-champ-select/v1/session/actions/" + champselectaction["id"],
-                            "{\"completed\":true,\"championId\":" + champId + "}");
+                    hoveredActionId = null;
+                    hoveredChampionId = null;
+                    resolvedActionId = null;
+                    resolvedChampionId = null;
+                    deadlineActionId = null;
+                    actionDeadline = null;
+                    await Task.Delay(ChampionActionPollIntervalMs, ct);
+                    continue;
                 }
+
+                var actionId = action["id"]?.ToString();
+                if (string.IsNullOrWhiteSpace(actionId))
+                {
+                    await Task.Delay(ChampionActionPollIntervalMs, ct);
+                    continue;
+                }
+
+                if (deadlineActionId != actionId)
+                {
+                    deadlineActionId = actionId;
+                    actionDeadline = ChampSelectActionTiming.CreateDeadline(champselectJObject?["timer"],
+                        DateTimeOffset.UtcNow);
+                }
+
+                if (resolvedActionId != actionId || string.IsNullOrWhiteSpace(resolvedChampionId))
+                {
+                    resolvedChampionId = await resolveChampionId();
+                    resolvedActionId = actionId;
+                }
+
+                if (string.IsNullOrWhiteSpace(resolvedChampionId))
+                {
+                    await Task.Delay(ChampionActionPollIntervalMs, ct);
+                    continue;
+                }
+
+                var championId = resolvedChampionId;
+
+                if (hoveredActionId != actionId || hoveredChampionId != championId)
+                {
+                    var hovered = await PatchChampionAction(actionId, championId, false, actionType);
+                    if (hovered)
+                    {
+                        hoveredActionId = actionId;
+                        hoveredChampionId = championId;
+                        Log($"Auto-{actionType} hovering champion ID {championId} for action {actionId}.");
+                    }
+                    else
+                    {
+                        resolvedActionId = null;
+                        resolvedChampionId = null;
+                    }
+                }
+
+                var timer = champselectJObject?["timer"];
+                if (ChampSelectActionTiming.ShouldComplete(timer, actionDeadline, DateTimeOffset.UtcNow,
+                    ChampionActionLockInThresholdMs))
+                {
+                    var completed = await PatchChampionAction(actionId, championId, true, actionType);
+                    if (completed)
+                    {
+                        Log($"Auto-{actionType} completed champion ID {championId} for action {actionId}.");
+                    }
+                    else
+                    {
+                        hoveredActionId = null;
+                        hoveredChampionId = null;
+                        resolvedActionId = null;
+                        resolvedChampionId = null;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in AutoBan");
+                _logger.Error(ex, $"Error in Auto{actionType}");
             }
 
-            await Task.Delay(2000, ct);
+            await Task.Delay(ChampionActionPollIntervalMs, ct);
         }
+    }
+
+    private async Task<bool> PatchChampionAction(string actionId, string championId, bool completed,
+        string actionType)
+    {
+        var body = new JObject
+        {
+            ["completed"] = completed,
+            ["championId"] = int.Parse(championId)
+        }.ToString(Newtonsoft.Json.Formatting.None);
+
+        var response = await Lcu.Connector("league", "patch",
+            $"/lol-champ-select/v1/session/actions/{actionId}", body);
+
+        if (response.IsSuccessStatusCode)
+            return true;
+
+        var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        Log($"Auto-{actionType} {(completed ? "completion" : "hover")} failed for action {actionId}: " +
+            $"{(int)response.StatusCode} {response.StatusCode}. {responseBody}");
+        return false;
     }
 
     private async Task<string> getbanchampid()
@@ -654,7 +763,7 @@ public partial class Autolobby : Page
                 if (!int.TryParse(champ.ID, out var champIdInt))
                     continue;
 
-                if (!bannableIds.Contains(champIdInt))
+                if (!ChampSelectActionTiming.IsChampionAvailable(bannableIds, champIdInt))
                     continue;
 
                 var myBans = champselectJObject["bans"]?["myTeamBans"]?.Values<int>() ?? Enumerable.Empty<int>();
@@ -761,8 +870,8 @@ public partial class Autolobby : Page
     private class ToggleTaskInfo
     {
         public bool Running { get; set; }
-        public Task Task { get; set; }
-        public CancellationTokenSource Cts { get; set; }
+        public Task Task { get; set; } = Task.CompletedTask;
+        public CancellationTokenSource Cts { get; set; } = new();
     }
 
     // =====================================================
@@ -771,45 +880,45 @@ public partial class Autolobby : Page
 
     public class IconData
     {
-        public string Name { get; set; }
-        public string ID { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ID { get; set; } = string.Empty;
     }
 
     public class Chat
     {
-        public string gameName { get; set; }
-        public string gameTag { get; set; }
-        public string id { get; set; }
-        public string inviterId { get; set; }
+        public string gameName { get; set; } = string.Empty;
+        public string gameTag { get; set; } = string.Empty;
+        public string id { get; set; } = string.Empty;
+        public string inviterId { get; set; } = string.Empty;
         public bool isMuted { get; set; }
-        public Lastmessage lastMessage { get; set; }
-        public Mucjwtdto mucJwtDto { get; set; }
-        public string name { get; set; }
-        public string password { get; set; }
-        public string pid { get; set; }
-        public string targetRegion { get; set; }
-        public string type { get; set; }
+        public Lastmessage lastMessage { get; set; } = new();
+        public Mucjwtdto mucJwtDto { get; set; } = new();
+        public string name { get; set; } = string.Empty;
+        public string password { get; set; } = string.Empty;
+        public string pid { get; set; } = string.Empty;
+        public string targetRegion { get; set; } = string.Empty;
+        public string type { get; set; } = string.Empty;
         public long unreadMessageCount { get; set; }
     }
 
     public class Mucjwtdto
     {
-        public string channelClaim { get; set; }
-        public string domain { get; set; }
-        public string jwt { get; set; }
-        public string targetRegion { get; set; }
+        public string channelClaim { get; set; } = string.Empty;
+        public string domain { get; set; } = string.Empty;
+        public string jwt { get; set; } = string.Empty;
+        public string targetRegion { get; set; } = string.Empty;
     }
 
     public class Lastmessage
     {
-        public string body { get; set; }
-        public string fromId { get; set; }
+        public string body { get; set; } = string.Empty;
+        public string fromId { get; set; } = string.Empty;
         public long fromObfuscatedSummonerId { get; set; }
-        public string fromPid { get; set; }
+        public string fromPid { get; set; } = string.Empty;
         public long fromSummonerId { get; set; }
-        public string id { get; set; }
+        public string id { get; set; } = string.Empty;
         public bool isHistorical { get; set; }
         public DateTime timestamp { get; set; }
-        public string type { get; set; }
+        public string type { get; set; } = string.Empty;
     }
 }

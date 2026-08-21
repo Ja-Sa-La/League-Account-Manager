@@ -33,17 +33,7 @@ public class Settings
         if (File.Exists(settingsPath))
         {
             var settingstemp = File.ReadAllText(settingsPath);
-            settingsloaded.filename = "Accounts";
-            settingsloaded.updates = true;
-            settingsloaded.DisplayPasswords = true;
-            settingsloaded.UpdateRanks = true;
-            settingsloaded.AccountFileEncryptionEnabled = false;
-            settingsloaded.AccountFileEncryptionPassword = null;
-            settingsloaded.LeagueDefaultSortColumn = "level";
-            settingsloaded.LeagueDefaultSortDescending = true;
-            settingsloaded.ValorantDefaultSortColumn = "valorantLevel";
-            settingsloaded.ValorantDefaultSortDescending = true;
-            settingsloaded = JsonConvert.DeserializeObject<settings1>(settingstemp);
+            settingsloaded = MergeWithDefaults(settingstemp);
             NormalizeAndMigrateAccountFileName();
             if (string.IsNullOrWhiteSpace(settingsloaded.LeagueDefaultSortColumn))
                 settingsloaded.LeagueDefaultSortColumn = "level";
@@ -105,6 +95,7 @@ public class Settings
             settingsloaded.UpdateRanks = true;
             settingsloaded.filename = "Accounts";
             settingsloaded.updates = true;
+            settingsloaded.ReleaseChannel = UpdateReleaseChannel.Stable.ToString();
             settingsloaded.DisplayPasswords = true;
             settingsloaded.AccountFileEncryptionEnabled = false;
             settingsloaded.AccountFileEncryptionPassword = null;
@@ -250,6 +241,35 @@ public class Settings
             }
     }
 
+    internal static settings1 CreateDefaults()
+    {
+        return new settings1
+        {
+            filename = "Accounts",
+            updates = true,
+            ReleaseChannel = UpdateReleaseChannel.Stable.ToString(),
+            DisplayPasswords = true,
+            UpdateRanks = true,
+            AccountFileEncryptionEnabled = false,
+            AccountFileEncryptionPassword = null,
+            LeagueDefaultSortColumn = "level",
+            LeagueDefaultSortDescending = true,
+            ValorantDefaultSortColumn = "valorantLevel",
+            ValorantDefaultSortDescending = true
+        };
+    }
+
+    internal static settings1 MergeWithDefaults(string json)
+    {
+        var mergedSettings = JObject.FromObject(CreateDefaults());
+        mergedSettings.Merge(JObject.Parse(json), new JsonMergeSettings
+        {
+            MergeArrayHandling = MergeArrayHandling.Replace,
+            MergeNullValueHandling = MergeNullValueHandling.Merge
+        });
+        return mergedSettings.ToObject<settings1>();
+    }
+
     private static async Task<string> findSettings()
     {
         DebugConsole.WriteLine("[Settings] Finding League settings file...");
@@ -278,7 +298,7 @@ public class Settings
             else
             {
                 DebugConsole.WriteLine("[Settings] League settings selection was cancelled.");
-                return null;
+                return string.Empty;
                 //Environment.Exit(0);
             }
     }
@@ -309,7 +329,8 @@ public class Settings
 
         while (true)
         {
-            var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
+            var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "")
+                as System.Net.Http.HttpResponseMessage;
             if (readyResp != null)
             {
                 var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -333,7 +354,15 @@ public class Settings
         for (var attempt = 1; attempt <= 10; attempt++)
         {
             DebugConsole.WriteLine($"[Settings] League install lookup attempt {attempt}/10.");
-            var resp = await Lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "");
+            var resp = await Lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "")
+                as System.Net.Http.HttpResponseMessage;
+            if (resp == null)
+            {
+                if (attempt < 10)
+                    await Task.Delay(1000);
+                continue;
+            }
+
             var responseContent = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             try
@@ -353,11 +382,15 @@ public class Settings
 
         if (responseBody != null && responseBody.ContainsKey("path"))
         {
-            var leaguePath = responseBody["path"].ToString().Replace("/", "\\") + "\\LeagueClient.exe";
+            var installPath = responseBody["path"]?.ToString();
+            if (string.IsNullOrWhiteSpace(installPath))
+                return string.Empty;
+
+            var leaguePath = installPath.Replace("/", "\\") + "\\LeagueClient.exe";
             DebugConsole.WriteLine($"[Settings] League client found automatically: {leaguePath}");
             return leaguePath;
         }
-        DebugConsole.WriteLine(responseBody.ToString());
+        DebugConsole.WriteLine(responseBody?.ToString() ?? "[Settings] No install response received");
         DebugConsole.WriteLine("[Settings] League client was not found automatically. Prompting for LeagueClient.exe.");
         var openFileDialog = new OpenFileDialog();
         openFileDialog.Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*";
@@ -378,7 +411,7 @@ public class Settings
             else
             {
                 DebugConsole.WriteLine("[Settings] League client selection was cancelled.");
-                return null;
+                return string.Empty;
                 //Environment.Exit(0);
             }
     }
@@ -389,6 +422,7 @@ public class Settings
         public string riotPath { get; set; }
         public string filename { get; set; }
         public bool updates { get; set; }
+        public string ReleaseChannel { get; set; }
         public bool DisplayPasswords { get; set; }
         public string settingsLocation { get; set; }
         public bool UpdateRanks { get; set; }
