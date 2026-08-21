@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "League_Account_Manager",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build League_Account_Manager",
+            "program": "${workspaceFolder}/League_Account_Manager/bin/Debug/net10.0-windows7.0/League_Account_Manager.dll",
+            "cwd": "${workspaceFolder}/League_Account_Manager",
+            "stopAtEntry": false
+        }
+    ]
+}

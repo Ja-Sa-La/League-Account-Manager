@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using League_Account_Manager.Misc;
@@ -22,11 +23,11 @@ public partial class DisEnchanter : Page
     public DisEnchanter()
     {
         InitializeComponent();
-        UpdateLootAsync();
+        _ = UpdateLootAsync();
     }
 
 
-    private async void UpdateLootAsync()
+    private async Task UpdateLootAsync()
     {
         try
         {
@@ -34,80 +35,94 @@ public partial class DisEnchanter : Page
             if (leagueclientprocess.Length == 0) return;
             LootChampsList.Clear();
             LootSkinsList.Clear();
-            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "")
+                as HttpResponseMessage;
+            if (resp == null)
+                return;
+
             JToken responseBody = JToken.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
             foreach (var jtoken in responseBody)
             foreach (var thing in jtoken)
             {
                 DebugConsole.WriteLine(thing.ToString());
-                if (thing["disenchantLootName"].ToString() == "CURRENCY_champion")
+                var disenchantLootName = thing["disenchantLootName"]?.ToString();
+                var lootId = thing["lootId"]?.ToString();
+                var recipeName = thing["disenchantRecipeName"]?.ToString();
+                var count = thing["count"]?.Value<int?>();
+                var disenchantValue = thing["disenchantValue"]?.Value<int?>();
+                if (string.IsNullOrWhiteSpace(lootId) || string.IsNullOrWhiteSpace(recipeName) ||
+                    !count.HasValue || !disenchantValue.HasValue)
+                    continue;
+
+                if (disenchantLootName == "CURRENCY_champion")
                 {
                     var tilePath = thing["tilePath"]?.ToString();
                     LootChampsList.Add(new LootItem
                     {
-                        Name = thing["itemDesc"] + " x " + thing["count"],
-                        Id = thing["lootId"].ToString(), Count = Convert.ToInt32(thing["count"]),
-                        Price = Convert.ToInt32(thing["count"]), Value = Convert.ToInt32(thing["disenchantValue"]),
-                        DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                        Name = (thing["itemDesc"]?.ToString() ?? "Champion shard") + " x " + count.Value,
+                        Id = lootId, Count = count.Value,
+                        Price = count.Value, Value = disenchantValue.Value,
+                        DisenchantRecipeName = recipeName,
                         IconUrl = BuildTileIconUrl(tilePath)
                     });
                 }
-                else if (thing["disenchantLootName"].ToString() == "CURRENCY_cosmetic")
+                else if (disenchantLootName == "CURRENCY_cosmetic")
                 {
-                    var skinName = thing["itemDesc"].ToString();
-                    if (string.IsNullOrWhiteSpace(skinName)) skinName = thing["localizedName"].ToString();
+                    var skinName = thing["itemDesc"]?.ToString();
+                    if (string.IsNullOrWhiteSpace(skinName))
+                        skinName = thing["localizedName"]?.ToString() ?? "Cosmetic shard";
                     var tilePath = thing["tilePath"]?.ToString();
-                    if (thing["displayCategories"].ToString() == "SKIN" ||
-                        thing["displayCategories"].ToString() == "ETERNALS")
+                    var category = thing["displayCategories"]?.ToString();
+                    if (category == "SKIN" || category == "ETERNALS")
                     {
                         LootSkinsList.Add(new LootItem
                         {
-                            Name = skinName + " x " + thing["count"],
-                            Id = thing["lootId"].ToString(),
-                            Count = Convert.ToInt32(thing["count"]),
-                            Price = Convert.ToInt32(thing["count"]),
-                            Value = Convert.ToInt32(thing["disenchantValue"]),
-                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            Name = skinName + " x " + count.Value,
+                            Id = lootId,
+                            Count = count.Value,
+                            Price = count.Value,
+                            Value = disenchantValue.Value,
+                            DisenchantRecipeName = recipeName,
                             IconUrl = BuildTileIconUrl(tilePath)
                         });
                     }
-                    else if (thing["displayCategories"].ToString() == "WARDSKIN")
+                    else if (category == "WARDSKIN")
                     {
-                        DebugConsole.WriteLine(BuildTileIconUrlWards(tilePath));
+                        DebugConsole.WriteLine(BuildTileIconUrlWards(tilePath) ?? "Ward icon unavailable");
                         LootSkinsList.Add(new LootItem
                         {
-                            Name = skinName + " x " + thing["count"],
-                            Id = thing["lootId"].ToString(),
-                            Count = Convert.ToInt32(thing["count"]),
-                            Price = Convert.ToInt32(thing["count"]),
-                            Value = Convert.ToInt32(thing["disenchantValue"]),
-                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            Name = skinName + " x " + count.Value,
+                            Id = lootId,
+                            Count = count.Value,
+                            Price = count.Value,
+                            Value = disenchantValue.Value,
+                            DisenchantRecipeName = recipeName,
                             IconUrl = BuildTileIconUrlWards(tilePath)
                         });
                     }
-                    else if (thing["displayCategories"].ToString() == "SUMMONERICON")
+                    else if (category == "SUMMONERICON")
                     {
                         LootSkinsList.Add(new LootItem
                         {
-                            Name = skinName + " x " + thing["count"],
-                            Id = thing["lootId"].ToString(),
-                            Count = Convert.ToInt32(thing["count"]),
-                            Price = Convert.ToInt32(thing["count"]),
-                            Value = Convert.ToInt32(thing["disenchantValue"]),
-                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            Name = skinName + " x " + count.Value,
+                            Id = lootId,
+                            Count = count.Value,
+                            Price = count.Value,
+                            Value = disenchantValue.Value,
+                            DisenchantRecipeName = recipeName,
                             IconUrl = BuildTileIconUrlSummonerIcon(tilePath)
                         });
                     }
-                    else if (thing["displayCategories"].ToString() == "EMOTE")
+                    else if (category == "EMOTE")
                     {
                         LootSkinsList.Add(new LootItem
                         {
-                            Name = skinName + " x " + thing["count"],
-                            Id = thing["lootId"].ToString(),
-                            Count = Convert.ToInt32(thing["count"]),
-                            Price = Convert.ToInt32(thing["count"]),
-                            Value = Convert.ToInt32(thing["disenchantValue"]),
-                            DisenchantRecipeName = thing["disenchantRecipeName"].ToString(),
+                            Name = skinName + " x " + count.Value,
+                            Id = lootId,
+                            Count = count.Value,
+                            Price = count.Value,
+                            Value = disenchantValue.Value,
+                            DisenchantRecipeName = recipeName,
                             IconUrl = BuildTileIconUrlEmotes(tilePath)
                         });
                     }
@@ -127,26 +142,26 @@ public partial class DisEnchanter : Page
         }
     }
 
-    private async void CraftSelectedLootAsync()
+    private async Task CraftSelectedLootAsync()
     {
         foreach (LootItem champ in ChampLootTable.SelectedItems)
         {
-            var resp = await Lcu.Connector("league", "post",
+            await Lcu.Connector("league", "post",
                 "/lol-loot/v1/recipes/" + champ.DisenchantRecipeName + "/craft?repeat=1", "[\"" + champ.Id + "\"]");
         }
 
         foreach (LootItem champ in SkinLootTable.SelectedItems)
         {
-            var resp = await Lcu.Connector("league", "post",
+            await Lcu.Connector("league", "post",
                 "/lol-loot/v1/recipes/" + champ.DisenchantRecipeName + "/craft?repeat=1", "[\"" + champ.Id + "\"]");
         }
 
-        UpdateLootAsync();
+        await UpdateLootAsync();
     }
 
-    private void OnDisenchantSelectedClick(object sender, RoutedEventArgs e)
+    private async void OnDisenchantSelectedClick(object sender, RoutedEventArgs e)
     {
-        CraftSelectedLootAsync();
+        await CraftSelectedLootAsync();
     }
 
     private void OnToggleSelectChampionsClick(object sender, RoutedEventArgs e)
@@ -188,7 +203,7 @@ public partial class DisEnchanter : Page
     }
 
 
-    private static string BuildTileIconUrl(string? tilePath)
+    private static string? BuildTileIconUrl(string? tilePath)
     {
         if (string.IsNullOrWhiteSpace(tilePath)) return null;
 
@@ -210,7 +225,7 @@ public partial class DisEnchanter : Page
         return baseUrl + "/" + lowered;
     }
 
-    private static string BuildTileIconUrlWards(string? tilePath)
+    private static string? BuildTileIconUrlWards(string? tilePath)
     {
         if (string.IsNullOrWhiteSpace(tilePath)) return null;
 
@@ -225,7 +240,7 @@ public partial class DisEnchanter : Page
         return baseUrl + "/" + lowered;
     }
 
-    private static string BuildTileIconUrlEmotes(string? tilePath)
+    private static string? BuildTileIconUrlEmotes(string? tilePath)
     {
         if (string.IsNullOrWhiteSpace(tilePath)) return null;
 
@@ -238,7 +253,7 @@ public partial class DisEnchanter : Page
         return baseUrl + "/" + lowered;
     }
 
-    private static string BuildTileIconUrlSummonerIcon(string? tilePath)
+    private static string? BuildTileIconUrlSummonerIcon(string? tilePath)
     {
         if (string.IsNullOrWhiteSpace(tilePath)) return null;
 

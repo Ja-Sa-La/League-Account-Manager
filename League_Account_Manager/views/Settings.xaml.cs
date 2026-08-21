@@ -27,6 +27,8 @@ public partial class Settings : Page
         _initializing = true;
         settingssaveinfobox.Text = Misc.Settings.settingsloaded.filename;
         savesettingsupdates.IsChecked = Misc.Settings.settingsloaded.updates;
+        ReleaseChannel.SelectedIndex = string.Equals(Misc.Settings.settingsloaded.ReleaseChannel, "Beta",
+            StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         DisplayPasswords.IsChecked = Misc.Settings.settingsloaded.DisplayPasswords;
         AutoUpdateRanks.IsChecked = Misc.Settings.settingsloaded.UpdateRanks;
         AccountFileEncryption.IsChecked = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
@@ -53,6 +55,9 @@ public partial class Settings : Page
             }
         }
 
+        var oldBaseName = Misc.Settings.settingsloaded.filename;
+        var oldEncryptionEnabled = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
+        var sourceFilePath = AccountFileStore.GetAccountsFilePath();
         var newBaseName = Path.GetFileNameWithoutExtension(settingssaveinfobox.Text?.Trim());
         if (string.IsNullOrWhiteSpace(newBaseName))
             newBaseName = "Accounts";
@@ -61,6 +66,7 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.updates = true;
         else
             Misc.Settings.settingsloaded.updates = false;
+        Misc.Settings.settingsloaded.ReleaseChannel = ReleaseChannel.SelectedIndex == 1 ? "Beta" : "Stable";
         if (DisplayPasswords.IsChecked != false)
             Misc.Settings.settingsloaded.DisplayPasswords = true;
         else
@@ -72,31 +78,36 @@ public partial class Settings : Page
 
         Misc.Settings.settingsloaded.AccountFileEncryptionEnabled = encryptionEnabled;
         var config = new CsvConfiguration(CultureInfo.CurrentCulture) { Delimiter = ";" };
-        var filePath = AccountFileStore.GetAccountsFilePath();
+        var destinationFilePath = AccountFileStore.GetAccountsFilePath();
 
         try
         {
             if (encryptionEnabled)
             {
-                await AccountFileStore.RewriteForEncryptionStateAsync(filePath, config, true, currentPassword,
-                    newPassword);
+                await AccountFileStore.RewriteForEncryptionStateAsync(sourceFilePath, destinationFilePath, config,
+                    true, currentPassword, newPassword);
                 AccountFileStore.SetPassword(newPassword);
             }
             else
             {
-                await AccountFileStore.RewriteForEncryptionStateAsync(filePath, config, false, currentPassword, null);
+                await AccountFileStore.RewriteForEncryptionStateAsync(sourceFilePath, destinationFilePath, config,
+                    false, currentPassword, null);
                 AccountFileStore.SetPassword(null);
             }
         }
         catch (Exception exception)
         {
+            Misc.Settings.settingsloaded.filename = oldBaseName;
+            Misc.Settings.settingsloaded.AccountFileEncryptionEnabled = oldEncryptionEnabled;
             AppMessageBox.Show($"Failed to update account file encryption: {exception.Message}", "Encryption Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
 
         Misc.Settings.Save();
-        Process.Start(Process.GetCurrentProcess().MainModule.FileName);
+        var applicationPath = Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(applicationPath))
+            Process.Start(new ProcessStartInfo { FileName = applicationPath, UseShellExecute = true });
         Application.Current.Shutdown();
     }
 

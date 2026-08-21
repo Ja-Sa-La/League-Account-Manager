@@ -58,6 +58,7 @@ internal class OfflineLauncher
         {
             FileName = riotClientPath,
             UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(riotClientPath) ?? AppContext.BaseDirectory,
             Arguments = $"--client-config-url=\"{configProxy.ProxyUrl}\""
         };
 
@@ -162,7 +163,7 @@ internal class OfflineLauncher
             dst.Headers.TryAddWithoutValidation(dstName, value);
     }
 
-    private static string NormalizeConfigPath(string? rawUrl)
+    internal static string NormalizeConfigPath(string? rawUrl)
     {
         if (string.IsNullOrWhiteSpace(rawUrl))
             return "/";
@@ -258,7 +259,8 @@ internal class OfflineLauncher
             DebugConsole.WriteLine("[OfflineLauncher] Downloading updated localhost certificate.");
             using var httpClient = new HttpClient();
             var certBytes = await httpClient.GetByteArrayAsync("https://redirect.leagueaccountmanager.xyz/cert.pfx", cancellationToken);
-            var certificate = new X509Certificate2(certBytes);
+            var certificate = X509CertificateLoader.LoadPkcs12(certBytes, null,
+                X509KeyStorageFlags.DefaultKeySet);
 
             if (!CertificateMatchesDomain(certificate, LocalhostDomain))
             {
@@ -286,7 +288,8 @@ internal class OfflineLauncher
 
         try
         {
-            var certificate = new X509Certificate2(File.ReadAllBytes(CachedCertificatePath));
+            var certificate = X509CertificateLoader.LoadPkcs12(File.ReadAllBytes(CachedCertificatePath), null,
+                X509KeyStorageFlags.DefaultKeySet);
             if (CertificateMatchesDomain(certificate, LocalhostDomain))
                 return certificate;
 
@@ -429,7 +432,7 @@ internal class OfflineLauncher
         }
     }
 
-    private static string EscapePowerShellSingleQuotedString(string value)
+    internal static string EscapePowerShellSingleQuotedString(string value)
     {
         return value.Replace("'", "''");
     }

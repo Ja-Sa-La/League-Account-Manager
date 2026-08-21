@@ -7,10 +7,16 @@ namespace League_Account_Manager.Windows;
 public partial class AppMessageBox : Window
 {
     private MessageBoxResult _result = MessageBoxResult.None;
+    private readonly IReadOnlyDictionary<MessageBoxResult, Action?>? _customActions;
+    private readonly IReadOnlyDictionary<MessageBoxResult, string>? _customLabels;
 
-    public AppMessageBox(string messageBoxText, string caption, MessageBoxButton button, MessageBoxImage icon)
+    public AppMessageBox(string messageBoxText, string caption, MessageBoxButton button, MessageBoxImage icon,
+        IReadOnlyDictionary<MessageBoxResult, Action?>? customActions = null,
+        IReadOnlyDictionary<MessageBoxResult, string>? customLabels = null)
     {
         InitializeComponent();
+        _customActions = customActions;
+        _customLabels = customLabels;
 
         Title = string.IsNullOrWhiteSpace(caption) ? "League Account Manager" : caption;
         MessageTextBlock.Text = messageBoxText;
@@ -38,14 +44,36 @@ public partial class AppMessageBox : Window
         return ShowCore(messageBoxText, caption, button, icon);
     }
 
+    public static MessageBoxResult ShowUpdateAvailable(string version, string channel, string patchNotes,
+        Action updateAction, Action releaseAction)
+    {
+        var message = $"A new {channel.ToLowerInvariant()} release ({version}) is available.\n\n" +
+                      "Patch notes:\n" + patchNotes;
+        var actions = new Dictionary<MessageBoxResult, Action?>
+        {
+            [MessageBoxResult.Yes] = updateAction,
+            [MessageBoxResult.No] = releaseAction,
+            [MessageBoxResult.Cancel] = null
+        };
+        var labels = new Dictionary<MessageBoxResult, string>
+        {
+            [MessageBoxResult.Yes] = "Update now",
+            [MessageBoxResult.No] = "Open release",
+            [MessageBoxResult.Cancel] = "Later"
+        };
+        return ShowCore(message, "Update available", MessageBoxButton.YesNoCancel, MessageBoxImage.Information,
+            actions, labels);
+    }
+
     private static MessageBoxResult ShowCore(string messageBoxText, string caption, MessageBoxButton button,
-        MessageBoxImage icon)
+        MessageBoxImage icon, IReadOnlyDictionary<MessageBoxResult, Action?>? customActions = null,
+        IReadOnlyDictionary<MessageBoxResult, string>? customLabels = null)
     {
         var owner = Application.Current?.Windows
             .OfType<Window>()
             .FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
 
-        var dialog = new AppMessageBox(messageBoxText, caption, button, icon)
+        var dialog = new AppMessageBox(messageBoxText, caption, button, icon, customActions, customLabels)
         {
             WindowStartupLocation = owner != null && owner.IsVisible
                 ? WindowStartupLocation.CenterOwner
@@ -65,7 +93,9 @@ public partial class AppMessageBox : Window
         {
             var buttonControl = new Button
             {
-                Content = buttonConfig.Text,
+                Content = _customLabels?.TryGetValue(buttonConfig.Result, out var customLabel) == true
+                    ? customLabel
+                    : buttonConfig.Text,
                 Style = (Style)FindResource("DialogButtonStyle"),
                 IsDefault = buttonConfig.IsDefault,
                 IsCancel = buttonConfig.IsCancel
@@ -75,6 +105,8 @@ public partial class AppMessageBox : Window
             {
                 _result = buttonConfig.Result;
                 DialogResult = true;
+                if (_customActions?.TryGetValue(buttonConfig.Result, out var action) == true)
+                    action?.Invoke();
             };
 
             ButtonsPanel.Children.Add(buttonControl);

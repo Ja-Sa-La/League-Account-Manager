@@ -161,6 +161,11 @@ public static class LoginTokenManager
             }
 
             originalsBackup = await BackupOriginalFilesAsync();
+            if (string.IsNullOrEmpty(originalsBackup))
+            {
+                DebugConsole.WriteLine("[Token] Aborting token import because original files could not be backed up");
+                return false;
+            }
 
             var restored = await RestoreTokenPackageAsync(decrypted);
             if (!restored)
@@ -297,10 +302,12 @@ public static class LoginTokenManager
                     else if (entryPath.StartsWith("config/", StringComparison.OrdinalIgnoreCase))
                     {
                         var relative = entryPath.Substring("config/".Length).Replace('/', Path.DirectorySeparatorChar);
+                        if (string.IsNullOrWhiteSpace(relative))
+                            continue;
                         if (string.Equals(Path.GetFileName(relative), "lockfile", StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        var destPath = Path.Combine(RiotConfigPath, relative);
+                        var destPath = GetValidatedExtractionPath(RiotConfigPath, relative);
                         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                         try
                         {
@@ -318,7 +325,9 @@ public static class LoginTokenManager
                     {
                         var relative = entryPath.Substring("metadata/".Length)
                             .Replace('/', Path.DirectorySeparatorChar);
-                        var destPath = Path.Combine(RiotMetadataPath, relative);
+                        if (string.IsNullOrWhiteSpace(relative))
+                            continue;
+                        var destPath = GetValidatedExtractionPath(RiotMetadataPath, relative);
                         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                         try
                         {
@@ -354,6 +363,17 @@ public static class LoginTokenManager
             Logger.Error(ex, "Failed to restore token package");
             return false;
         }
+    }
+
+    internal static string GetValidatedExtractionPath(string rootPath, string relativePath)
+    {
+        var fullRootPath = Path.GetFullPath(rootPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var destinationPath = Path.GetFullPath(Path.Combine(fullRootPath, relativePath));
+        if (!destinationPath.StartsWith(fullRootPath, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"Token archive entry escapes its destination: {relativePath}");
+
+        return destinationPath;
     }
 
     private static async Task<string?> BackupOriginalFilesAsync()
@@ -488,6 +508,13 @@ public static class LoginTokenManager
                 var app = Application.Attach(riotProcessName);
                 using var automation = new UIA3Automation();
                 var window = app.GetMainWindow(automation);
+                if (window == null)
+                {
+                    DebugConsole.WriteLine("[Token] Riot login window is not ready");
+                    await Task.Delay(300);
+                    continue;
+                }
+
                 var content = window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
                 if (content == null)
                 {
@@ -510,7 +537,7 @@ public static class LoginTokenManager
                 if (rememberBox != null)
                 {
                     var count = Array.IndexOf(siblings, rememberBox) + 1;
-                    while (siblings.Length >= count)
+                    while (count < siblings.Length)
                     {
                         var maybeButton = siblings[count++].AsButton();
                         if (maybeButton != null && maybeButton.ControlType == ControlType.Button)
@@ -738,8 +765,7 @@ public static class LoginTokenManager
         aes.Padding = PaddingMode.PKCS7;
 
         var salt = RandomNumberGenerator.GetBytes(16);
-        using var key = new Rfc2898DeriveBytes(password, salt, 100_000, HashAlgorithmName.SHA256);
-        aes.Key = key.GetBytes(32);
+        aes.Key = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
         aes.GenerateIV();
 
         using var encryptor = aes.CreateEncryptor();
@@ -768,8 +794,7 @@ public static class LoginTokenManager
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.PKCS7;
 
-        using var key = new Rfc2898DeriveBytes(password, salt, 100_000, HashAlgorithmName.SHA256);
-        aes.Key = key.GetBytes(32);
+        aes.Key = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
         aes.IV = iv;
 
         var cipher = new byte[data.Length - salt.Length - iv.Length];

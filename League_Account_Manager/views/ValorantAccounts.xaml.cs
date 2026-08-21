@@ -39,6 +39,7 @@ public partial class ValorantAccounts : Page
     private readonly AuthRouteLauncher _launcher = new();
     private DateTime _lastFileChange = DateTime.MinValue;
     private DateTime _lastKnownFileWrite = DateTime.MinValue;
+    private bool _isActive;
     private bool _pendingReload;
     private bool Executing;
     private FileSystemWatcher? fileWatcher;
@@ -55,13 +56,9 @@ public partial class ValorantAccounts : Page
         Loaded += ValorantAccounts_Loaded;
         Unloaded += ValorantAccounts_Unloaded;
         IsVisibleChanged += ValorantAccounts_IsVisibleChanged;
-        Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
-        AccountFileStore.AccountsFileUpdated += OnAccountsFileUpdated;
-        if (_listenForLeaguePullDataCompleted)
-            Accounts.PullDataCompleted += OnLeaguePullDataCompleted;
     }
 
-    public static List<Utils.AccountList>? ActualAccountlists { get; set; }
+    public static List<Utils.AccountList> ActualAccountlists { get; set; } = new();
 
     public static void RunPullDataInBackground()
     {
@@ -93,10 +90,11 @@ public partial class ValorantAccounts : Page
         if (!IsLoaded)
             return;
 
-        if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true)
+        var dispatcher = Dispatcher;
+        if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
             return;
 
-        Dispatcher.InvokeAsync(() => { OnPullDataClick(this, new RoutedEventArgs()); });
+        dispatcher.InvokeAsync(() => { OnPullDataClick(this, new RoutedEventArgs()); });
     }
 
     private async void ValorantAccounts_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -117,6 +115,103 @@ public partial class ValorantAccounts : Page
     {
         await DeleteSelectedValorantAccountAsync();
     }
+    private void ValorantAccounts_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var row = ItemsControl.ContainerFromElement(ValorantAccountsDataGrid, source) as DataGridRow;
+        if (row?.Item is not Utils.AccountList account)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        ValorantAccountsDataGrid.SelectedItem = account;
+        ValorantAccountsDataGrid.ScrollIntoView(account);
+    }
+
+    private void ValorantContextKillClient_Click(object sender, RoutedEventArgs e) => OnKillClientClick(sender, e);
+    private void CopySelectedAccount(string text)
+    {
+        if (ValorantAccountsDataGrid.SelectedItem is Utils.AccountList)
+            System.Windows.Clipboard.SetText(text);
+    }
+
+    private Utils.AccountList? GetSelectedAccount() => ValorantAccountsDataGrid.SelectedItem as Utils.AccountList;
+    private void ValorantContextCopyUsername_Click(object sender, RoutedEventArgs e) => CopySelectedAccount(GetSelectedAccount()?.username ?? string.Empty);
+    private void ValorantContextCopyPassword_Click(object sender, RoutedEventArgs e) => CopySelectedAccount(GetSelectedAccount()?.password ?? string.Empty);
+    private void ValorantContextCopyCredentials_Click(object sender, RoutedEventArgs e)
+    {
+        var account = GetSelectedAccount();
+        CopySelectedAccount(account == null ? string.Empty : $"{account.username}:{account.password}");
+    }
+    private void ValorantContextCopyBasicLeagueFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.League);
+    private void ValorantContextCopyBasicLeagueSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.League);
+    private void ValorantContextCopyBasicValorantFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Valorant);
+    private void ValorantContextCopyBasicValorantSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Valorant);
+    private void ValorantContextCopyBasicBothFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Both);
+    private void ValorantContextCopyBasicBothSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(false, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Both);
+    private void ValorantContextCopyFullLeagueFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.League);
+    private void ValorantContextCopyFullLeagueSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.League);
+    private void ValorantContextCopyFullValorantFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Valorant);
+    private void ValorantContextCopyFullValorantSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Valorant);
+    private void ValorantContextCopyFullBothFormatted_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Formatted, Utils.AccountCopySection.Both);
+    private void ValorantContextCopyFullBothSimple_Click(object sender, RoutedEventArgs e) => CopyFormattedAccount(true, Utils.AccountCopyFormat.Simple, Utils.AccountCopySection.Both);
+    private void CopyFormattedAccount(bool fullDetails, Utils.AccountCopyFormat format, Utils.AccountCopySection section)
+    {
+        var account = GetSelectedAccount();
+        if (account != null)
+            CopySelectedAccount(Utils.FormatAccountForCopy(account, fullDetails, format, section));
+    }
+
+    private void ValorantContextOpenOpGg_Click(object sender, RoutedEventArgs e) => OpenLeagueLookup("https://www.op.gg/summoners/{0}/{1}");
+    private void ValorantContextOpenLeagueOfGraphs_Click(object sender, RoutedEventArgs e) => OpenLeagueLookup("https://www.leagueofgraphs.com/summoner/{0}/{1}");
+    private void ValorantContextOpenValorantTracker_Click(object sender, RoutedEventArgs e) => OpenValorantTrackerLookup();
+
+    private void OpenLeagueLookup(string urlTemplate)
+    {
+        var account = GetSelectedAccount();
+        if (account == null || string.IsNullOrWhiteSpace(account.riotID) || string.IsNullOrWhiteSpace(account.server))
+            return;
+
+        var region = Uri.EscapeDataString(account.server.Trim().ToLowerInvariant());
+        var riotId = Uri.EscapeDataString(account.riotID.Trim().Replace("#", "-"));
+        OpenExternalUrl(string.Format(urlTemplate, region, riotId));
+    }
+
+    private void OpenValorantTrackerLookup()
+    {
+        var account = GetSelectedAccount();
+        if (account == null || string.IsNullOrWhiteSpace(account.riotID))
+            return;
+
+        var riotId = Uri.EscapeDataString(account.riotID.Trim());
+        OpenExternalUrl($"https://tracker.gg/valorant/profile/riot/{riotId}");
+    }
+
+    private static void OpenExternalUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            DebugConsole.WriteLine($"[ValorantAccounts] Failed to open lookup URL: {exception.Message}", ConsoleColor.Yellow);
+        }
+    }
+
+    private void ValorantContextLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login" }, e);
+    private void ValorantContextStealthLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "StealthLogin" }, e);
+    private void ValorantContextGenerateToken_Click(object sender, RoutedEventArgs e) => GenerateLoginToken_OnClick(sender, e);
+    private void ValorantContextUseToken_Click(object sender, RoutedEventArgs e) => UseLoginToken_OnClick(sender, e);
+    private void ValorantContextNameChange_Click(object sender, RoutedEventArgs e) => OnNameChangeClick(sender, e);
+    private void ValorantContextRemoveDuplicates_Click(object sender, RoutedEventArgs e) => OnRemoveDuplicatesClick(sender, e);
+    private void ValorantContextDelete_Click(object sender, RoutedEventArgs e) => OnDeleteClick(sender, e);
 
     private void OnValorantAccountsDataGridSorting(object? sender, DataGridSortingEventArgs e)
     {
@@ -155,12 +250,12 @@ public partial class ValorantAccounts : Page
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (confirm != MessageBoxResult.Yes) return;
 
-            ActualAccountlists?.RemoveAll(r =>
+            ActualAccountlists.RemoveAll(r =>
                 r.username == selectedrow.username &&
                 r.password == selectedrow.password &&
                 r.valorantServer == selectedrow.valorantServer);
 
-            ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
+            ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
 
             await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
@@ -178,11 +273,16 @@ public partial class ValorantAccounts : Page
 
     private void ValorantAccounts_Unloaded(object sender, RoutedEventArgs e)
     {
+        Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
+        AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
         if (_listenForLeaguePullDataCompleted)
             Accounts.PullDataCompleted -= OnLeaguePullDataCompleted;
 
-        if (Volatile.Read(ref _activeLoadedInstances) > 0)
+        if (_isActive)
+        {
+            _isActive = false;
             Interlocked.Decrement(ref _activeLoadedInstances);
+        }
 
         if (fileWatcher != null)
         {
@@ -200,7 +300,7 @@ public partial class ValorantAccounts : Page
         try
         {
             _pendingReload = false;
-            await Dispatcher.InvokeAsync(async () => { await LoadDataAsync(); });
+            await Dispatcher.InvokeAsync(LoadDataAsync).Task.Unwrap();
         }
         catch
         {
@@ -243,8 +343,12 @@ public partial class ValorantAccounts : Page
 
     private void OpenValorant()
     {
-        Process.Start(Misc.Settings.settingsloaded.riotPath,
-            "--launch-product=Valorant --launch-patchline=live");
+        StartRiotClient("--launch-product=Valorant --launch-patchline=live");
+    }
+
+    private static void StartRiotClient(string arguments)
+    {
+        Utils.StartRiotClient(Misc.Settings.settingsloaded.riotPath, arguments);
     }
 
     public async Task<bool> CheckValorant()
@@ -419,8 +523,7 @@ public partial class ValorantAccounts : Page
             switch (clickedButton.Name)
             {
                 case "Login":
-                    Process.Start(Misc.Settings.settingsloaded.riotPath,
-                        "--launch-product=valorant --launch-patchline=live");
+                    StartRiotClient("--launch-product=valorant --launch-patchline=live");
                     DebugConsole.WriteLine("[ValorantAccounts] Riot client launch requested (normal mode)");
                     break;
 
@@ -469,9 +572,11 @@ public partial class ValorantAccounts : Page
 
                     using (var automation = new UIA3Automation())
                     {
-                        AutomationElement window = app.GetMainWindow(automation);
+                        var window = app.GetMainWindow(automation) ??
+                                     throw new Exception("Riot window not found");
                         var riotcontent =
-                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND")) ??
+                            throw new Exception("Riot content not found");
 
 
                         var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
@@ -486,15 +591,14 @@ public partial class ValorantAccounts : Page
 
 
                         var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
-                        if (riotcontent == null) throw new Exception("Riot content not found");
                         if (checkbox == null) throw new Exception("Checkbox field not found");
 
                         var siblings = riotcontent.FindAllChildren();
                         if (checkbox.Parent == null) throw new Exception("Checkbox parent not found");
                         var count = Array.IndexOf(siblings, checkbox) + 1;
                         if (siblings.Length <= count) throw new Exception("Not enough siblings found for the checkbox");
-                        dynamic signInElement = null;
-                        while (siblings.Length >= count)
+                        dynamic? signInElement = null;
+                        while (count < siblings.Length)
                         {
                             signInElement = siblings[count++].AsButton();
 
@@ -502,8 +606,8 @@ public partial class ValorantAccounts : Page
                             break;
                         }
 
-                        usernameField.Text = SelectedUsername;
-                        passwordField.Text = SelectedPassword;
+                        usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
+                        passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
                         if (signInElement != null)
                         {
                             while (!signInElement.IsEnabled) Thread.Sleep(200);
@@ -568,11 +672,11 @@ public partial class ValorantAccounts : Page
                                         if (invalidCreds)
                                         {
                                             // Mark account as invalid login
-                                            var existingNote = ActualAccountlists?.FindLast(x =>
+                                            var existingNote = ActualAccountlists.FindLast(x =>
                                                 x.username == SelectedUsername && x.password == SelectedPassword)?.note;
-                                            ActualAccountlists?.RemoveAll(x =>
+                                            ActualAccountlists.RemoveAll(x =>
                                                 x.username == SelectedUsername && x.password == SelectedPassword);
-                                            ActualAccountlists?.Add(new Utils.AccountList
+                                            ActualAccountlists.Add(new Utils.AccountList
                                             {
                                                 username = SelectedUsername,
                                                 password = SelectedPassword,
@@ -669,16 +773,24 @@ public partial class ValorantAccounts : Page
 
     private async void ValorantAccounts_Loaded(object sender, RoutedEventArgs e)
     {
+        Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
+        Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
+        AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
+        AccountFileStore.AccountsFileUpdated += OnAccountsFileUpdated;
         if (_listenForLeaguePullDataCompleted)
         {
             Accounts.PullDataCompleted -= OnLeaguePullDataCompleted;
             Accounts.PullDataCompleted += OnLeaguePullDataCompleted;
         }
 
+        if (!_isActive)
+        {
+            _isActive = true;
+            Interlocked.Increment(ref _activeLoadedInstances);
+        }
+
         if (_initialized) return;
         _initialized = true;
-
-        Interlocked.Increment(ref _activeLoadedInstances);
 
         try
         {
@@ -707,7 +819,7 @@ public partial class ValorantAccounts : Page
     {
         try
         {
-            await Dispatcher.InvokeAsync(async () => { await LoadDataAsync(); });
+            await Dispatcher.InvokeAsync(LoadDataAsync).Task.Unwrap();
         }
         catch
         {
@@ -724,8 +836,9 @@ public partial class ValorantAccounts : Page
 
         await LoadDataAsync();
 
-        if (Dispatcher?.HasShutdownStarted == true || Dispatcher?.HasShutdownFinished == true) return;
-        await Dispatcher.InvokeAsync(() =>
+        var dispatcher = Dispatcher;
+        if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished) return;
+        await dispatcher.InvokeAsync(() =>
         {
             ApplyValorantSortToGrid();
         }, DispatcherPriority.Background, CancellationToken.None);
@@ -796,7 +909,7 @@ public partial class ValorantAccounts : Page
                     _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
                 }
 
-                ActualAccountlists?.RemoveAll(r => r.username == "username" && r.password == "password");
+                ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
                 Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
             });
 
@@ -857,13 +970,15 @@ public partial class ValorantAccounts : Page
 
     private async void OnAccountsMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        var dataGrid = sender as DataGrid;
+        if (sender is not DataGrid dataGrid || !dataGrid.CurrentCell.IsValid)
+            return;
+
         if (!Executing)
         {
             Executing = true;
             try
             {
-                if (dataGrid != null && dataGrid.CurrentCell != null)
+                if (dataGrid.CurrentCell.IsValid)
                 {
                     var selectedColumn = dataGrid.CurrentCell.Column;
 
@@ -1586,13 +1701,8 @@ public partial class ValorantAccounts : Page
             ProxyLoginTokenManager.ResetCaptureSignal();
 
             Utils.KillLeagueFunc();
-            Process[] leagueProcess;
-            Process riotProcess;
-            var num = 0;
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
-
-            var loginAttempts = 0;
 
             await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
                 persistLogin: persist,
@@ -1631,9 +1741,20 @@ public partial class ValorantAccounts : Page
 
                         using (var automation = new UIA3Automation())
                         {
-                            AutomationElement window = app.GetMainWindow(automation);
+                            var window = app.GetMainWindow(automation);
+                            if (window == null)
+                            {
+                                await Task.Delay(200);
+                                continue;
+                            }
+
                             var riotcontent =
                                 window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+                            if (riotcontent == null)
+                            {
+                                await Task.Delay(200);
+                                continue;
+                            }
 
                             var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
                                 .AsTextBox();
@@ -1650,16 +1771,19 @@ public partial class ValorantAccounts : Page
 
                             var siblings = riotcontent.FindAllChildren();
                             var count = Array.IndexOf(siblings, checkbox) + 1;
-                            dynamic signInElement = null;
-                            while (siblings.Length >= count)
+                            FlaUI.Core.AutomationElements.Button? signInElement = null;
+                            while (count < siblings.Length)
                             {
-                                signInElement = siblings[count++].AsButton();
-                                if (signInElement != null && signInElement.ControlType == ControlType.Button)
+                                var candidate = siblings[count++].AsButton();
+                                if (candidate != null && candidate.ControlType == ControlType.Button)
+                                {
+                                    signInElement = candidate;
                                     break;
+                                }
                             }
 
-                            usernameField.Text = SelectedUsername;
-                            passwordField.Text = SelectedPassword;
+                            usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
+                            passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
 
                             if (signInElement != null)
                             {

@@ -328,6 +328,11 @@ internal static class ProxyLoginTokenManager
             }
 
             await LogResponseAsync("/rso-auth/v1/session/login-token", credentialsResponse);
+            if (!IsSuccessfulResponse(credentialsResponse))
+            {
+                LogFlow("League", "Riot API rejected the login-token request.", ConsoleColor.Red);
+                return false;
+            }
             LogFlow("League", "Preparing /rso-auth/v2/authorizations payload.");
             var authorizationPayload = JsonSerializer.Serialize(new
             {
@@ -351,8 +356,10 @@ internal static class ProxyLoginTokenManager
 
             await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
 
-            var success = credentialsResponse != null && authorizationResponse != null;
+            var success = IsSuccessfulResponse(authorizationResponse);
             LogFlow("League", $"Token authentication stage completed: {success}");
+            if (!success)
+                return false;
 
             LogFlow("League", "Checking EULA acceptance state...");
             while (true)
@@ -515,6 +522,11 @@ internal static class ProxyLoginTokenManager
             }
 
             await LogResponseAsync("/rso-auth/v1/session/login-token", credentialsResponse);
+            if (!IsSuccessfulResponse(credentialsResponse))
+            {
+                LogFlow("Valorant", "Riot API rejected the login-token request.", ConsoleColor.Red);
+                return false;
+            }
             LogFlow("Valorant", "Preparing /rso-auth/v2/authorizations payload.");
             var authorizationPayload = JsonSerializer.Serialize(new
             {
@@ -538,8 +550,10 @@ internal static class ProxyLoginTokenManager
 
             await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
 
-            var success = credentialsResponse != null && authorizationResponse != null;
+            var success = IsSuccessfulResponse(authorizationResponse);
             LogFlow("Valorant", $"Token authentication stage completed: {success}");
+            if (!success)
+                return false;
             LogFlow("Valorant", "Checking EULA acceptance state...");
             while (true)
             {
@@ -600,6 +614,11 @@ internal static class ProxyLoginTokenManager
         }
     }
 
+    internal static bool IsSuccessfulResponse(object? response)
+    {
+        return response is HttpResponseMessage { IsSuccessStatusCode: true };
+    }
+
     public static async Task<bool> CheckLeague()
     {
         if (File.Exists(Settings.settingsloaded.riotPath))
@@ -607,7 +626,7 @@ internal static class ProxyLoginTokenManager
         return false;
     }
 
-    private static string GetProductFromEncodedTokenOrDefault(string encodedToken)
+    internal static string GetProductFromEncodedTokenOrDefault(string encodedToken)
     {
         try
         {
@@ -629,7 +648,7 @@ internal static class ProxyLoginTokenManager
         return ProductLeague;
     }
 
-    private static string? ExtractLoginToken(string responseText)
+    internal static string? ExtractLoginToken(string responseText)
     {
         if (string.IsNullOrWhiteSpace(responseText))
             return null;
@@ -662,7 +681,7 @@ internal static class ProxyLoginTokenManager
         return string.IsNullOrWhiteSpace(tokenFromText) ? text.Trim() : tokenFromText;
     }
 
-    private static string? ExtractTokenFromText(string text)
+    internal static string? ExtractTokenFromText(string text)
     {
         LogFlow("URI", "ExtractTokenFromText started.");
         var tokenFromMarkdown = ExtractTokenFromMarkdown(text);
@@ -756,7 +775,7 @@ internal static class ProxyLoginTokenManager
         return null;
     }
 
-    private static string? BuildLoginUri(string encodedToken)
+    internal static string? BuildLoginUri(string encodedToken)
     {
         if (string.IsNullOrWhiteSpace(encodedToken))
             return null;
@@ -765,7 +784,7 @@ internal static class ProxyLoginTokenManager
         return $"{LoginRedirectBaseUrl}?token={escapedToken}";
     }
 
-    private static string FormatDiscordLoginLink(string loginUri)
+    internal static string FormatDiscordLoginLink(string loginUri)
     {
         return $"[Click to login to account]({loginUri})";
     }

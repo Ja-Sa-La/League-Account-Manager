@@ -39,6 +39,7 @@ internal sealed class AuthRouteLauncher
         {
             FileName = riotClientPath,
             UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(riotClientPath) ?? AppContext.BaseDirectory,
             Arguments = $"--client-config-url=\"{configProxy.ProxyUrl}\""
         };
 

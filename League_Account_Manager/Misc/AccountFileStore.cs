@@ -289,28 +289,36 @@ internal static class AccountFileStore
         }
     }
 
-    public static async Task RewriteForEncryptionStateAsync(string filePath, CsvConfiguration config, bool encrypt,
-        string? currentPassword, string? newPassword)
+    public static async Task RewriteForEncryptionStateAsync(string sourceFilePath, string destinationFilePath,
+        CsvConfiguration config, bool encrypt, string? currentPassword, string? newPassword)
     {
-        if (!File.Exists(filePath))
+        var isRename = !string.Equals(sourceFilePath, destinationFilePath, StringComparison.OrdinalIgnoreCase);
+        if (isRename && File.Exists(destinationFilePath))
+            throw new IOException($"An account file named '{Path.GetFileName(destinationFilePath)}' already exists.");
+
+        if (!File.Exists(sourceFilePath))
         {
             if (encrypt && !string.IsNullOrWhiteSpace(newPassword))
-                await SaveEncryptedAsync(filePath, new List<Utils.AccountList>(), config, newPassword);
+                await SaveEncryptedAsync(destinationFilePath, new List<Utils.AccountList>(), config, newPassword);
             return;
         }
 
-        var records = (await LoadForMigrationAsync(filePath, config, currentPassword)).Records;
+        var records = (await LoadForMigrationAsync(sourceFilePath, config, currentPassword)).Records;
 
         if (encrypt)
         {
             if (string.IsNullOrWhiteSpace(newPassword))
                 throw new InvalidOperationException("Account file encryption password not set.");
 
-            await SaveEncryptedAsync(filePath, records, config, newPassword);
-            return;
+            await SaveEncryptedAsync(destinationFilePath, records, config, newPassword);
+        }
+        else
+        {
+            await SavePlaintextAsync(destinationFilePath, records, config);
         }
 
-        await SavePlaintextAsync(filePath, records, config);
+        if (isRename)
+            File.Delete(sourceFilePath);
     }
 
     private static async Task<StorageReadResult> LoadForMigrationAsync(string filePath, CsvConfiguration config,
@@ -402,6 +410,10 @@ internal static class AccountFileStore
                 !string.Equals(envelope.Schema, StorageSchema, StringComparison.Ordinal) ||
                 envelope.Version <= 0)
                 return false;
+
+            if (envelope.Version > StorageVersion)
+                throw new InvalidDataException(
+                    $"Account file version {envelope.Version} is newer than supported version {StorageVersion}.");
 
             records = envelope.Accounts ?? new List<Utils.AccountList>();
             return true;
@@ -856,7 +868,7 @@ internal static class AccountFileStore
         var cipherBytes = new byte[plainBytes.Length];
         var tag = new byte[TagSize];
 
-        using (var aes = new AesGcm(key))
+        using (var aes = new AesGcm(key, TagSize))
         {
             aes.Encrypt(nonce, plainBytes, cipherBytes, tag);
         }
@@ -888,7 +900,7 @@ internal static class AccountFileStore
         var key = Rfc2898DeriveBytes.Pbkdf2(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256, KeySize);
         var plainBytes = new byte[cipherText.Length];
 
-        using (var aes = new AesGcm(key))
+        using (var aes = new AesGcm(key, TagSize))
         {
             aes.Decrypt(nonce, cipherText, tag, plainBytes);
         }

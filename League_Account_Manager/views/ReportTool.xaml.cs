@@ -31,59 +31,68 @@ public partial class ReportTool : Page
         {
             plaList.Clear();
             _logger.Info("Loading reportable players for current summoner");
-            await Task.Run(async () =>
+            var summonerResponse = await Connector("league", "get", "/lol-summoner/v1/current-summoner", "")
+                as HttpResponseMessage;
+            if (summonerResponse == null)
+                throw new InvalidOperationException("Unable to retrieve the current summoner.");
+
+            var responseBody = await summonerResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            _logger.Debug("Current summoner info: {Response}", responseBody);
+            var summonerInfo = JObject.Parse(responseBody);
+            var currentPuuid = summonerInfo["puuid"]?.Value<string>();
+            if (string.IsNullOrWhiteSpace(currentPuuid))
+                throw new InvalidOperationException("The current summoner response did not include a PUUID.");
+
+            var matchHistoryResponse = await Connector("league", "get",
+                                           "/lol-match-history/v1/products/lol/" + currentPuuid +
+                                           "/matches?begIndex=0&endIndex=19", "") as HttpResponseMessage;
+            if (matchHistoryResponse == null)
+                throw new InvalidOperationException("Unable to retrieve match history.");
+
+            responseBody = await matchHistoryResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var rankedInfo = JObject.Parse(responseBody);
+            var games = rankedInfo["games"]?["games"] as JArray ?? new JArray();
+            var sevenDaysAgo = DateTimeOffset.UtcNow.AddDays(-7);
+            var parsedGames = 0;
+            Status.Text = $"pulling data from {games.Count} games";
+
+            foreach (var game in games.OfType<JObject>())
             {
-                var resp = await Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
-                var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                _logger.Debug("Current summoner info: {Response}", responseBody2);
-                var summonerinfo = JObject.Parse(responseBody2);
-
-                var resp2 = await Connector("league", "get",
-                    "/lol-match-history/v1/products/lol/" + summonerinfo["puuid"].ToString() +
-                    "/matches?begIndex=0&endIndex=19", "");
-                var currentDateTimeOffset = DateTimeOffset.UtcNow;
-                var sevenDaysAgo = currentDateTimeOffset.AddDays(-7);
-                responseBody2 = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
-                JObject rankedinfo2 = JObject.Parse(responseBody2);
-                var i = 0;
-                Dispatcher.Invoke(() =>
+                var gameCreation = game["gameCreation"]?.Value<long?>();
+                var gameId = game["gameId"]?.ToString();
+                if (gameCreation.HasValue && !string.IsNullOrWhiteSpace(gameId) &&
+                    DateTimeOffset.FromUnixTimeMilliseconds(gameCreation.Value) >= sevenDaysAgo)
                 {
-                    Status.Text = $"pulling data from {rankedinfo2["games"]["games"].Count()} games";
-                });
-
-                foreach (JObject jToken in rankedinfo2["games"]["games"])
-                {
-                    var GameplayDate = DateTimeOffset.FromUnixTimeMilliseconds(Convert.ToInt64(jToken["gameCreation"]));
-                    if (GameplayDate >= sevenDaysAgo)
+                    var gameResponse = await Connector("league", "get", "/lol-match-history/v1/games/" + gameId, "")
+                        as HttpResponseMessage;
+                    if (gameResponse != null)
                     {
-                        resp = await Connector("league", "get", "/lol-match-history/v1/games/" + jToken["gameId"], "");
-                        responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        JObject Gameinfo = JObject.Parse(responseBody2);
-                        foreach (JObject player in Gameinfo["participantIdentities"])
+                        responseBody = await gameResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        var gameInfo = JObject.Parse(responseBody);
+                        var participants = gameInfo["participantIdentities"] as JArray ?? new JArray();
+                        foreach (var participant in participants.OfType<JObject>())
                         {
-                            if (player["player"]["puuid"].ToString() != summonerinfo["puuid"].ToString())
-                                Dispatcher.Invoke(() =>
-                                {
-                                    plaList.Add(new PlayersData
-                                    {
-                                        gameId = jToken["gameId"].ToString(),
-                                        riotID = player["player"]["gameName"] + "#" + player["player"]["tagLine"],
-                                        puuId = player["player"]["puuid"].ToString(),
-                                        summonerId = player["player"]["summonerId"].ToString()
-                                    });
-                                });
-                            Thread.Sleep(0);
+                            var player = participant["player"] as JObject;
+                            var playerPuuid = player?["puuid"]?.Value<string>();
+                            if (player == null || string.IsNullOrWhiteSpace(playerPuuid) || playerPuuid == currentPuuid)
+                                continue;
+
+                            plaList.Add(new PlayersData
+                            {
+                                gameId = gameId,
+                                riotID = player["gameName"] + "#" + player["tagLine"],
+                                puuId = playerPuuid,
+                                summonerId = player["summonerId"]?.ToString() ?? string.Empty
+                            });
                         }
                     }
-
-                    Dispatcher.Invoke(() =>
-                    {
-                        Status.Text = $"{++i} / {rankedinfo2["games"]["games"].Count()} games parsed";
-                    });
                 }
-            });
+
+                Status.Text = $"{++parsedGames} / {games.Count} games parsed";
+            }
+
             _logger.Info("Loaded {Count} potential report targets", plaList.Count);
-            Status.Text = $"Total {plaList.Count()} players available to report";
+            Status.Text = $"Total {plaList.Count} players available to report";
         }
         catch (Exception exception)
         {

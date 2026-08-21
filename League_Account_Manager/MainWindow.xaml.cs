@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using League_Account_Manager.Misc;
 using NLog;
 using NLog.Config;
@@ -25,6 +27,9 @@ public partial class MainWindow : Window
     private readonly double _aspectRatio;
     private readonly ILogger logger = LogManager.GetCurrentClassLogger();
     private bool _isResizing;
+    private TaskCompletionSource<MessageBoxResult>? _updateModalCompletion;
+    private Action? _updateModalReleaseAction;
+    private Action? _updateModalUpdateAction;
 
     public MainWindow()
     {
@@ -76,18 +81,20 @@ public partial class MainWindow : Window
         try
         {
             // Check for updates if required
-            if (IsUpdateProcess())
-                Updates.FinishUpdate();
+            if (UpdateArguments.TryGetTarget(App.StartupArgs, Environment.ProcessPath, out var updateTarget))
+                Updates.FinishUpdate(updateTarget);
 
             // Load settings
             await Settings.loadsettings();
 
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)
-                Updates.updatecheck();
+                await Updates.UpdateCheckAsync();
 
-            DebugConsole.WriteLine(Settings.settingsloaded.LeaguePath);
-            version.Content = "Version " + Assembly.GetExecutingAssembly().GetName().Version;
+            DebugConsole.WriteLine($"[Startup] League client path: {Settings.settingsloaded.LeaguePath}");
+            var releaseChannel = string.Equals(Settings.settingsloaded.ReleaseChannel, "Beta",
+                StringComparison.OrdinalIgnoreCase) ? "Beta" : "Stable";
+            version.Content = $"Version {Assembly.GetExecutingAssembly().GetName().Version} ({releaseChannel})";
             installloc.Content = Settings.settingsloaded.riotPath;
             installloclea.Content = Settings.settingsloaded.LeaguePath;
 
@@ -104,11 +111,6 @@ public partial class MainWindow : Window
             });
             Environment.Exit(1); // Exit the application on critical error
         }
-    }
-
-    private bool IsUpdateProcess()
-    {
-        return Process.GetCurrentProcess().MainModule?.FileName?.Contains("temp_update.exe") == true;
     }
 
     private void MainWindowOnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -128,6 +130,57 @@ public partial class MainWindow : Window
     private void Discord_OnClick(object sender, RoutedEventArgs e)
     {
         Process.Start(new ProcessStartInfo("https://discord.gg/tjQVcc9SGP") { UseShellExecute = true });
+    }
+
+    public Task<MessageBoxResult> ShowUpdateModalAsync(string version, string channel, string patchNotes,
+        bool dimBackground = true, Action? updateAction = null, Action? releaseAction = null)
+    {
+        if (!Dispatcher.CheckAccess())
+            return Dispatcher.Invoke(() => ShowUpdateModalAsync(version, channel, patchNotes, dimBackground,
+                updateAction, releaseAction));
+
+        _updateModalCompletion?.TrySetResult(MessageBoxResult.Cancel);
+        _updateModalUpdateAction = updateAction;
+        _updateModalReleaseAction = releaseAction;
+        UpdateModalTitle.Text = "Update available";
+        UpdateModalVersion.Text = $"A new {channel.ToLowerInvariant()} release is available: {version}";
+        UpdateModalPatchNotes.Text = $"Patch notes\n\n{patchNotes}";
+        UpdateModalBackdrop.Visibility = dimBackground ? Visibility.Visible : Visibility.Collapsed;
+        _updateModalCompletion = new TaskCompletionSource<MessageBoxResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        UpdateModalOverlay.Visibility = Visibility.Visible;
+        UpdateModalOverlay.Focus();
+        return _updateModalCompletion.Task;
+    }
+
+    private void CloseUpdateModal(MessageBoxResult result, Action? action = null)
+    {
+        if (UpdateModalOverlay.Visibility != Visibility.Visible)
+            return;
+
+        UpdateModalOverlay.Visibility = Visibility.Collapsed;
+        var completion = _updateModalCompletion;
+        _updateModalCompletion = null;
+        var selectedAction = action;
+        _updateModalUpdateAction = null;
+        _updateModalReleaseAction = null;
+        selectedAction?.Invoke();
+        completion?.TrySetResult(result);
+    }
+
+    private void UpdateModalLater_Click(object sender, RoutedEventArgs e)
+    {
+        CloseUpdateModal(MessageBoxResult.Cancel);
+    }
+
+    private void UpdateModalRelease_Click(object sender, RoutedEventArgs e)
+    {
+        CloseUpdateModal(MessageBoxResult.No, _updateModalReleaseAction);
+    }
+
+    private void UpdateModalUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        CloseUpdateModal(MessageBoxResult.Yes, _updateModalUpdateAction);
     }
 
     private void MainWindow_OnSizeChanged(object sender, SizeChangedEventArgs e)

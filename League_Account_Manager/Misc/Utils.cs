@@ -1,4 +1,8 @@
 ﻿using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Text;
 using CsvHelper.Configuration.Attributes;
 using NLog;
 
@@ -7,6 +11,55 @@ namespace League_Account_Manager.Misc;
 public class Utils
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+    public static void StartRiotClient(string riotPath, string arguments)
+    {
+        var workingDirectory = Path.GetDirectoryName(riotPath) ?? AppContext.BaseDirectory;
+
+        using var identity = WindowsIdentity.GetCurrent();
+        var principal = new WindowsPrincipal(identity);
+        if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
+        {
+            StartRiotClientDirectly(riotPath, arguments, workingDirectory);
+            return;
+        }
+
+        object? shell = null;
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("Shell.Application") ??
+                            throw new InvalidOperationException("Windows Explorer shell is unavailable.");
+            shell = Activator.CreateInstance(shellType) ??
+                    throw new InvalidOperationException("Unable to access the Windows Explorer shell.");
+
+            dynamic explorerShell = shell;
+            explorerShell.ShellExecute(riotPath, arguments, workingDirectory, null, 1);
+            DebugConsole.WriteLine("[RiotLauncher] Started Riot Client through the unelevated Explorer shell.");
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine(
+                $"[RiotLauncher] Unelevated launch failed; using current process token: {ex.Message}",
+                ConsoleColor.Yellow);
+            StartRiotClientDirectly(riotPath, arguments, workingDirectory);
+        }
+        finally
+        {
+            if (shell != null && Marshal.IsComObject(shell))
+                Marshal.FinalReleaseComObject(shell);
+        }
+    }
+
+    private static void StartRiotClientDirectly(string riotPath, string arguments, string workingDirectory)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = riotPath,
+            Arguments = arguments,
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false
+        });
+    }
 
     public static void RemoveDoubleQuotesFromList(List<AccountList> accountList)
     {
@@ -70,7 +123,7 @@ public class Utils
                 continue;
 
             foreach (var key in entry.extra.Keys.ToList())
-                entry.extra[key] = RemoveDoubleQuotes(entry.extra[key]);
+                entry.extra[key] = RemoveDoubleQuotes(entry.extra[key]) ?? string.Empty;
         }
     }
 
@@ -225,6 +278,143 @@ public class Utils
         }
     }
 
+    public enum AccountCopyFormat
+    {
+        Formatted,
+        Simple
+    }
+
+    public enum AccountCopySection
+    {
+        League,
+        Valorant,
+        Both
+    }
+
+    public static string FormatAccountForCopy(AccountList account, bool fullDetails, AccountCopyFormat format)
+    {
+        return FormatAccountForCopy(account, fullDetails, format, AccountCopySection.Both);
+    }
+
+    public static string FormatAccountForCopy(AccountList account, bool fullDetails, AccountCopyFormat format,
+        AccountCopySection section)
+    {
+        var fields = GetCopyFields(account, fullDetails, section).ToList();
+        if (format == AccountCopyFormat.Simple)
+            return string.Join(" | ", fields.Select(field => field.Value));
+
+        var builder = new StringBuilder();
+        foreach (var group in fields.GroupBy(field => field.Group))
+        {
+            if (group.Key != "Account")
+                builder.Append("**").Append(group.Key).AppendLine("**");
+            foreach (var field in group)
+                AppendField(builder, field.Name, field.Value);
+            builder.AppendLine();
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static IEnumerable<(string Group, string Name, string Value)> GetCopyFields(AccountList account,
+        bool fullDetails, AccountCopySection section)
+    {
+        var fields = new List<(string, string, string)>
+        {
+            ("Account", "Username", account.username ?? string.Empty),
+            ("Account", "Password", account.password ?? string.Empty),
+            ("Account", "Riot ID", account.riotID ?? string.Empty)
+        };
+
+        if (section is AccountCopySection.League or AccountCopySection.Both)
+        {
+            fields.AddRange([
+                ("League", "Level", account.level?.ToString() ?? string.Empty),
+                ("League", "Server", account.server ?? string.Empty),
+                ("League", "Solo rank", account.rank ?? string.Empty),
+                ("League", "Flex rank", account.rank2 ?? string.Empty),
+                ("League", "Blue Essence", account.be?.ToString() ?? string.Empty),
+                ("League", "Riot Points", account.rp?.ToString() ?? string.Empty)
+            ]);
+            if (fullDetails)
+                fields.AddRange([
+                    ("League", "Last played", account.lastPlayed ?? string.Empty),
+                    ("League", "Note", account.note ?? string.Empty),
+                    ("League", "Champions", FormatItems(account.championsData, account.champions)),
+                    ("League", "Skins", FormatItems(account.skinsData, account.skins)),
+                    ("League", "Loot", FormatItems(account.lootData, account.Loot))
+                ]);
+        }
+
+        if (section is AccountCopySection.Valorant or AccountCopySection.Both)
+        {
+            fields.AddRange([
+                ("VALORANT", "Server", account.valorantServer ?? string.Empty),
+                ("VALORANT", "Level", account.valorantLevel?.ToString() ?? string.Empty),
+                ("VALORANT", "Rank", account.valorantRank ?? string.Empty),
+                ("VALORANT", "VP", account.valorantVp?.ToString() ?? string.Empty),
+                ("VALORANT", "RP", account.valorantRp?.ToString() ?? string.Empty),
+                ("VALORANT", "Kingdom Credits", account.valorantKc?.ToString() ?? string.Empty)
+            ]);
+            if (fullDetails)
+                fields.AddRange([
+                    ("VALORANT", "XP", account.valorantXp?.ToString() ?? string.Empty),
+                    ("VALORANT", "Agents", FormatItems(account.valorantAgentsData, account.valorantAgents)),
+                    ("VALORANT", "Contracts", FormatItems(account.valorantContractsData, account.valorantContracts)),
+                    ("VALORANT", "Sprays", FormatItems(account.valorantSpraysData, account.valorantSprays)),
+                    ("VALORANT", "Gun buddies", FormatItems(account.valorantGunBuddiesData, account.valorantGunBuddies)),
+                    ("VALORANT", "Cards", FormatItems(account.valorantCardsData, account.valorantCards)),
+                    ("VALORANT", "Skins", FormatItems(account.valorantSkinsData, account.valorantSkins)),
+                    ("VALORANT", "Skin variants", FormatItems(account.valorantSkinVariantsData, account.valorantSkinVariants)),
+                    ("VALORANT", "Titles", FormatItems(account.valorantTitlesData, account.valorantTitles))
+                ]);
+        }
+
+        return fields.Where(field => !string.IsNullOrWhiteSpace(field.Item3));
+    }
+
+    private static string Summarize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var count = value.Split(':', StringSplitOptions.RemoveEmptyEntries).Length;
+        return $"{count} item{(count == 1 ? string.Empty : "s")}";
+    }
+
+    private static string FormatItems(List<StructuredDataEntry>? entries, string? value)
+    {
+        var names = entries?
+            .Select(entry => entry.name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!.Trim())
+            .ToList();
+
+        if (names is { Count: > 0 })
+            return string.Join(", ", names);
+
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return string.Join(", ", value.Split(':', StringSplitOptions.RemoveEmptyEntries)
+            .Select(item => item.Trim())
+            .Where(item => item.Length > 0));
+    }
+
+    private static void AppendField(StringBuilder builder, string name, string? value)
+    {
+        builder.Append("**").Append(name).Append(":** ")
+            .AppendLine(SanitizeDiscordValue(value));
+    }
+
+    private static string SanitizeDiscordValue(string? value)
+    {
+        return (value ?? string.Empty)
+            .Replace("\r", " ")
+            .Replace("\n", " ")
+            .Trim();
+    }
+
     public class StructuredDataEntry
     {
         public string? name { get; set; }
@@ -306,7 +496,7 @@ public class Utils
         public bool EnableCosmeticArenaAudioTFT { get; set; }
         public bool EnableChampionSpellPreview { get; set; }
         public bool AlwaysShowExtendedTooltip { get; set; }
-        public string CfgVersion { get; set; }
+        public string CfgVersion { get; set; } = string.Empty;
         public int WindowMode { get; set; }
         public bool WaitForVerticalSync { get; set; }
         public bool ThemeMusic { get; set; }
@@ -398,7 +588,7 @@ public class Utils
 
     public class VoiceSettings
     {
-        public string InputDevice { get; set; }
+        public string InputDevice { get; set; } = string.Empty;
         public double InputVolume { get; set; }
         public double ActivationSensitivity { get; set; }
         public int InputMode { get; set; }
@@ -452,8 +642,8 @@ public class Utils
 
     public class MobileSettings
     {
-        public string LastTickerTime { get; set; }
-        public string AppRegion { get; set; }
+        public string LastTickerTime { get; set; } = string.Empty;
+        public string AppRegion { get; set; } = string.Empty;
         public int SelectedQueue { get; set; }
         public int iOSMetalUserId { get; set; }
         public bool iOSMetalPercentEnabled { get; set; }

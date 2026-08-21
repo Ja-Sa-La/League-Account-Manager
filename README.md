@@ -73,7 +73,8 @@ A WPF utility for managing League of Legends accounts from one place. It uses th
 ## Requirements
 
 - Windows
-- .NET 8 Desktop Runtime (for the packaged app) or SDK (for building)
+- .NET 8 Desktop Runtime for the packaged app
+- .NET 10 SDK for building and testing from source
 
 ## Install & Run (binary)
 
@@ -91,6 +92,14 @@ dotnet restore
 dotnet build League_Account_Manager/League_Account_Manager.csproj -c Release
 dotnet run --project League_Account_Manager/League_Account_Manager.csproj
 ```
+
+## Tests
+
+```powershell
+dotnet test League_Account_Manager.Tests/League_Account_Manager.Tests.csproj
+```
+
+See [Testing](docs/testing.md) for coverage commands and integration-test boundaries.
 
 ## Privacy & Safety
 
