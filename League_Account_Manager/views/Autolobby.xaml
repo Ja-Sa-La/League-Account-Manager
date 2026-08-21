@@ -18,6 +18,10 @@
         <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top"
                 Click="OnToggleAutoAcceptClick"
                 Height="67" Width="300" />
+        <Button Content="Enable AutoMuteAll" Margin="10,82,0,0" VerticalAlignment="Top"
+                Click="OnToggleAutoMuteClick"
+                Height="67" Width="300"
+                ToolTip="Mutes every teammate in champion select chat automatically" />
         <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top"
                 Click="OnToggleAutoPickClick"
                 Height="67" Width="290" />
