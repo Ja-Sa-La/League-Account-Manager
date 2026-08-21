@@ -457,6 +457,8 @@ internal class OfflineLauncher
 
     private sealed class ChatProxy : IDisposable
     {
+        private const string StealthUserJid = "41c322a1-b328-495b-a004-5ccd3e45eae8@eu1.pvp.net";
+
         private sealed class PresenceInjectionState
         {
             public bool InsertedStealthUser;
@@ -582,6 +584,18 @@ internal class OfflineLauncher
                 DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: C->S bytes={read}");
 
                 var text = Encoding.UTF8.GetString(bytes, 0, read);
+
+                if (text.Contains(StealthUserJid, StringComparison.OrdinalIgnoreCase))
+                {
+                    DebugConsole.WriteLine(
+                        $"[OfflineLauncher] Chat request #{connectionId}: removed C->S payload targeting stealth user.");
+
+                    if (state.InsertedStealthUser && !state.SentStealthPresence)
+                        await SendStealthPresenceAsync(incomingSsl, connectionId, state, token);
+
+                    continue;
+                }
+
                 // Rewrite outbound self presence updates to offline while preserving other chat traffic.
                 if (text.Contains("<presence", StringComparison.OrdinalIgnoreCase) &&
                     text.Contains("</presence>", StringComparison.OrdinalIgnoreCase))
@@ -594,11 +608,18 @@ internal class OfflineLauncher
                             $"[OfflineLauncher] Chat request #{connectionId}: rewrote outbound presence set to offline.");
                         var patched = Encoding.UTF8.GetBytes(rewritten);
                         await outgoingSsl.WriteAsync(patched.AsMemory(0, patched.Length), token);
+
+                        if (state.InsertedStealthUser && !state.SentStealthPresence)
+                            await SendStealthPresenceAsync(incomingSsl, connectionId, state, token);
+
                         continue;
                     }
                 }
 
                 await outgoingSsl.WriteAsync(bytes.AsMemory(0, read), token);
+
+                if (state.InsertedStealthUser && !state.SentStealthPresence)
+                    await SendStealthPresenceAsync(incomingSsl, connectionId, state, token);
             }
         }
 
@@ -707,7 +728,7 @@ internal class OfflineLauncher
             state.SentStealthPresence = true;
 
             var stanzaId = Guid.NewGuid();
-            var unixTimeMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var unixTimeMilliseconds = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             var valorantPresence = Convert.ToBase64String(Encoding.UTF8.GetBytes(
                 """
                 {
@@ -720,6 +741,28 @@ internal class OfflineLauncher
                  "maxPartySize": 5,
                  "partyOwnerMatchScoreAllyTeam": 0,
                  "partyOwnerMatchScoreEnemyTeam": 0,
+                  "premierPresenceData":
+                  {
+                      "rosterId": "",
+                      "rosterName": "Stealth mode is active. Ignore any version mismatch warnings.",
+                      "rosterTag": "Stealth Mode Active",
+                      "rosterType": "VCT",
+                      "division": 0,
+                      "score": 0,
+                      "plating": 0,
+                      "showAura": false,
+                      "showTag": true,
+                      "showPlating": false
+                  },
+                  "matchPresenceData":
+                  {
+                      "sessionLoopState": "MENUS",
+                      "provisioningFlow": "Invalid",
+                      "matchMap": "",
+                      "partyOwnerMatchScoreAllyTeam": 0,
+                      "partyOwnerMatchScoreEnemyTeam": 0,
+                      "isIdle": false
+                  },
                  "partyPresenceData":
                  {
                      "partyId": "00000000-0000-0000-0000-000000000000",
@@ -760,6 +803,7 @@ internal class OfflineLauncher
                 $"<presence from='41c322a1-b328-495b-a004-5ccd3e45eae8@eu1.pvp.net/RC-Stealth' id='b-{stanzaId}'>" +
                 "<games>" +
                 $"<keystone><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>keystone</s.p><pty/></keystone>" +
+                $"<riot_client><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>riot_client</s.p></riot_client>" +
                 $"<league_of_legends><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>league_of_legends</s.p><s.c>live</s.c><p>{{&quot;pty&quot;:true}}</p></league_of_legends>" +
                 $"<valorant><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.p>valorant</s.p><s.r>PC</s.r><p>{valorantPresence}</p><pty/></valorant>" +
                 $"<bacon><st>chat</st><s.t>{unixTimeMilliseconds}</s.t><s.l>bacon_availability_online</s.l><s.p>bacon</s.p></bacon>" +
