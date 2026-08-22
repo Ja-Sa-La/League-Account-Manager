@@ -90,16 +90,10 @@ public class Updates
         if (!Version.TryParse(currentVersion, out var current))
             return null;
 
-        var stable = ReadRelease(manifest, UpdateReleaseChannel.Stable);
-        var beta = channel == UpdateReleaseChannel.Beta
-            ? ReadRelease(manifest, UpdateReleaseChannel.Beta)
+        var release = ReadRelease(manifest, channel);
+        return release != null && Version.Parse(release.Version) > current
+            ? release
             : null;
-        var selected = new[] { stable, beta }
-            .Where(release => release != null && Version.Parse(release.Version) > current)
-            .OrderByDescending(release => Version.Parse(release!.Version))
-            .FirstOrDefault();
-
-        return selected;
     }
 
     private static UpdateRelease? ReadRelease(JObject manifest, UpdateReleaseChannel channel)
