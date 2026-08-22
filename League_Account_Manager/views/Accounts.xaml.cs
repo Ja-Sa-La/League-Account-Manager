@@ -629,10 +629,9 @@ public partial class Accounts : Page
                     var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/summoner-requests-ready", "");
                     var content = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-                    DebugConsole.WriteLine($"[Accounts] Summoner ready status: {content}");
-
                     if (content.Trim().Equals("true", StringComparison.OrdinalIgnoreCase))
                     {
+                        DebugConsole.WriteLine("[Accounts] Summoner requests are ready");
                         MarkTaskCompleted("Waiting for summoner readiness");
                         break;
                     }
@@ -735,6 +734,8 @@ public partial class Accounts : Page
             var lootList = new List<string>();
             var lootStructured = new List<Utils.StructuredDataEntry>();
             var lootCount = 0;
+            var lootMissingIconCount = 0;
+            var lootParseFailureCount = 0;
 
             if (lootInfo != null)
                 foreach (var item in lootInfo)
@@ -838,25 +839,8 @@ public partial class Accounts : Page
 
                             var countVal = Loot["count"]?.ToString() ?? thing["count"]?.ToString() ?? "1";
 
-                            // Log the parsed loot info for debugging
-                            try
-                            {
-                                var msg =
-                                    $"[Accounts] Loot parsed: LootId='{lootId}', Name='{lootText}', TilePath='{tilePath}', IconUrl='{iconUrl}', Count='{countVal}'";
-                                _logger.Debug(msg);
-                                DebugConsole.WriteLine(msg);
-                                if (iconUrl == null)
-                                {
-                                    var noIcon =
-                                        $"[Accounts] Loot mapping produced no icon for LootId='{lootId}', TilePath='{tilePath}'";
-                                    _logger.Debug(noIcon);
-                                    DebugConsole.WriteLine(noIcon);
-                                }
-                            }
-                            catch
-                            {
-                                // ignore logging errors
-                            }
+                            if (iconUrl == null)
+                                lootMissingIconCount++;
 
                             // Format as name|url|count
                             var entryParts = new List<string> { lootText ?? string.Empty };
@@ -873,16 +857,15 @@ public partial class Accounts : Page
                         }
                         catch
                         {
-                            try
-                            {
-                                var warn = $"[Accounts] Exception parsing loot item LootId='{thing?["lootId"]}'";
-                                _logger.Warn(warn);
-                                DebugConsole.WriteLine(warn, ConsoleColor.Yellow);
-                            }
-                            catch
-                            {
-                            }
+                            lootParseFailureCount++;
                         }
+
+            DebugConsole.WriteLine(
+                $"[Accounts] Loot parsed: {lootCount} items, {lootMissingIconCount} missing icons, " +
+                $"{lootParseFailureCount} failures");
+            if (lootParseFailureCount > 0)
+                _logger.Warn("Loot parsing completed with {FailureCount} failures out of {LootCount} parsed items",
+                    lootParseFailureCount, lootCount);
 
             var rankedInfo = rankedTask.Result;
             var Rank = ApiResponseParser.BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
@@ -1638,7 +1621,6 @@ public partial class Accounts : Page
 
                                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                                 string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
                                 if (status == "\"Accepted\"") break;
                                 if (status == "\"AcceptanceRequired\"")
                                 {

@@ -724,7 +724,6 @@ public partial class ValorantAccounts : Page
 
                                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                                 string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
                                 if (status == "\"Accepted\"") break;
                                 if (status == "\"AcceptanceRequired\"")
                                 {

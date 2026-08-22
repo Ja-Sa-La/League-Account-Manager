@@ -294,8 +294,7 @@ internal static class ProxyLoginTokenManager
             }
             LogFlow("League", "Token payload deserialized successfully.");
 
-            DebugConsole.WriteLine(
-                $"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
+            DebugConsole.WriteLine("[ProxyLoginToken] Login token payload validated.");
 
             var loginPayload = JsonSerializer.Serialize(payload, JsonOptions);
             LogFlow("League", "Sending /rso-auth/v1/session/login-token payload.");
@@ -362,11 +361,16 @@ internal static class ProxyLoginTokenManager
                 return false;
 
             LogFlow("League", "Checking EULA acceptance state...");
+            string? lastEulaStatus = null;
             while (true)
             {
                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                 string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
+                if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
+                {
+                    lastEulaStatus = status;
+                    DebugConsole.WriteLine($"[ProxyLoginToken][League] EULA status changed: {status}");
+                }
                 if (status == "\"Accepted\"") break;
                 if (status == "\"AcceptanceRequired\"")
                 {
@@ -488,8 +492,7 @@ internal static class ProxyLoginTokenManager
             }
             LogFlow("Valorant", "Token payload deserialized successfully.");
 
-            DebugConsole.WriteLine(
-                $"[ProxyLoginToken] Decrypted payload: {JsonSerializer.Serialize(payload, JsonOptions)}");
+            DebugConsole.WriteLine("[ProxyLoginToken] Login token payload validated.");
 
             var loginPayload = JsonSerializer.Serialize(payload, JsonOptions);
             LogFlow("Valorant", "Sending /rso-auth/v1/session/login-token payload.");
@@ -555,11 +558,16 @@ internal static class ProxyLoginTokenManager
             if (!success)
                 return false;
             LogFlow("Valorant", "Checking EULA acceptance state...");
+            string? lastEulaStatus = null;
             while (true)
             {
                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                 string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                DebugConsole.WriteLine($"[Accounts] EULA status: {status}");
+                if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
+                {
+                    lastEulaStatus = status;
+                    DebugConsole.WriteLine($"[ProxyLoginToken][Valorant] EULA status changed: {status}");
+                }
                 if (status == "\"Accepted\"") break;
                 if (status == "\"AcceptanceRequired\"")
                 {
@@ -605,8 +613,9 @@ internal static class ProxyLoginTokenManager
         try
         {
             var status = httpResponse.StatusCode;
-            var content = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-            DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response: {(int)status} {status} body={content}");
+            var contentLength = httpResponse.Content.Headers.ContentLength;
+            DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response: {(int)status} {status}" +
+                                   (contentLength.HasValue ? $" bytes={contentLength.Value}" : string.Empty));
         }
         catch (Exception ex)
         {

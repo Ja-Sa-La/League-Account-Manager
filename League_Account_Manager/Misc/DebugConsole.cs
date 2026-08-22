@@ -143,6 +143,7 @@ internal sealed class DebugConsoleWriter : TextWriter
 internal class DebugConsoleWindow : Window
 {
     private const int MaxLength = 500;
+    private const int MaxEntries = 2000;
     private readonly TextBox _commandBox;
     private readonly KeyGesture _keyGesture;
     private readonly StackPanel _outputPanel;
@@ -251,6 +252,8 @@ internal class DebugConsoleWindow : Window
                 var entry = CreateEntry(normalized, color);
                 _lastEntry = entry;
                 _outputPanel.Children.Add(entry.Container);
+                while (_outputPanel.Children.Count > MaxEntries)
+                    _outputPanel.Children.RemoveAt(0);
             }
 
             if (_outputPanel.Parent is ScrollViewer sv) sv.ScrollToEnd();
