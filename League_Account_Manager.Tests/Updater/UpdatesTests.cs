@@ -108,6 +108,33 @@ public class UpdatesTests
                 Assert.AreEqual("2.4.0.12", release.Version);
         }
 
+        [TestMethod]
+        public void SelectRelease_FindsBetaUpdateFromCurrentStableVersion()
+        {
+                var manifest = JObject.Parse("""
+                                                                         {
+                                                                             "Version": "2.5.0.0",
+                                                                             "Stable": {
+                                                                                 "Version": "2.5.0.0",
+                                                                                 "DownloadUrl": "https://example.test/stable.exe",
+                                                                                 "ReleaseUrl": "https://example.test/stable"
+                                                                             },
+                                                                             "Beta": {
+                                                                                 "Version": "2.5.0.1",
+                                                                                 "DownloadUrl": "https://example.test/beta.exe",
+                                                                                 "ReleaseUrl": "https://example.test/beta"
+                                                                             }
+                                                                         }
+                                                                         """);
+
+                var release = Updates.SelectRelease(manifest, " Beta ", "2.5.0.0");
+
+                Assert.IsNotNull(release);
+                Assert.AreEqual("Beta", release.Channel);
+                Assert.AreEqual("2.5.0.1", release.Version);
+                Assert.AreEqual("https://example.test/beta.exe", release.DownloadUrl);
+        }
+
     [TestMethod]
     public void SelectRelease_FallsBackToStableForUnknownChannel()
     {

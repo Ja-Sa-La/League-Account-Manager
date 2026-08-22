@@ -102,6 +102,9 @@ public partial class MainWindow : Window
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)
                 await Updates.UpdateCheckAsync();
+            else
+                DebugConsole.WriteLine("[Updates] Automatic update checks are disabled in settings.",
+                    ConsoleColor.Yellow);
 
             DebugConsole.WriteLine($"[Startup] League client path: {Settings.settingsloaded.LeaguePath}");
             var releaseChannel = string.Equals(Settings.settingsloaded.ReleaseChannel, "Beta",
