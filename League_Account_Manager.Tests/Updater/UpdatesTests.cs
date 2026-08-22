@@ -78,9 +78,34 @@ public class UpdatesTests
 
                 var release = Updates.SelectRelease(manifest, "Beta", "2.5.0.0");
 
+                                Assert.IsNotNull(release);
+                                Assert.AreEqual("Stable", release.Channel);
+                                Assert.AreEqual("2.7.0.0", release.Version);
+        }
+
+        [TestMethod]
+        public void SelectRelease_BetaChannelUsesNewestStableOrBetaRelease()
+        {
+                var manifest = JObject.Parse("""
+                                                                         {
+                                                                             "Stable": {
+                                                                                 "Version": "2.4.0.11",
+                                                                                 "DownloadUrl": "https://example.test/stable.exe",
+                                                                                 "ReleaseUrl": "https://example.test/stable"
+                                                                             },
+                                                                             "Beta": {
+                                                                                 "Version": "2.4.0.12",
+                                                                                 "DownloadUrl": "https://example.test/beta.exe",
+                                                                                 "ReleaseUrl": "https://example.test/beta"
+                                                                             }
+                                                                         }
+                                                                         """);
+
+                var release = Updates.SelectRelease(manifest, "Beta", "2.4.0.10");
+
                 Assert.IsNotNull(release);
                 Assert.AreEqual("Beta", release.Channel);
-                Assert.AreEqual("2.6.0.0", release.Version);
+                Assert.AreEqual("2.4.0.12", release.Version);
         }
 
     [TestMethod]
