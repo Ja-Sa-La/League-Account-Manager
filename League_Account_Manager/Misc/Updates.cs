@@ -14,6 +14,8 @@ namespace League_Account_Manager.Misc;
 
 public class Updates
 {
+    private const string VersionManifestUrl =
+        "https://raw.githubusercontent.com/Ja-Sa-La/League-Account-Manager/master/Version";
     private const string StableDownloadUrl =
         "https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest/download/League_Account_Manager.exe";
     private const string StableReleaseUrl =
@@ -53,12 +55,14 @@ public class Updates
                 NoCache = true
             };
 
-            using var response = await updateClient.GetAsync(
-                "https://raw.githubusercontent.com/Ja-Sa-La/League-Account-Manager/master/Version");
+            var manifestUrl = $"{VersionManifestUrl}?cacheBust={DateTimeOffset.UtcNow.Ticks}";
+            using var response = await updateClient.GetAsync(manifestUrl);
             response.EnsureSuccessStatusCode();
             var responseBody = JObject.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString();
-            var release = SelectRelease(responseBody, Settings.settingsloaded.ReleaseChannel, currentVersion);
+            var configuredChannel = Settings.settingsloaded.ReleaseChannel?.Trim();
+            DebugConsole.WriteLine($"[Updates] Checking {configuredChannel ?? "Stable"} channel from version {currentVersion ?? "unknown"}");
+            var release = SelectRelease(responseBody, configuredChannel, currentVersion);
             if (release != null)
             {
                 release.PatchNotes = await GetPatchNotesAsync(updateClient, release.ReleaseUrl).ConfigureAwait(true);
@@ -97,7 +101,7 @@ public class Updates
     internal static UpdateRelease? SelectRelease(JObject manifest, string? configuredChannel,
         string? currentVersion)
     {
-        var channel = Enum.TryParse<UpdateReleaseChannel>(configuredChannel, true, out var parsedChannel)
+        var channel = Enum.TryParse<UpdateReleaseChannel>(configuredChannel?.Trim(), true, out var parsedChannel)
             ? parsedChannel
             : UpdateReleaseChannel.Stable;
         if (!Version.TryParse(currentVersion, out var current))

@@ -61,7 +61,6 @@ public partial class Settings : Page
         var newBaseName = Path.GetFileNameWithoutExtension(settingssaveinfobox.Text?.Trim());
         if (string.IsNullOrWhiteSpace(newBaseName))
             newBaseName = "Accounts";
-        Misc.Settings.settingsloaded.filename = newBaseName;
         if (savesettingsupdates.IsChecked != false)
             Misc.Settings.settingsloaded.updates = true;
         else
@@ -76,6 +75,10 @@ public partial class Settings : Page
         else
             Misc.Settings.settingsloaded.UpdateRanks = false;
 
+        // Persist update preferences before account-file migration can fail.
+        Misc.Settings.Save();
+
+        Misc.Settings.settingsloaded.filename = newBaseName;
         Misc.Settings.settingsloaded.AccountFileEncryptionEnabled = encryptionEnabled;
         var config = new CsvConfiguration(CultureInfo.CurrentCulture) { Delimiter = ";" };
         var destinationFilePath = AccountFileStore.GetAccountsFilePath();
@@ -99,6 +102,7 @@ public partial class Settings : Page
         {
             Misc.Settings.settingsloaded.filename = oldBaseName;
             Misc.Settings.settingsloaded.AccountFileEncryptionEnabled = oldEncryptionEnabled;
+            Misc.Settings.Save();
             AppMessageBox.Show($"Failed to update account file encryption: {exception.Message}", "Encryption Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             return;
