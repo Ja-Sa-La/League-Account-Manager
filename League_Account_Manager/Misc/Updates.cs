@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Windows;
 using League_Account_Manager;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
@@ -20,6 +21,7 @@ public class Updates
     private static readonly string ApplicationDirectory = AppContext.BaseDirectory;
     private static readonly string ApplicationPath = Environment.ProcessPath ??
                                                      Path.Combine(ApplicationDirectory, "League_Account_Manager.exe");
+    private const string UpdateCompletionFileName = "update-complete.json";
 
     public static async Task UpdateCheckAsync()
     {
@@ -29,9 +31,16 @@ public class Updates
             if (File.Exists(temporaryUpdatePath))
             {
                 File.Delete(temporaryUpdatePath);
-                Notif.notificationManager.Show("Update!", "League Account Manager was updated successfully",
-                    NotificationType.Notification);
                 LogManager.GetCurrentClassLogger().Info("Temporary update file removed");
+
+                var completedUpdate = TakeUpdateCompletion(ApplicationDirectory);
+                var mainWindow = Application.Current?.MainWindow as MainWindow;
+                if (completedUpdate != null && mainWindow != null)
+                    await mainWindow.ShowUpdatedModalAsync(completedUpdate.Version, completedUpdate.Channel,
+                        completedUpdate.PatchNotes);
+                else
+                    Notif.notificationManager.Show("Update!", "League Account Manager was updated successfully",
+                        NotificationType.Notification);
             }
 
             using var updateClient = new HttpClient();
@@ -54,7 +63,7 @@ public class Updates
                     ? MessageBoxResult.Cancel
                     : await mainWindow.ShowUpdateModalAsync(release.Version, release.Channel, release.PatchNotes,
                         true,
-                        () => _ = UpdateAndRestartAsync(release.DownloadUrl),
+                        () => _ = UpdateAndRestartAsync(release),
                         () => LaunchUpdate(release.ReleaseUrl));
                 DebugConsole.WriteLine($"[Updates] Update dialog closed with result: {result}");
                 LogManager.GetCurrentClassLogger().Info("{Channel} update available: {Version}", release.Channel,
@@ -176,14 +185,38 @@ public class Updates
             }
     }
 
-    private static async Task UpdateAndRestartAsync(string downloadUrl)
+    internal static void SaveUpdateCompletion(string directory, UpdateCompletion completion)
+    {
+        var completionPath = Path.Combine(directory, UpdateCompletionFileName);
+        File.WriteAllText(completionPath, JsonConvert.SerializeObject(completion));
+    }
+
+    internal static UpdateCompletion? TakeUpdateCompletion(string directory)
+    {
+        var completionPath = Path.Combine(directory, UpdateCompletionFileName);
+        if (!File.Exists(completionPath))
+            return null;
+
+        try
+        {
+            return JsonConvert.DeserializeObject<UpdateCompletion>(File.ReadAllText(completionPath));
+        }
+        finally
+        {
+            File.Delete(completionPath);
+        }
+    }
+
+    private static async Task UpdateAndRestartAsync(UpdateRelease release)
     {
         var downloadPath = Path.Combine(ApplicationDirectory, "temp_update.exe");
         try
         {
             using var client = new HttpClient();
-            var updateBytes = await client.GetByteArrayAsync(downloadUrl);
+            var updateBytes = await client.GetByteArrayAsync(release.DownloadUrl);
             await File.WriteAllBytesAsync(downloadPath, updateBytes);
+            SaveUpdateCompletion(ApplicationDirectory,
+                new UpdateCompletion(release.Version, release.Channel, release.PatchNotes));
 
             var startInfo = new ProcessStartInfo
             {
@@ -213,3 +246,5 @@ internal sealed record UpdateRelease(string Channel, string Version, string Down
 {
     public string PatchNotes { get; set; } = string.Empty;
 }
+
+internal sealed record UpdateCompletion(string Version, string Channel, string PatchNotes);

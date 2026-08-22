@@ -118,4 +118,25 @@ public class UpdatesTests
         Assert.IsNotNull(release);
         Assert.AreEqual("Stable", release.Channel);
     }
+
+    [TestMethod]
+    public void UpdateCompletion_IsConsumedOnce()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var expected = new UpdateCompletion("2.4.0.13", "Beta", "Fixed update notes.");
+
+            Updates.SaveUpdateCompletion(directory, expected);
+            var completion = Updates.TakeUpdateCompletion(directory);
+
+            Assert.AreEqual(expected, completion);
+            Assert.IsNull(Updates.TakeUpdateCompletion(directory));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
 }
