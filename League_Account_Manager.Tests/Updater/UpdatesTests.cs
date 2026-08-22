@@ -63,7 +63,7 @@ public class UpdatesTests
     }
 
         [TestMethod]
-        public void SelectRelease_OffersNewerStableReleaseToBetaChannel()
+        public void SelectRelease_UsesBetaReleaseWhenBothChannelsAreNewer()
         {
                 var manifest = JObject.Parse("""
                                                                          {
@@ -79,8 +79,8 @@ public class UpdatesTests
                 var release = Updates.SelectRelease(manifest, "Beta", "2.5.0.0");
 
                 Assert.IsNotNull(release);
-                Assert.AreEqual("Stable", release.Channel);
-                Assert.AreEqual("2.7.0.0", release.Version);
+                Assert.AreEqual("Beta", release.Channel);
+                Assert.AreEqual("2.6.0.0", release.Version);
         }
 
     [TestMethod]
