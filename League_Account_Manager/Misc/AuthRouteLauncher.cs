@@ -234,10 +234,8 @@ internal sealed class AuthRouteLauncher
                         ctx = await _listener.GetContextAsync();
                         var rawUrl = ctx.Request.RawUrl ?? "/";
                         var bodyBytes = await ReadBodyBytesAsync(ctx.Request, token);
-                        var bodyText = GetBodyPreview(bodyBytes, ctx.Request.ContentEncoding ?? Encoding.UTF8);
-                        var headers = FormatHeaders(ctx.Request.Headers);
                         DebugConsole.WriteLine(
-                            $"[AuthRouteLauncher] {_name} request: {ctx.Request.HttpMethod} {rawUrl} headers={headers} body={bodyText}");
+                            $"[AuthRouteLauncher] {_name} request: {ctx.Request.HttpMethod} {rawUrl} bytes={bodyBytes.Length}");
 
                         if (_upstreamBase is null)
                         {
@@ -260,16 +258,14 @@ internal sealed class AuthRouteLauncher
 
                         using var res = await _httpClient.SendAsync(req, token);
                         var responseBytes = await res.Content.ReadAsByteArrayAsync(token);
-                        var responseHeaders = FormatHeaders(res);
                         var responseText = GetDecodedResponseText(responseBytes, res);
                         DebugConsole.WriteLine(
-                            $"[AuthRouteLauncher] {_name} response: status={(int)res.StatusCode} content-type={ctx.Response.ContentType} headers={responseHeaders} bytes={responseBytes.Length} body={responseText}");
+                            $"[AuthRouteLauncher] {_name} response: status={(int)res.StatusCode} bytes={responseBytes.Length}");
                         if (ctx.Request.HttpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase) &&
                             rawUrl.StartsWith("/api/v1/login", StringComparison.OrdinalIgnoreCase))
                         {
                             Utils.KillLeagueFunc();
-                            DebugConsole.WriteLine(
-                                $"[AuthRouteLauncher] {_name} /api/v1/login response decoded: {responseText}");
+                            DebugConsole.WriteLine($"[AuthRouteLauncher] {_name} captured login response.");
                             _ = ProxyLoginTokenManager.CaptureLoginTokenAsync(responseText, persistLogin,
                                 tokenProduct);
                             Utils.KillLeagueFunc();

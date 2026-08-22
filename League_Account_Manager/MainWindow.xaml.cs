@@ -24,6 +24,7 @@ public class Notif
 
 public partial class MainWindow : Window
 {
+    private const long MaxLogFileSize = 10 * 1024 * 1024;
     private readonly double _aspectRatio;
     private readonly ILogger logger = LogManager.GetCurrentClassLogger();
     private bool _isResizing;
@@ -64,8 +65,19 @@ public partial class MainWindow : Window
 
     private void InitializeLogging()
     {
+        LogFileMaintenance.TrimToNewestBytes("Log.txt", MaxLogFileSize);
+        foreach (var archivePath in Directory.GetFiles(AppContext.BaseDirectory, "Log.*.txt"))
+            LogFileMaintenance.TrimToNewestBytes(archivePath, MaxLogFileSize);
+
         var config = new LoggingConfiguration();
-        var fileTarget = new FileTarget("logfile") { FileName = "Log.txt" };
+        var fileTarget = new FileTarget("logfile")
+        {
+            FileName = "Log.txt",
+            ArchiveAboveSize = MaxLogFileSize,
+            ArchiveNumbering = ArchiveNumberingMode.Rolling,
+            ArchiveFileName = "Log.{#}.txt",
+            MaxArchiveFiles = 1
+        };
         config.AddRule(LogLevel.Debug, LogLevel.Error, fileTarget);
         LogManager.Configuration = config;
 

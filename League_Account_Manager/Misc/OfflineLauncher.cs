@@ -584,8 +584,6 @@ internal class OfflineLauncher
                 if (read <= 0)
                     break;
 
-                DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: C->S bytes={read}");
-
                 var text = Encoding.UTF8.GetString(bytes, 0, read);
 
                 if (text.Contains(StealthUserJid, StringComparison.OrdinalIgnoreCase))
@@ -640,7 +638,6 @@ internal class OfflineLauncher
                     break;
 
                 var content = Encoding.UTF8.GetString(bytes, 0, read);
-                DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: S->C bytes={read}");
 
                 if (!state.InsertedStealthUser && content.Contains(rosterMarker, StringComparison.Ordinal))
                 {

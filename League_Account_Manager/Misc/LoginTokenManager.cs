@@ -502,7 +502,8 @@ public static class LoginTokenManager
         while (attempts < 500)
         {
             attempts++;
-            DebugConsole.WriteLine($"[Token] Login automation attempt {attempts}");
+            if (attempts == 1 || attempts % 25 == 0)
+                DebugConsole.WriteLine($"[Token] Login automation attempt {attempts}");
             try
             {
                 var app = Application.Attach(riotProcessName);
@@ -598,6 +599,7 @@ public static class LoginTokenManager
                 var restartLogin = false;
                 var cancelLogin = false;
                 var loginErrorChecks = 0;
+                string? lastEulaStatus = null;
 
                 while (true)
                 {
@@ -626,7 +628,11 @@ public static class LoginTokenManager
 
                     var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                     string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    DebugConsole.WriteLine($"[Token] EULA status: {status}");
+                    if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
+                    {
+                        lastEulaStatus = status;
+                        DebugConsole.WriteLine($"[Token] EULA status changed: {status}");
+                    }
                     if (status == "\"Accepted\"")
                         break;
                     if (status == "\"AcceptanceRequired\"")
@@ -658,8 +664,11 @@ public static class LoginTokenManager
             }
             catch (Exception ex)
             {
-                Logger.Warn(ex, "Retrying login automation for token generation");
-                DebugConsole.WriteLine($"[Token] Login automation error: {ex.Message}");
+                if (attempts == 1 || attempts % 25 == 0)
+                {
+                    Logger.Warn(ex, "Retrying login automation for token generation at attempt {Attempt}", attempts);
+                    DebugConsole.WriteLine($"[Token] Login automation error at attempt {attempts}: {ex.Message}");
+                }
                 await Task.Delay(500);
             }
         }
@@ -739,15 +748,18 @@ public static class LoginTokenManager
                 if (resp != null)
                 {
                     var content = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    DebugConsole.WriteLine($"[Token] Login status {(int)resp.StatusCode}: {content}");
                     if (content.Contains("\"persist\":true", StringComparison.OrdinalIgnoreCase) &&
                         content.Contains("\"phase\":\"logged_in\"", StringComparison.OrdinalIgnoreCase))
+                    {
+                        DebugConsole.WriteLine("[Token] Persisted login confirmed");
                         return true;
+                    }
                 }
             }
             catch (Exception e)
             {
-                DebugConsole.WriteLine($"[Token] Login status {e}");
+                if (i == 0 || (i + 1) % 10 == 0)
+                    DebugConsole.WriteLine($"[Token] Login status check {i + 1} failed: {e.Message}");
             }
 
             await Task.Delay(2000);

@@ -13,6 +13,7 @@ public partial class Autolobby : Page
 {
     private const int ChampionActionPollIntervalMs = 200;
     private const int ChampionActionLockInThresholdMs = 1250;
+    private static readonly LogThrottle ErrorLogThrottle = new(TimeSpan.FromMinutes(1));
 
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CancellationTokenSource _pageLifetimeCts = new();
@@ -74,6 +75,13 @@ public partial class Autolobby : Page
             Log($"{name} (truncated {maxConsoleLength}/{body.Length} chars): {body[..maxConsoleLength]}...");
         else
             Log($"{name}: {body}");
+    }
+
+    private void LogRecurringError(string operation, Exception exception)
+    {
+        if (ErrorLogThrottle.ShouldLog(operation, DateTimeOffset.UtcNow))
+            _logger.Error(exception, "Recurring error in {Operation}; repeated errors are limited to once per minute",
+                operation);
     }
 
     private bool AnyFeatureEnabled()
@@ -211,9 +219,7 @@ public partial class Autolobby : Page
                     {
                         var resp = await Lcu.Connector("league", "get", "/lol-champ-select/v1/session", "");
                         var sessionBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        LogResponse("Champ select session", sessionBody);
                         champselectJObject = JObject.Parse(sessionBody);
-                        Log("Fetched champ select session.");
 
                         champselectaction = null;
                         ChampselectTeamJObject = null;
@@ -289,7 +295,7 @@ public partial class Autolobby : Page
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in BackgroundDataFunction1");
+                LogRecurringError(nameof(BackgroundDataFunction1), ex);
             }
 
             await Task.Delay(queueJObject?["phase"]?.ToString() == "ChampSelect"
@@ -308,7 +314,6 @@ public partial class Autolobby : Page
                 {
                     var resp = await Lcu.Connector("league", "get", "/lol-gameflow/v1/session", "");
                     var queueBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    LogResponse("Gameflow session", queueBody);
                     queueJObject = JObject.Parse(queueBody);
 
                     var phase = queueJObject?["phase"]?.ToString();
@@ -322,7 +327,7 @@ public partial class Autolobby : Page
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in BackgroundDataFunction2");
+                LogRecurringError(nameof(BackgroundDataFunction2), ex);
             }
 
             await Task.Delay(1000, ct);
@@ -375,7 +380,7 @@ public partial class Autolobby : Page
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in AutoAccept");
+                LogRecurringError(nameof(StartAutoAcceptTask), ex);
             }
 
             await Task.Delay(3000, ct);
@@ -483,7 +488,7 @@ public partial class Autolobby : Page
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in AutoMute");
+                LogRecurringError(nameof(StartAutoMuteTask), ex);
             }
 
             await Task.Delay(2000, ct);
@@ -577,7 +582,7 @@ public partial class Autolobby : Page
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error in getpickchampid");
+            LogRecurringError(nameof(getpickchampid), ex);
             Log("Error while resolving auto-pick champion; see log for details.");
             return "";
         }
@@ -689,7 +694,7 @@ public partial class Autolobby : Page
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in Auto{actionType}");
+                LogRecurringError($"Auto{actionType}", ex);
             }
 
             await Task.Delay(ChampionActionPollIntervalMs, ct);
@@ -780,7 +785,7 @@ public partial class Autolobby : Page
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error in getbanchampid");
+            LogRecurringError(nameof(getbanchampid), ex);
             Log("Error while resolving auto-ban champion; see log for details.");
             return "";
         }
@@ -818,7 +823,7 @@ public partial class Autolobby : Page
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in AutoMessage");
+                LogRecurringError(nameof(StartAutoMessageTask), ex);
             }
 
             await Task.Delay(1000, ct);
@@ -859,7 +864,7 @@ public partial class Autolobby : Page
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error sending message");
+            LogRecurringError(nameof(sendmsg), ex);
         }
     }
 

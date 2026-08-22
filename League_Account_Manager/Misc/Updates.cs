@@ -30,10 +30,14 @@ public class Updates
         {
             if (File.Exists(temporaryUpdatePath))
             {
-                File.Delete(temporaryUpdatePath);
-                LogManager.GetCurrentClassLogger().Info("Temporary update file removed");
+                if (await DeleteTemporaryUpdateAsync(temporaryUpdatePath))
+                    LogManager.GetCurrentClassLogger().Info("Temporary update file removed");
+                else
+                    LogManager.GetCurrentClassLogger().Warn("Temporary update file could not be removed yet");
 
-                var completedUpdate = TakeUpdateCompletion(ApplicationDirectory);
+                var completedUpdate = File.Exists(temporaryUpdatePath)
+                    ? null
+                    : TakeUpdateCompletion(ApplicationDirectory);
                 var mainWindow = Application.Current?.MainWindow as MainWindow;
                 if (completedUpdate != null && mainWindow != null)
                     await mainWindow.ShowUpdatedModalAsync(completedUpdate.Version, completedUpdate.Channel,
@@ -205,6 +209,32 @@ public class Updates
         {
             File.Delete(completionPath);
         }
+    }
+
+    internal static async Task<bool> DeleteTemporaryUpdateAsync(string path, int maxAttempts = 40,
+        int delayMilliseconds = 250)
+    {
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            if (!File.Exists(path))
+                return true;
+
+            try
+            {
+                File.Delete(path);
+                return !File.Exists(path);
+            }
+            catch (IOException) when (attempt < maxAttempts - 1)
+            {
+                await Task.Delay(delayMilliseconds).ConfigureAwait(false);
+            }
+            catch (UnauthorizedAccessException) when (attempt < maxAttempts - 1)
+            {
+                await Task.Delay(delayMilliseconds).ConfigureAwait(false);
+            }
+        }
+
+        return !File.Exists(path);
     }
 
     private static async Task UpdateAndRestartAsync(UpdateRelease release)

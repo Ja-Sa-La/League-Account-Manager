@@ -93,6 +93,16 @@ dotnet build League_Account_Manager/League_Account_Manager.csproj -c Release
 dotnet run --project League_Account_Manager/League_Account_Manager.csproj
 ```
 
+Windows batch scripts are also available from the repository root:
+
+```bat
+build.bat
+test.bat
+publish.bat
+```
+
+`build.bat` and `test.bat` default to Release. Pass `Debug` as the first argument to use the Debug configuration. `publish.bat` creates a framework-dependent, single-file `win-x64` build in `artifacts\win-x64`.
+
 ## Tests
 
 ```powershell

@@ -139,4 +139,23 @@ public class UpdatesTests
             Directory.Delete(directory, true);
         }
     }
+
+    [TestMethod]
+    public async Task DeleteTemporaryUpdateAsync_RemovesExistingFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"lam-update-{Guid.NewGuid():N}.exe");
+        try
+        {
+            await File.WriteAllTextAsync(path, "temporary update");
+
+            var deleted = await Updates.DeleteTemporaryUpdateAsync(path, 1, 0);
+
+            Assert.IsTrue(deleted);
+            Assert.IsFalse(File.Exists(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
