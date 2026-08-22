@@ -145,12 +145,27 @@ public partial class MainWindow : Window
         UpdateModalTitle.Text = "Update available";
         UpdateModalVersion.Text = $"A new {channel.ToLowerInvariant()} release is available: {version}";
         UpdateModalPatchNotes.Text = $"Patch notes\n\n{patchNotes}";
+        UpdateModalLater.Content = "Later";
+        UpdateModalLater.Visibility = Visibility.Visible;
+        UpdateModalRelease.Visibility = Visibility.Visible;
+        UpdateModalUpdate.Visibility = Visibility.Visible;
         UpdateModalBackdrop.Visibility = dimBackground ? Visibility.Visible : Visibility.Collapsed;
         _updateModalCompletion = new TaskCompletionSource<MessageBoxResult>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         UpdateModalOverlay.Visibility = Visibility.Visible;
         UpdateModalOverlay.Focus();
         return _updateModalCompletion.Task;
+    }
+
+    public Task<MessageBoxResult> ShowUpdatedModalAsync(string version, string channel, string patchNotes)
+    {
+        var completion = ShowUpdateModalAsync(version, channel, patchNotes);
+        UpdateModalTitle.Text = "Update complete";
+        UpdateModalVersion.Text = $"League Account Manager was updated to {version} ({channel})";
+        UpdateModalLater.Content = "Close";
+        UpdateModalRelease.Visibility = Visibility.Collapsed;
+        UpdateModalUpdate.Visibility = Visibility.Collapsed;
+        return completion;
     }
 
     private void CloseUpdateModal(MessageBoxResult result, Action? action = null)
