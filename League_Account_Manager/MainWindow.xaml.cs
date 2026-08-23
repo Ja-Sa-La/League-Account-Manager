@@ -195,7 +195,7 @@ public partial class MainWindow : Window
         _updateModalReleaseAction = releaseAction;
         UpdateModalTitle.Text = "Update available";
         UpdateModalVersion.Text = $"A new {channel.ToLowerInvariant()} release is available: {version}";
-        UpdateModalPatchNotes.Text = $"Patch notes\n\n{patchNotes}";
+        UpdateModalPatchNotes.Text = $"Patch notes{Environment.NewLine}{Environment.NewLine}{NormalizePatchNotes(patchNotes)}";
         UpdateModalLater.Content = "Later";
         UpdateModalLater.Visibility = Visibility.Visible;
         UpdateModalRelease.Visibility = Visibility.Visible;
@@ -217,6 +217,15 @@ public partial class MainWindow : Window
         UpdateModalRelease.Visibility = Visibility.Collapsed;
         UpdateModalUpdate.Visibility = Visibility.Collapsed;
         return completion;
+    }
+
+    private static string NormalizePatchNotes(string patchNotes)
+    {
+        return patchNotes
+            .Replace("\\r\\n", Environment.NewLine, StringComparison.Ordinal)
+            .Replace("\\n", Environment.NewLine, StringComparison.Ordinal)
+            .Replace("\\r", Environment.NewLine, StringComparison.Ordinal)
+            .Trim();
     }
 
     private void CloseUpdateModal(MessageBoxResult result, Action? action = null)
