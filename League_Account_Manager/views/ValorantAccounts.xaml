@@ -7,70 +7,55 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.ValorantAccounts"
     mc:Ignorable="d"
     d:DesignHeight="749" d:DesignWidth="1216"
-    Title="Valorant Accounts"
+    Title="Valorant Accounts" Loaded="ValorantAccounts_OnLoaded" SizeChanged="ValorantAccounts_OnSizeChanged"
     ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
 
-    <Grid Margin="0,0,10,10" Background="Transparent">
+    <Grid Margin="18" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Padding="12" Background="#FF3A3A3A" CornerRadius="8" BorderBrush="#FF4C4C4C"
-                Margin="10,10,10,265" BorderThickness="1">
+        <Border Grid.Row="0" Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-
-                <Grid Grid.Row="1">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="340" />
                     </Grid.ColumnDefinitions>
-                    <WrapPanel ItemHeight="40" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <StackPanel Orientation="Vertical" Width="260" Margin="0,0,0,6">
-                            <TextBlock Text="Valorant account dashboard" FontSize="16" FontWeight="SemiBold"
-                                       Foreground="White" Width="260" />
-                            <TextBlock Text="Manage Valorant account data." FontSize="10" Foreground="#CCFFFFFF" />
-                        </StackPanel>
-                        <ui:Button Margin="4" Padding="6,1" x:Name="killleague" Content="Kill client" FontSize="12"
-                                   Click="OnKillClientClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="openleague1" Content="Open League" FontSize="12"
-                                   Click="OnOpenValorantClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="PullData" Content="PullData" FontSize="12"
-                                   Click="OnPullDataClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="Delete" Content="Delete" FontSize="12"
-                                   Click="OnDeleteClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="Login" Content="Login" FontSize="12"
-                                   Click="OnLoginClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="StealthLogin" Content="Stealth Login" FontSize="12"
-                                   Click="OnLoginClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="DuplicateRemover" Content="Remove duplicates"
-                                   FontSize="10"
-                                   Click="OnRemoveDuplicatesClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="NameChangeButton" Content="Name Change"
-                                   FontSize="12"
-                                   Click="OnNameChangeClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="GenerateLoginToken" Content="Generate token"
-                                   FontSize="12"
-                                   Click="GenerateLoginToken_OnClick" Width="130" />
-                        <ui:Button Margin="4" Padding="6,1" x:Name="UseLoginToken" Content="Login With token"
-                                   FontSize="12"
-                                   Click="UseLoginToken_OnClick" Width="130" />
-
-                    </WrapPanel>
-                    <ui:TextBox x:Name="FilterTextBox" Margin="870,50,62,0"
+                    <StackPanel>
+                        <TextBlock Text="VALORANT accounts" Style="{StaticResource PageTitleStyle}" />
+                        <TextBlock Text="Manage credentials, sessions, progression, and inventory."
+                                   Style="{StaticResource PageSubtitleStyle}" />
+                    </StackPanel>
+                    <ui:TextBox Grid.Column="1" x:Name="FilterTextBox"
                                 PlaceholderText="Agent, skin, title, or server name"
-                                TextWrapping="NoWrap" Padding="8,6" FontSize="12"
-                                TextChanged="OnFilterTextChanged" VerticalAlignment="Top" />
+                                TextWrapping="NoWrap" Padding="10,7" FontSize="12"
+                                TextChanged="OnFilterTextChanged" VerticalAlignment="Center" />
                 </Grid>
+                <Separator Grid.Row="1" Margin="0,16,0,12" Background="{StaticResource StrokeBrush}" />
+                <WrapPanel Grid.Row="2">
+                    <ui:Button Margin="0,0,8,8" x:Name="openleague1" Content="Open VALORANT" Click="OnOpenValorantClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="Login" Content="Login" Click="OnLoginClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="StealthLogin" Content="Stealth login" Click="OnLoginClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="PullData" Content="Pull data" Click="OnPullDataClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="GenerateLoginToken" Content="Generate token" Click="GenerateLoginToken_OnClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="UseLoginToken" Content="Login with token" Click="UseLoginToken_OnClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="NameChangeButton" Content="Name change" Click="OnNameChangeClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="DuplicateRemover" Content="Remove duplicates" Click="OnRemoveDuplicatesClick" />
+                    <ui:Button Margin="0,0,8,8" x:Name="killleague" Content="Kill client" Click="OnKillClientClick" />
+                    <ui:Button Margin="0,0,0,8" x:Name="Delete" Content="Delete" Click="OnDeleteClick" />
+                </WrapPanel>
             </Grid>
         </Border>
 
-        <Grid Height="605" Margin="10,124,10,0" VerticalAlignment="Top" Grid.RowSpan="2">
-            <Border Background="#FF2F2F2F" CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+        <Grid Grid.Row="1">
+            <Border Style="{StaticResource SurfacePanelStyle}" Padding="0">
                 <DataGrid x:Name="ValorantAccountsDataGrid" SelectionUnit="FullRow"
                           KeyDown="OnAccountsKeyDown"
                           MouseLeftButtonDown="OnAccountsMouseLeftButtonDown"
@@ -78,7 +63,9 @@
                           Sorting="OnValorantAccountsDataGridSorting"
                           IsReadOnly="True"
                           HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
-                          SelectionMode="Single" Background="#FF202020" BorderBrush="#FF4C4C4C" Margin="0"
+                          SelectionMode="Single" Margin="0" MinHeight="0"
+                          HorizontalAlignment="Stretch" Width="Auto"
+                          PreviewMouseWheel="ValorantAccountsDataGrid_OnPreviewMouseWheel"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto">
                     <DataGrid.ContextMenu>
@@ -168,16 +155,9 @@
                     </DataGrid.Columns>
 
                     <DataGrid.Resources>
-                        <Style TargetType="{x:Type DataGridCell}">
-                            <Style.Triggers>
-                                <Trigger Property="DataGridCell.IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#FF313131" />
-                                    <Setter Property="BorderBrush" Value="#FF313131" />
-                                    <Setter Property="Foreground" Value="White" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
+                        <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource AppDataGridCellStyle}" />
                         <Style TargetType="TextBlock">
+                            <Setter Property="VerticalAlignment" Value="Center" />
                             <Setter Property="TextWrapping" Value="WrapWithOverflow" />
                         </Style>
 

@@ -16,5 +16,12 @@ public partial class App : Application
 
         base.OnStartup(e);
         ProxyLoginTokenManager.RegisterLoginUriScheme();
+        LcuWebSocketMonitor.Start();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        LcuWebSocketMonitor.Stop();
+        base.OnExit(e);
     }
 }

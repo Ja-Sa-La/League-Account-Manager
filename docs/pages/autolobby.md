@@ -13,7 +13,9 @@ The autolobby page groups tools related to automated lobby setup workflows and c
 
 - `Enable AutoAcceptQueue`: auto-accept match found.
 - `Enable AutoAcceptPick`: auto-select champion.
+- `Instant pick`: poll rapidly and lock the selected champion as soon as the pick action starts. The champion is still hovered during planning.
 - `Enable AutoAcceptBan`: auto-ban champion.
+- `Instant ban`: poll rapidly and lock the selected ban as soon as the ban action starts.
 - `Enable AutoAcceptMessage`: auto-send a chat message.
 - Message box: message text sent when auto-message is enabled.
 - Role picks: Blind/No role, Top, Jungle, Mid, Bot, Support champion selectors.

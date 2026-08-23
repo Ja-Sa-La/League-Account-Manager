@@ -8,7 +8,7 @@
       d:DesignHeight="749" d:DesignWidth="1216"
       Title="ChampionBuyer">
 
-    <Grid Background="Transparent" Margin="0,0,10,10">
+    <Grid Background="Transparent" Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -18,46 +18,48 @@
             <ColumnDefinition Width="4*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.ColumnSpan="2" Padding="12" Background="#FF3A3A3A" CornerRadius="8" BorderBrush="#FF4C4C4C"
-                BorderThickness="1">
+        <Border Grid.ColumnSpan="2" Style="{StaticResource SurfacePanelStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Click="OnBuySelectedChampionsClick" ContentControl.Content="Buy selected champions"
-                           Height="48" Width="220" />
+                  <StackPanel>
+                      <TextBlock Text="Champion buyer" Style="{StaticResource PageTitleStyle}" />
+                      <TextBlock Text="Select champions to purchase with Blue Essence."
+                           Style="{StaticResource PageSubtitleStyle}" />
+                  </StackPanel>
                 <Label Name="StatusMessageLabel" Grid.Column="1" Content="Currently buying: "
-                       VerticalAlignment="Center" FontSize="20" Foreground="White" Margin="10,0,0,0" />
+                      VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="16,0" />
+                  <ui:Button Grid.Column="2" Click="OnBuySelectedChampionsClick"
+                          ContentControl.Content="Buy selected champions" MinWidth="190" />
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="0" Margin="0,12,12,0" Padding="12" Background="#FF2F2F2F"
-                CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+        <Border Grid.Row="1" Grid.Column="0" Margin="0,12,12,0" Style="{StaticResource SurfacePanelStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="Buy log" FontSize="18" FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="Buy log" Style="{StaticResource SectionTitleStyle}" />
                 <ScrollViewer Grid.Row="1" Margin="0,8,0,0">
-                    <TextBlock x:Name="BuyLog" Foreground="WhiteSmoke" FontSize="16" TextWrapping="Wrap" />
+                    <TextBlock x:Name="BuyLog" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" TextWrapping="Wrap" />
                 </ScrollViewer>
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="1" Margin="0,12,0,0" Padding="12" Background="#FF2F2F2F"
-                CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+        <Border Grid.Row="1" Grid.Column="1" Margin="0,12,0,0" Style="{StaticResource SurfacePanelStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="Available champions" FontSize="18" FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="Available champions" Style="{StaticResource SectionTitleStyle}" />
                 <ListBox Name="BuyableChampionsList" Grid.Row="1" Margin="0,8,0,0"
-                         SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
-                         Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         SelectionMode="Multiple" Padding="4" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                         Background="{StaticResource SurfaceBrush}" ScrollViewer.VerticalScrollBarVisibility="Auto"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -70,17 +72,17 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="Bd" BorderBrush="#FF4C4C4C" BorderThickness="1"
-                                                CornerRadius="6" Background="#FF303030">
+                                        <Border x:Name="Bd" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                                            CornerRadius="6" Background="{StaticResource SurfaceRaisedBrush}">
                                             <ContentPresenter />
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF7FA8FF" />
-                                                <Setter TargetName="Bd" Property="Background" Value="#FF3B3B3B" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
                                             </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF5A5A5A" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource TextSecondaryBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -97,13 +99,13 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border Width="56" Height="56" CornerRadius="4" ClipToBounds="True"
-                                            BorderBrush="#2D333B" BorderThickness="1">
+                                            BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
                                         <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
                                         <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold"
-                                                   Foreground="White" />
-                                        <TextBlock Text="{Binding Price}" FontSize="14" Foreground="#9AA4B1" />
+                                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                        <TextBlock Text="{Binding Price}" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
                             </Border>

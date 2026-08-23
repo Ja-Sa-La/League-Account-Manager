@@ -30,6 +30,18 @@ internal static class ChampSelectActionTiming
         return ShouldComplete(timer, thresholdMs);
     }
 
+    internal static bool ShouldCompleteAction(string actionType, string? timerPhase, bool completeImmediately,
+        JToken? timer, DateTimeOffset? localDeadline, DateTimeOffset now, int thresholdMs)
+    {
+        if (string.Equals(timerPhase, "PLANNING", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (completeImmediately)
+            return true;
+
+        return ShouldComplete(timer, localDeadline, now, thresholdMs);
+    }
+
     internal static int? GetRemainingMilliseconds(JToken? timer)
     {
         if (timer == null)

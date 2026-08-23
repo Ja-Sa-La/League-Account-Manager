@@ -77,7 +77,8 @@ internal class Lcu
         return Task.FromResult((riotPort, riotToken, leaguePort, leagueToken));
     }
 
-    public static async Task<dynamic> Connector(string target, string mode, string endpoint, string data)
+    public static async Task<dynamic> Connector(string target, string mode, string endpoint, string data,
+        CancellationToken cancellationToken = default)
     {
         var ingame = Process.GetProcessesByName("League of Legends");
         if (ingame.Length != 0)
@@ -141,7 +142,7 @@ internal class Lcu
         var client = new HttpClient(clientHandler);
         var token = Encoding.UTF8.GetBytes("riot:" + authToken);
         SetClientHeaders(client, port, token, version);
-        return await SendRequest(client, mode, endpoint, data, port);
+        return await SendRequest(client, target, mode, endpoint, data, port, cancellationToken);
     }
 
     public static async Task<(HttpClient Client, string AccessToken, string EntitlementsToken, string Puuid, string
@@ -250,9 +251,10 @@ internal class Lcu
         client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
     }
 
-    private static async Task<HttpResponseMessage> SendRequest(HttpClient client, string method, string endpoint,
-        string data, string port)
+    private static async Task<HttpResponseMessage> SendRequest(HttpClient client, string target, string method,
+        string endpoint, string data, string port, CancellationToken cancellationToken)
     {
+        var started = Stopwatch.StartNew();
         // Simplify URL construction
         var url = endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
             ? endpoint
@@ -274,10 +276,50 @@ internal class Lcu
             // Append data as query string for GET requests
             request.RequestUri = new Uri($"{url}?{data}");
 
-        // Send the request
-        var response = await client.SendAsync(request);
-        client.Dispose();
-        return response;
+        try
+        {
+            var requestHeaders = FormatRequestHeaders(client, request);
+            var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead,
+                cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            started.Stop();
+            LcuRequestLog.Add(
+                target,
+                method,
+                request.RequestUri?.PathAndQuery ?? endpoint,
+                data,
+                (int)response.StatusCode,
+                response.ReasonPhrase ?? response.StatusCode.ToString(),
+                responseBody,
+                started.ElapsedMilliseconds,
+                requestHeaders: requestHeaders);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            started.Stop();
+            LcuRequestLog.Add(target, method, request.RequestUri?.PathAndQuery ?? endpoint, data, null,
+                ex is OperationCanceledException ? "Cancelled" : "Failed", string.Empty,
+                started.ElapsedMilliseconds, ex.Message,
+                requestHeaders: FormatRequestHeaders(client, request));
+            throw;
+        }
+        finally
+        {
+            request.Dispose();
+            client.Dispose();
+        }
+    }
+
+    private static string FormatRequestHeaders(HttpClient client, HttpRequestMessage request)
+    {
+        var headers = client.DefaultRequestHeaders
+            .Concat(request.Headers)
+            .Concat(request.Content?.Headers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
+            .GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => $"{group.Key}: {string.Join(", ", group.SelectMany(header => header.Value))}");
+
+        return string.Join(Environment.NewLine, headers);
     }
 
     private static string showMatch(string text, string expr)

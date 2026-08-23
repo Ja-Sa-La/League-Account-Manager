@@ -11,22 +11,23 @@
         ShowInTaskbar="False"
         WindowStyle="ToolWindow"
         Topmost="True"
-        Background="#FF232323"
-        Foreground="White"
+        Background="{StaticResource AppBackgroundBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <Style x:Key="DialogButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="90" />
             <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="Background" Value="#FF2D2D30" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderBrush" Value="#FF3A3A3A" />
+            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8,4" />
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Border Margin="12" Style="{StaticResource SurfacePanelStyle}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -62,4 +63,5 @@
                     HorizontalAlignment="Right"
                     Margin="0,14,0,0" />
     </Grid>
+    </Border>
 </Window>

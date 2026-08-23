@@ -1,29 +1,48 @@
-﻿<Window x:Class="League_Account_Manager.Windows.ChangeName"
+<Window x:Class="League_Account_Manager.Windows.ChangeName"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" Height="275"
-        Width="402" WindowStyle="None" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
-        Background="#FF252525" MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated">
-    <Grid>
-        <ui:TextBox Margin="10,90,10,0" PlaceholderText="Name" Name="NameTextBox" TextWrapping="Wrap" Height="34"
-                    VerticalAlignment="Top" />
-        <ui:TextBox Margin="10,132,224,0" PlaceholderText="Tagline" Name="TaglineTextBox" Text="" Height="39"
-                    VerticalAlignment="Top" />
-        <ui:Button Content="Change Name" Click="ChangeName_Click" Margin="0,176,0,0" VerticalAlignment="Top"
-                   HorizontalAlignment="Center" Width="381" />
-        <Label Content="Label" Name="ErrorMessageLabel" Visibility="Hidden" HorizontalAlignment="Center"
-               Margin="0,213,0,0"
-               VerticalAlignment="Top" Width="380" FontSize="16" Height="27" />
-
-        <TextBlock HorizontalAlignment="Center" Margin="0,7,0,0" TextWrapping="Wrap"
-                   Text="Allows you to change RiotID without needing to login to riots website. Requires you to have free namechange available tho."
-                   Width="382" FontSize="13" Foreground="#FFC8C8C8" Height="47" VerticalAlignment="Top" />
-        <ui:Button Content="Check if available" Click="CheckNameValidity_Click" Margin="183,132,0,0"
-                   VerticalAlignment="Top"
-                   Width="209" Height="36" />
-        <ui:HyperlinkButton Content="Check available characters for RiotID" Margin="0,50,0,0" VerticalAlignment="Top"
-                            NavigateUri="https://riotidsymbols.com/" HorizontalAlignment="Center" Width="381"
-                            Foreground="#FF4EB7FF" />
-
-    </Grid>
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="Change Riot ID" Width="440" SizeToContent="Height" WindowStyle="None"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{StaticResource AppBackgroundBrush}"
+        MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated">
+    <Border Margin="12" Style="{StaticResource SurfacePanelStyle}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Change Riot ID" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock Grid.Row="1" Margin="0,6,0,12" TextWrapping="Wrap"
+                       Text="Change the Riot ID without opening Riot's website. A free name change must be available."
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+            <ui:HyperlinkButton Grid.Row="2" Content="View supported Riot ID characters"
+                                NavigateUri="https://riotidsymbols.com/" HorizontalAlignment="Left" />
+            <Grid Grid.Row="3" Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBox x:Name="NameTextBox" PlaceholderText="Name" />
+                <ui:TextBox Grid.Column="2" x:Name="TaglineTextBox" PlaceholderText="Tagline" />
+            </Grid>
+            <Grid Grid.Row="4" Margin="0,12,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:Button Content="Check availability" Click="CheckNameValidity_Click" Margin="0,0,8,0" />
+                    <ui:Button Content="Change name" Click="ChangeName_Click" />
+                </StackPanel>
+                <Label Grid.Row="1" x:Name="ErrorMessageLabel" Content="" Visibility="Hidden"
+                       HorizontalContentAlignment="Center" Foreground="{StaticResource DangerBrush}"
+                       Margin="0,10,0,0" />
+            </Grid>
+        </Grid>
+    </Border>
 </Window>

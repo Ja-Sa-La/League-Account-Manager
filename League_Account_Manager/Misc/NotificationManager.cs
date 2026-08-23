@@ -164,10 +164,10 @@ public sealed class NotificationHost : Border
     {
         var accent = type switch
         {
-            NotificationType.Error => Brushes.IndianRed,
-            NotificationType.Warning => Brushes.Goldenrod,
-            NotificationType.Success => Brushes.SeaGreen,
-            _ => Brushes.DodgerBlue
+            NotificationType.Error => (Brush)Application.Current.FindResource("DangerBrush"),
+            NotificationType.Warning => (Brush)Application.Current.FindResource("WarningBrush"),
+            NotificationType.Success => (Brush)Application.Current.FindResource("SuccessBrush"),
+            _ => (Brush)Application.Current.FindResource("AccentBrush")
         };
 
         var content = new StackPanel();
@@ -176,14 +176,14 @@ public sealed class NotificationHost : Border
             Text = title,
             FontWeight = FontWeights.SemiBold,
             FontSize = 14,
-            Foreground = Brushes.White
+            Foreground = (Brush)Application.Current.FindResource("TextPrimaryBrush")
         });
         content.Children.Add(new TextBlock
         {
             Text = message,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0),
-            Foreground = Brushes.Gainsboro
+            Foreground = (Brush)Application.Current.FindResource("TextSecondaryBrush")
         });
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
@@ -198,7 +198,7 @@ public sealed class NotificationHost : Border
             FontSize = 16,
             Padding = new Thickness(5, 0, 5, 0),
             Background = Brushes.Transparent,
-            Foreground = Brushes.White,
+            Foreground = (Brush)Application.Current.FindResource("TextPrimaryBrush"),
             BorderThickness = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
@@ -217,7 +217,7 @@ public sealed class NotificationHost : Border
         return new Border
         {
             Child = grid,
-            Background = new SolidColorBrush(Color.FromArgb(245, 35, 35, 35)),
+            Background = (Brush)Application.Current.FindResource("SurfaceRaisedBrush"),
             BorderBrush = accent,
             BorderThickness = new Thickness(3, 0, 0, 0),
             CornerRadius = new CornerRadius(4),

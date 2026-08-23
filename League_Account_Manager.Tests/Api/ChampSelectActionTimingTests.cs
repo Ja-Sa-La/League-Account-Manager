@@ -56,4 +56,39 @@ public class ChampSelectActionTimingTests
         Assert.IsTrue(ChampSelectActionTiming.ShouldComplete(
             frozenTimer, now.AddMilliseconds(1000), now, 1250));
     }
-}
+
+    [TestMethod]
+    public void ShouldCompleteAction_HoversPickDuringPlanningAndCompletesAfterward()
+    {
+        var timer = JObject.Parse("{\"adjustedTimeLeftInPhase\":30000}");
+        var now = DateTimeOffset.UtcNow;
+
+        Assert.IsFalse(ChampSelectActionTiming.ShouldCompleteAction(
+            "pick", "PLANNING", true, timer, now.AddSeconds(30), now, 1250));
+        Assert.IsTrue(ChampSelectActionTiming.ShouldCompleteAction(
+            "pick", "BAN_PICK", true, timer, now.AddSeconds(30), now, 1250));
+    }
+
+    [TestMethod]
+    public void ShouldCompleteAction_KeepsTimerThresholdForBans()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        Assert.IsFalse(ChampSelectActionTiming.ShouldCompleteAction(
+            "ban", "BAN_PICK", false, JObject.Parse("{\"adjustedTimeLeftInPhase\":5000}"),
+            now.AddMilliseconds(5000), now, 1250));
+        Assert.IsTrue(ChampSelectActionTiming.ShouldCompleteAction(
+            "ban", "BAN_PICK", false, JObject.Parse("{\"adjustedTimeLeftInPhase\":1000}"),
+            now.AddMilliseconds(1000), now, 1250));
+    }
+
+    [TestMethod]
+    public void ShouldCompleteAction_InstantBanCompletesImmediately()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        Assert.IsTrue(ChampSelectActionTiming.ShouldCompleteAction(
+            "ban", "BAN_PICK", true, JObject.Parse("{\"adjustedTimeLeftInPhase\":30000}"),
+            now.AddMilliseconds(30000), now, 1250));
+    }
+    }
