@@ -11,6 +11,7 @@ namespace League_Account_Manager.views;
 
 public partial class Autolobby : Page
 {
+    private const int InstantChampionActionPollIntervalMs = 50;
     private const int ChampionActionPollIntervalMs = 200;
     private const int ChampionActionLockInThresholdMs = 1250;
     private static readonly LogThrottle ErrorLogThrottle = new(TimeSpan.FromMinutes(1));
@@ -237,6 +238,8 @@ public partial class Autolobby : Page
                                         continue;
 
                                     var isInProgress = actionObj["isInProgress"]?.Value<bool>() ?? false;
+                                    var isCompleted = actionObj["completed"]?.Value<bool>() ?? false;
+                                    var actionType = actionObj["type"]?.ToString();
                                     var actorCellId = actionObj["actorCellId"]?.ToString();
                                     var localCellId = champselectJObject["localPlayerCellId"]?.ToString();
                                     var timerPhase = champselectJObject["timer"]?["phase"]?.ToString();
@@ -248,9 +251,13 @@ public partial class Autolobby : Page
                                         Log($"Champ Select timer phase changed: {_lastTimerPhase}");
                                     }
 
-                                    if (isInProgress &&
-                                        actorCellId == localCellId &&
-                                        timerPhase != "PLANNING")
+                                    var isPlanningPick = string.Equals(timerPhase, "PLANNING",
+                                                             StringComparison.OrdinalIgnoreCase) &&
+                                                         string.Equals(actionType, "pick",
+                                                             StringComparison.OrdinalIgnoreCase) &&
+                                                         !isCompleted;
+
+                                    if (actorCellId == localCellId && (isInProgress || isPlanningPick))
                                     {
                                         champselectaction = actionObj;
                                         break;
@@ -298,9 +305,10 @@ public partial class Autolobby : Page
                 LogRecurringError(nameof(BackgroundDataFunction1), ex);
             }
 
-            await Task.Delay(queueJObject?["phase"]?.ToString() == "ChampSelect"
-                ? ChampionActionPollIntervalMs
-                : 1000, ct);
+            var sessionPollInterval = queueJObject?["phase"]?.ToString() == "ChampSelect"
+                ? await GetChampSelectSessionPollIntervalAsync()
+                : 1000;
+            await Task.Delay(sessionPollInterval, ct);
         }
     }
 
@@ -611,6 +619,7 @@ public partial class Autolobby : Page
         {
             try
             {
+                var pollIntervalMs = await GetChampionActionPollIntervalAsync(actionType);
                 var action = champselectaction;
                 if (action == null ||
                     !string.Equals(action["type"]?.ToString(), actionType, StringComparison.OrdinalIgnoreCase) ||
@@ -622,22 +631,30 @@ public partial class Autolobby : Page
                     resolvedChampionId = null;
                     deadlineActionId = null;
                     actionDeadline = null;
-                    await Task.Delay(ChampionActionPollIntervalMs, ct);
+                    await Task.Delay(pollIntervalMs, ct);
                     continue;
                 }
 
                 var actionId = action["id"]?.ToString();
                 if (string.IsNullOrWhiteSpace(actionId))
                 {
-                    await Task.Delay(ChampionActionPollIntervalMs, ct);
+                    await Task.Delay(pollIntervalMs, ct);
                     continue;
                 }
 
-                if (deadlineActionId != actionId)
+                var timer = champselectJObject?["timer"];
+                var timerPhase = timer?["phase"]?.ToString();
+                var isPlanning = string.Equals(timerPhase, "PLANNING", StringComparison.OrdinalIgnoreCase);
+
+                if (isPlanning)
+                {
+                    deadlineActionId = null;
+                    actionDeadline = null;
+                }
+                else if (deadlineActionId != actionId)
                 {
                     deadlineActionId = actionId;
-                    actionDeadline = ChampSelectActionTiming.CreateDeadline(champselectJObject?["timer"],
-                        DateTimeOffset.UtcNow);
+                    actionDeadline = ChampSelectActionTiming.CreateDeadline(timer, DateTimeOffset.UtcNow);
                 }
 
                 if (resolvedActionId != actionId || string.IsNullOrWhiteSpace(resolvedChampionId))
@@ -648,7 +665,7 @@ public partial class Autolobby : Page
 
                 if (string.IsNullOrWhiteSpace(resolvedChampionId))
                 {
-                    await Task.Delay(ChampionActionPollIntervalMs, ct);
+                    await Task.Delay(pollIntervalMs, ct);
                     continue;
                 }
 
@@ -670,9 +687,12 @@ public partial class Autolobby : Page
                     }
                 }
 
-                var timer = champselectJObject?["timer"];
-                if (ChampSelectActionTiming.ShouldComplete(timer, actionDeadline, DateTimeOffset.UtcNow,
-                    ChampionActionLockInThresholdMs))
+                var completeImmediately = await Dispatcher.InvokeAsync(() =>
+                    string.Equals(actionType, "pick", StringComparison.OrdinalIgnoreCase)
+                        ? InstantPick.IsChecked == true
+                        : InstantBan.IsChecked == true);
+                if (ChampSelectActionTiming.ShouldCompleteAction(actionType, timerPhase, completeImmediately, timer,
+                    actionDeadline, DateTimeOffset.UtcNow, ChampionActionLockInThresholdMs))
                 {
                     var completed = await PatchChampionAction(actionId, championId, true, actionType);
                     if (completed)
@@ -697,8 +717,27 @@ public partial class Autolobby : Page
                 LogRecurringError($"Auto{actionType}", ex);
             }
 
-            await Task.Delay(ChampionActionPollIntervalMs, ct);
+            await Task.Delay(await GetChampionActionPollIntervalAsync(actionType), ct);
         }
+    }
+
+    private async Task<int> GetChampSelectSessionPollIntervalAsync()
+    {
+        var instantActionEnabled = await Dispatcher.InvokeAsync(() =>
+            (toggles.TryGetValue("AutoAcceptPick", out var pick) && pick.Running && InstantPick.IsChecked == true) ||
+            (toggles.TryGetValue("AutoAcceptBan", out var ban) && ban.Running && InstantBan.IsChecked == true));
+
+        return instantActionEnabled ? InstantChampionActionPollIntervalMs : ChampionActionPollIntervalMs;
+    }
+
+    private async Task<int> GetChampionActionPollIntervalAsync(string actionType)
+    {
+        var instantActionEnabled = await Dispatcher.InvokeAsync(() =>
+            string.Equals(actionType, "pick", StringComparison.OrdinalIgnoreCase)
+                ? InstantPick.IsChecked == true
+                : InstantBan.IsChecked == true);
+
+        return instantActionEnabled ? InstantChampionActionPollIntervalMs : ChampionActionPollIntervalMs;
     }
 
     private async Task<bool> PatchChampionAction(string actionId, string championId, bool completed,
@@ -801,18 +840,14 @@ public partial class Autolobby : Page
         {
             try
             {
-                if (champselectaction != null && champselectaction.ContainsKey("type") && !sentmsg)
+                var timerPhase = champselectJObject?["timer"]?["phase"]?.ToString();
+                if (string.Equals(timerPhase, "PLANNING", StringComparison.OrdinalIgnoreCase) && !sentmsg)
                 {
-                    await Task.Delay(1000, ct);
-
                     var msg = "";
                     await Dispatcher.InvokeAsync(() => msg = MessageContainer.Text);
 
-                    if (!string.IsNullOrWhiteSpace(msg))
-                    {
-                        await sendmsg(msg);
+                    if (!string.IsNullOrWhiteSpace(msg) && await sendmsg(msg))
                         sentmsg = true;
-                    }
                 }
                 else if (queueJObject == null ||
                          (queueJObject.TryGetValue("phase", out var phaseToken) &&
@@ -826,11 +861,11 @@ public partial class Autolobby : Page
                 LogRecurringError(nameof(StartAutoMessageTask), ex);
             }
 
-            await Task.Delay(1000, ct);
+            await Task.Delay(sentmsg ? 1000 : ChampionActionPollIntervalMs, ct);
         }
     }
 
-    private async Task sendmsg(string msg)
+    private async Task<bool> sendmsg(string msg)
     {
         try
         {
@@ -844,7 +879,7 @@ public partial class Autolobby : Page
             champSelect = chats.FirstOrDefault(c => c.type == "championSelect");
 
             if (champSelect == null)
-                return;
+                return false;
 
             var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
             var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -858,14 +893,24 @@ public partial class Autolobby : Page
                 DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") +
                 "\",\"body\":\"" + msg.Replace("\"", "\\\"") + "\"}";
 
-            await Lcu.Connector("league", "post",
+            var responseMessage = await Lcu.Connector("league", "post",
                 "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
-                postdata);
+                postdata) as HttpResponseMessage;
+
+            if (responseMessage?.IsSuccessStatusCode == true)
+            {
+                Log("Auto-message sent during planning phase.");
+                return true;
+            }
+
+            Log($"Auto-message send failed: {responseMessage?.StatusCode.ToString() ?? "no response"}");
         }
         catch (Exception ex)
         {
             LogRecurringError(nameof(sendmsg), ex);
         }
+
+        return false;
     }
 
     // =====================================================

@@ -64,6 +64,7 @@ This site documents the app, its features, and the WPF pages in the UI.
 - [Misc Tools](pages/misc-tools.md)
 - [Profile Editor](pages/profile-editor.md)
 - [Report Tool](pages/report-tool.md)
+- [LCU Traffic](pages/lcu-traffic.md)
 - [Settings](pages/settings.md)
 - [Settings Editor](pages/settings-editor.md)
 - [Change Name](pages/change-name.md)

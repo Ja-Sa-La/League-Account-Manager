@@ -8,25 +8,34 @@
       d:DesignHeight="749" d:DesignWidth="1216"
       Title="MiscTools">
 
-    <Grid>
-        <ui:Button Click="OnNukeLogsClick" ContentControl.Content="Nuke logs" FrameworkElement.Margin="10,10,0,0"
-                   FrameworkElement.VerticalAlignment="Top" FrameworkElement.Height="40" FrameworkElement.Width="151" />
-        <ScrollViewer Margin="0,75,0,0" Height="674" VerticalAlignment="Top">
-            <TextBox Name="success" Margin="0,0,0,0" Text="Deleted files/friends"
-                     Foreground="White" FontSize="18" IsReadOnly="True" TextWrapping="WrapWithOverflow" />
-        </ScrollViewer>
-        <ui:Button Click="OnNukeFriendsClick" Content="Nuke friends" Margin="166,10,0,0"
-                   VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="OnGetFriendsClick" Content="Get Friends" Margin="322,10,0,0"
-                   VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="OnUninstallLeagueClick" Content="Uninstall league" Margin="478,10,0,0"
-                   VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="OnDisableAutolaunchClick" Content="Disable Riot client autolaunch" Margin="634,10,0,0"
-                   VerticalAlignment="Top" Height="40" Width="213" />
-        <ui:Button Click="OnGetRiotHwidClick" Content="Get riot hwid" Margin="852,10,0,0"
-                   VerticalAlignment="Top" Height="40" Width="151" />
-        <ui:Button Click="OnRestartLeagueUxClick" Content="Restart LeagueClient UX" Margin="1008,10,0,0"
-                   VerticalAlignment="Top" Height="40" Width="179" />
-
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="Miscellaneous tools" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Maintenance and diagnostic actions for Riot and League clients."
+                       Style="{StaticResource PageSubtitleStyle}" />
+        </StackPanel>
+        <Border Grid.Row="1" Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
+            <WrapPanel>
+                <ui:Button Click="OnNukeLogsClick" ContentControl.Content="Clear logs" Margin="0,0,8,8" />
+                <ui:Button Click="OnNukeFriendsClick" Content="Remove all friends" Margin="0,0,8,8" />
+                <ui:Button Click="OnGetFriendsClick" Content="Get friends" Margin="0,0,8,8" />
+                <ui:Button Click="OnUninstallLeagueClick" Content="Uninstall League" Margin="0,0,8,8" />
+                <ui:Button Click="OnDisableAutolaunchClick" Content="Disable Riot autolaunch" Margin="0,0,8,8" />
+                <ui:Button Click="OnGetRiotHwidClick" Content="Get Riot HWID" Margin="0,0,8,8" />
+                <ui:Button Click="OnRestartLeagueUxClick" Content="Restart League UX" Margin="0,0,0,8" />
+            </WrapPanel>
+        </Border>
+        <Border Grid.Row="2" Style="{StaticResource SurfacePanelStyle}" Padding="0">
+            <TextBox Name="success" Text="Tool output will appear here." IsReadOnly="True"
+                     Padding="14" TextWrapping="WrapWithOverflow" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     FontFamily="Cascadia Mono" FontSize="13" Background="Transparent"
+                     BorderThickness="0" Foreground="{StaticResource TextPrimaryBrush}" />
+        </Border>
     </Grid>
 </Page>

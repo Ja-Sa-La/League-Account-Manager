@@ -9,20 +9,16 @@
     xmlns:shell="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:notifications="clr-namespace:Notification.Wpf"
     mc:Ignorable="d"
-    Title="League Account Manager" Height="800" Width="1500"
-    AllowsTransparency="True" ResizeMode="CanResize" SizeChanged="MainWindow_OnSizeChanged"
+    Title="League Account Manager" Height="860" Width="1520" MinHeight="680" MinWidth="1080"
+    AllowsTransparency="True" ResizeMode="CanResize"
     xmlns:Page="clr-namespace:League_Account_Manager.views"
-    Background="#FF232323">
+    Background="{StaticResource AppBackgroundBrush}">
 
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome ResizeBorderThickness="8" CaptionHeight="0" CornerRadius="0" GlassFrameThickness="0" />
     </shell:WindowChrome.WindowChrome>
 
-    <Viewbox Stretch="Uniform" StretchDirection="Both">
-        <Grid
-            x:Name="RootMainGrid"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch" Height="800" Width="1500">
+        <Grid x:Name="RootMainGrid">
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="50" />
@@ -30,14 +26,9 @@
             </Grid.RowDefinitions>
 
 
-            <Label Content="" Name="installloc" HorizontalAlignment="Left" Margin="450,3,0,0"
-                   VerticalAlignment="Top"
-                   Width="489" Height="22" />
-            <Label Content="" Name="installloclea" HorizontalAlignment="Left" Margin="450,25,0,0"
-                   VerticalAlignment="Top"
-                   Width="489" Height="22" />
-            <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,3,0,0" Name="leaguedata"
-                     VerticalAlignment="Top" Width="380" Background="Transparent" Foreground="White">
+                 <Label Content="" Name="installloc" Visibility="Collapsed" />
+                 <Label Content="" Name="installloclea" Visibility="Collapsed" />
+                 <TextBox Text="" Name="leaguedata" Visibility="Collapsed">
                 <TextBox.Style>
                     <Style TargetType="TextBox">
                         <Setter Property="IsReadOnly" Value="True" />
@@ -46,8 +37,7 @@
                     </Style>
                 </TextBox.Style>
             </TextBox>
-            <TextBox Text="" HorizontalAlignment="Left" Height="22" Margin="939,25,0,0" Name="riotdata"
-                     VerticalAlignment="Top" Width="380" Foreground="White" Background="Transparent">
+            <TextBox Text="" Name="riotdata" Visibility="Collapsed">
                 <TextBox.Style>
                     <Style TargetType="TextBox">
                         <Setter Property="IsReadOnly" Value="True" />
@@ -56,7 +46,9 @@
                     </Style>
                 </TextBox.Style>
             </TextBox>
-            <ui:NavigationView Grid.Row="1" OpenPaneLength="175" IsBackButtonVisible="Collapsed" MinWidth="50"
+            <ui:NavigationView Grid.Row="1" OpenPaneLength="210" IsBackButtonVisible="Collapsed" MinWidth="50"
+                               ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                x:Name="RootNavigation" Grid.Column="0" Loaded="RootNavigation_OnLoaded">
                 <ui:NavigationView.MenuItems>
                     <ui:NavigationViewItem NavigationCacheMode="Required" Content="League" TargetPageTag="home"
@@ -100,6 +92,12 @@
                             <ui:SymbolIcon Symbol="BookExclamationMark20" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
+                    <ui:NavigationViewItem Content="LCU traffic" NavigationCacheMode="Required"
+                                           TargetPageType="{x:Type Page:LcuRequestTracker}">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:SymbolIcon Symbol="DocumentSearch20" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Misc" TargetPageType="{x:Type Page:MiscTools}">
                         <ui:NavigationViewItem.Icon>
                             <ui:SymbolIcon Symbol="AppGeneric20" />
@@ -126,11 +124,11 @@
                 </ui:NavigationView.MenuItems>
                 <ui:NavigationView.FooterMenuItems>
 
-                    <Label Height="20" x:Name="version" Content="Version" HorizontalAlignment="Left"
-                           Foreground="#80FFFFFF"
+                    <Label x:Name="version" Content="Version" HorizontalAlignment="Left"
+                           Foreground="{StaticResource TextSecondaryBrush}"
                            Padding="15,0,0,4" />
-                    <Label Height="20" x:Name="Credits" Content="By Ja-Sa-La" HorizontalAlignment="Left"
-                           Foreground="#80FFFFFF"
+                    <Label x:Name="Credits" Content="By Ja-Sa-La" HorizontalAlignment="Left"
+                           Foreground="{StaticResource TextSecondaryBrush}"
                            Padding="15,0,0,4" />
                     <ui:NavigationViewItem Click="Discord_OnClick">
                         <ui:NavigationViewItem.Icon>
@@ -152,12 +150,11 @@
                     </ui:NavigationViewItem>
                 </ui:NavigationView.FooterMenuItems>
             </ui:NavigationView>
-            <ui:TitleBar Grid.Column="1"
-                         Title="League Account Manager" Grid.ColumnSpan="2"
-                         Grid.Row="0" FontFamily="Arial Black" FontSize="20" Height="31" Focusable="True"
+            <ui:TitleBar Title="League Account Manager"
+                         Grid.Row="0" FontFamily="Segoe UI Variable Display" FontSize="18" Height="42" Focusable="True"
                          ShowMaximize="True"
-                         CanMaximize="True" Padding="0,0,0,0" Margin="10,0,0,0" />
-            <notifications:NotificationHost Grid.Column="1"
+                         CanMaximize="True" Padding="10,0" />
+            <notifications:NotificationHost
                                     x:Name="WindowArea"
                                     Grid.ColumnSpan="2"
                                     Grid.RowSpan="2"
@@ -173,18 +170,15 @@
                               Visibility="Collapsed"
                               Background="Transparent">
                             <Border x:Name="UpdateModalBackdrop"
-                                Background="#99000000"
+                                Background="{StaticResource OverlayBrush}"
                                 Opacity="1"
                                 Visibility="Visible" />
                             <Border Width="560"
                                 MaxHeight="680"
-                                Padding="24"
+                                Style="{StaticResource ModalPanelStyle}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Background="#FF202124"
-                                BorderBrush="#FF4C9AFF"
-                                BorderThickness="1"
-                                CornerRadius="10">
+                                CornerRadius="8">
                                 <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -196,12 +190,12 @@
                                 <TextBlock x:Name="UpdateModalTitle"
                                        FontSize="24"
                                        FontWeight="SemiBold"
-                                       Foreground="White"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
                                        Text="Update available" />
                                 <TextBlock x:Name="UpdateModalVersion"
                                        Grid.Row="1"
                                        Margin="0,6,0,16"
-                                       Foreground="#FFB7C9E8"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
                                        FontSize="14" />
                                 <ScrollViewer Grid.Row="2"
                                           MaxHeight="430"
@@ -209,7 +203,7 @@
                                           HorizontalScrollBarVisibility="Disabled">
                                     <TextBlock x:Name="UpdateModalPatchNotes"
                                            TextWrapping="Wrap"
-                                           Foreground="#FFE8E8E8"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
                                            FontSize="14" />
                                 </ScrollViewer>
                                 <StackPanel Grid.Row="3"
@@ -240,5 +234,4 @@
                             </Grid>
 
         </Grid>
-    </Viewbox>
 </Window>

@@ -2,8 +2,10 @@
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using League_Account_Manager.Misc;
 using NLog;
 using NLog.Config;
@@ -25,9 +27,7 @@ public class Notif
 public partial class MainWindow : Window
 {
     private const long MaxLogFileSize = 10 * 1024 * 1024;
-    private readonly double _aspectRatio;
     private readonly ILogger logger = LogManager.GetCurrentClassLogger();
-    private bool _isResizing;
     private TaskCompletionSource<MessageBoxResult>? _updateModalCompletion;
     private Action? _updateModalReleaseAction;
     private Action? _updateModalUpdateAction;
@@ -35,7 +35,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _aspectRatio = Width / Height;
         ContentRendered += (_, __) => DebugConsole.Initialize(this);
         PreviewKeyDown += MainWindowOnPreviewKeyDown;
         InitializeLogging();
@@ -140,6 +139,43 @@ public partial class MainWindow : Window
     private void RootNavigation_OnLoaded(object sender, RoutedEventArgs e)
     {
         RootNavigation.Navigate("home");
+        Dispatcher.BeginInvoke(DisableNavigationScrollViewers, DispatcherPriority.Loaded);
+        Dispatcher.BeginInvoke(DisableNavigationScrollViewers, DispatcherPriority.ContextIdle);
+    }
+
+    private void DisableNavigationScrollViewers()
+    {
+        foreach (var scrollViewer in FindVisualChildren<ScrollViewer>(RootNavigation))
+        {
+            if (FindVisualParent<DataGrid>(scrollViewer) != null) continue;
+
+            scrollViewer.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+            scrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var childIndex = 0; childIndex < VisualTreeHelper.GetChildrenCount(parent); childIndex++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, childIndex);
+            if (child is T matchingChild) yield return matchingChild;
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+                yield return descendant;
+        }
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+    {
+        var parent = VisualTreeHelper.GetParent(child);
+        while (parent != null)
+        {
+            if (parent is T matchingParent) return matchingParent;
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+
+        return null;
     }
 
     private void Discord_OnClick(object sender, RoutedEventArgs e)
@@ -213,37 +249,4 @@ public partial class MainWindow : Window
         CloseUpdateModal(MessageBoxResult.Yes, _updateModalUpdateAction);
     }
 
-    private void MainWindow_OnSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (_isResizing)
-            return;
-
-        try
-        {
-            _isResizing = true;
-
-            if (e.WidthChanged && !e.HeightChanged)
-            {
-                Height = Math.Max(MinHeight, e.NewSize.Width / _aspectRatio);
-            }
-            else if (e.HeightChanged && !e.WidthChanged)
-            {
-                Width = Math.Max(MinWidth, e.NewSize.Height * _aspectRatio);
-            }
-            else
-            {
-                var targetHeight = e.NewSize.Width / _aspectRatio;
-                var targetWidth = e.NewSize.Height * _aspectRatio;
-
-                if (targetHeight > e.NewSize.Height)
-                    Height = Math.Max(MinHeight, targetHeight);
-                else
-                    Width = Math.Max(MinWidth, targetWidth);
-            }
-        }
-        finally
-        {
-            _isResizing = false;
-        }
-    }
 }

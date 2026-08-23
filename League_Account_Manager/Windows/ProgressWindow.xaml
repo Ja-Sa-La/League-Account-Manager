@@ -8,10 +8,11 @@
         Topmost="True"
         ShowInTaskbar="False"
         ResizeMode="NoResize">
-    <Border CornerRadius="6" Background="#DD333333" Padding="10">
+    <Border CornerRadius="8" Background="{StaticResource SurfaceRaisedBrush}"
+            BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1" Padding="12">
         <StackPanel>
-            <TextBlock x:Name="StatusText" Foreground="White" FontWeight="Bold" />
-            <ProgressBar x:Name="ProgressBar" Height="20" Minimum="0" />
+            <TextBlock x:Name="StatusText" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold" />
+            <ProgressBar x:Name="ProgressBar" Height="8" Margin="0,9,0,0" Minimum="0" />
         </StackPanel>
     </Border>
 </Window>

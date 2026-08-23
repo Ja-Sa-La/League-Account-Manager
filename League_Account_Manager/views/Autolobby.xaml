@@ -9,81 +9,103 @@
       d:DesignHeight="749" d:DesignWidth="1216"
       Title="Autolobby">
 
-    <Grid>
-        <ui:TextBox ClearButtonEnabled="False" PlaceholderText="Write your message here" AcceptsReturn="True"
-                    Margin="900,82,0,138" TextWrapping="Wrap"
-                    Name="MessageContainer" FontSize="11"
-                    Text="" HorizontalAlignment="Left" Width="306" MinWidth="311" />
-
-        <Button Content="Enable AutoAcceptQueue" Margin="10,10,0,0" VerticalAlignment="Top"
-                Click="OnToggleAutoAcceptClick"
-                Height="67" Width="300" />
-        <Button Content="Enable AutoMuteAll" Margin="10,82,0,0" VerticalAlignment="Top"
-                Click="OnToggleAutoMuteClick"
-                Height="67" Width="300"
-                ToolTip="Mutes every teammate in champion select chat automatically" />
-        <Button Content="Enable AutoAcceptPick" Margin="317,10,0,0" VerticalAlignment="Top"
-                Click="OnToggleAutoPickClick"
-                Height="67" Width="290" />
-        <Button Content="Enable AutoAcceptBan" Margin="614,10,0,0" VerticalAlignment="Top" Click="OnToggleAutoBanClick"
-                Height="67" Width="279" />
-        <Button Content="Enable AutoAcceptMessage" Margin="900,10,0,0" VerticalAlignment="Top"
-                Click="OnToggleAutoMessageClick"
-                Height="67" Width="306" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,118,0,0"
-                           Name="blindPickChampion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Blind / No role" HorizontalAlignment="Left" Margin="317,81,0,0" VerticalAlignment="Top"
-               Width="290" Height="30"
-               x:Name="blindPickLabel" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,208,0,0"
-                           x:Name="topPickChampion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Top" HorizontalAlignment="Left" Margin="317,172,0,0" VerticalAlignment="Top" Width="290"
-               Height="29"
-               x:Name="topPickLabel" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,299,0,0"
-                           x:Name="junglePickChampion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Jungle" HorizontalAlignment="Left" Margin="317,262,0,0" VerticalAlignment="Top" Width="290"
-               Height="30"
-               x:Name="junglePickLabel" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,390,0,0"
-                           x:Name="midPickChampion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Mid" HorizontalAlignment="Left" Margin="317,353,0,0" VerticalAlignment="Top" Width="290"
-               Height="30"
-               x:Name="midPickLabel" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,474,0,0"
-                           x:Name="botPickChampion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Bot" HorizontalAlignment="Left" Margin="317,437,0,0" VerticalAlignment="Top" Width="290"
-               Height="30"
-               x:Name="botPickLabel" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="317,565,0,0"
-                           x:Name="supportPickChampion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="46" />
-        <Label Content="Support" HorizontalAlignment="Left" Margin="317,528,0,0" VerticalAlignment="Top" Width="290"
-               Height="29"
-               x:Name="supportPickLabel" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="612,119,0,0"
-                           x:Name="ban1Champion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Ban 1" HorizontalAlignment="Left" Margin="612,82,0,0" VerticalAlignment="Top" Width="290"
-               Height="30"
-               x:Name="ban1Label" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="614,209,0,0"
-                           x:Name="ban2Champion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Ban 2" HorizontalAlignment="Left" Margin="614,172,0,0" VerticalAlignment="Top" Width="290"
-               Height="30"
-               x:Name="ban2Label" />
-        <ui:AutoSuggestBox PlaceholderText="Select champion!" MaxWidth="250" Margin="614,299,0,0"
-                           x:Name="ban3Champion" VerticalAlignment="Top" Width="290"
-                           DisplayMemberPath="Name" HorizontalAlignment="Left" Height="47" />
-        <Label Content="Ban 3" HorizontalAlignment="Left" Margin="614,262,0,0" VerticalAlignment="Top" Width="290"
-               Height="30"
-               x:Name="ban3Label" />
-
-    </Grid>
+       <Grid Margin="18">
+                     <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                     </Grid.RowDefinitions>
+                     <StackPanel Margin="0,0,0,16">
+                            <TextBlock Text="Auto champion select" Style="{StaticResource PageTitleStyle}" />
+                            <TextBlock Text="Configure queue actions, role picks, bans, and champion-select messaging."
+                                             Style="{StaticResource PageSubtitleStyle}" />
+                     </StackPanel>
+                     <Grid Grid.Row="1" Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                   <ColumnDefinition Width="*" />
+                                   <ColumnDefinition Width="12" />
+                                   <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource SurfacePanelStyle}">
+                                   <StackPanel>
+                                          <TextBlock Text="Automation" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                                          <UniformGrid Columns="2">
+                                                 <Button Content="Enable AutoAcceptQueue" Margin="0,0,8,8" Click="OnToggleAutoAcceptClick" />
+                                                 <Button Content="Enable AutoMuteAll" Margin="0,0,0,8" Click="OnToggleAutoMuteClick"
+                                                               ToolTip="Mutes every teammate in champion select chat automatically" />
+                                                 <Button Content="Enable AutoAcceptPick" Margin="0,0,8,0" Click="OnToggleAutoPickClick" />
+                                                 <Button Content="Enable AutoAcceptBan" Click="OnToggleAutoBanClick" />
+                                          </UniformGrid>
+                                          <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                 <CheckBox x:Name="InstantPick" Content="Instant pick" IsChecked="True" Margin="0,0,24,0"
+                                                                 ToolTip="Lock the selected champion as soon as your pick action starts" />
+                                                 <CheckBox x:Name="InstantBan" Content="Instant ban"
+                                                                 ToolTip="Lock the selected ban as soon as your ban action starts" />
+                                          </StackPanel>
+                                   </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource SurfacePanelStyle}">
+                                   <Grid>
+                                          <Grid.RowDefinitions>
+                                                 <RowDefinition Height="Auto" />
+                                                 <RowDefinition Height="*" />
+                                          </Grid.RowDefinitions>
+                                          <Button Content="Enable AutoAcceptMessage" Click="OnToggleAutoMessageClick" Margin="0,0,0,10" />
+                                          <ui:TextBox Grid.Row="1" ClearButtonEnabled="False" PlaceholderText="Champion-select message"
+                                                               AcceptsReturn="True" TextWrapping="Wrap" Name="MessageContainer" MinHeight="76" />
+                                   </Grid>
+                            </Border>
+                     </Grid>
+                     <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                   <ColumnDefinition Width="2*" />
+                                   <ColumnDefinition Width="12" />
+                                   <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource SurfacePanelStyle}">
+                                   <Grid>
+                                          <Grid.RowDefinitions>
+                                                 <RowDefinition Height="Auto" />
+                                                 <RowDefinition Height="Auto" />
+                                                 <RowDefinition Height="Auto" />
+                                          </Grid.RowDefinitions>
+                                          <TextBlock Text="Preferred picks" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,14" />
+                                          <Grid Grid.Row="1">
+                                                 <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="12" />
+                                                        <ColumnDefinition Width="*" />
+                                                 </Grid.ColumnDefinitions>
+                                                 <StackPanel>
+                                                        <TextBlock x:Name="blindPickLabel" Text="Blind / No role" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                        <ui:AutoSuggestBox x:Name="blindPickChampion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,14" />
+                                                        <TextBlock x:Name="topPickLabel" Text="Top" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                        <ui:AutoSuggestBox x:Name="topPickChampion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,14" />
+                                                        <TextBlock x:Name="junglePickLabel" Text="Jungle" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                        <ui:AutoSuggestBox x:Name="junglePickChampion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,0" />
+                                                 </StackPanel>
+                                                 <StackPanel Grid.Column="2">
+                                                        <TextBlock x:Name="midPickLabel" Text="Mid" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                        <ui:AutoSuggestBox x:Name="midPickChampion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,14" />
+                                                        <TextBlock x:Name="botPickLabel" Text="Bot" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                        <ui:AutoSuggestBox x:Name="botPickChampion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,14" />
+                                                        <TextBlock x:Name="supportPickLabel" Text="Support" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                        <ui:AutoSuggestBox x:Name="supportPickChampion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,0" />
+                                                 </StackPanel>
+                                          </Grid>
+                                   </Grid>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource SurfacePanelStyle}">
+                                   <StackPanel>
+                                          <TextBlock Text="Ban priority" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,14" />
+                                          <TextBlock x:Name="ban1Label" Text="Ban 1" Foreground="{StaticResource TextSecondaryBrush}" />
+                                          <ui:AutoSuggestBox x:Name="ban1Champion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,14" />
+                                          <TextBlock x:Name="ban2Label" Text="Ban 2" Foreground="{StaticResource TextSecondaryBrush}" />
+                                          <ui:AutoSuggestBox x:Name="ban2Champion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,14" />
+                                          <TextBlock x:Name="ban3Label" Text="Ban 3" Foreground="{StaticResource TextSecondaryBrush}" />
+                                          <ui:AutoSuggestBox x:Name="ban3Champion" PlaceholderText="Select champion" DisplayMemberPath="Name" Margin="0,5,0,0" />
+                                   </StackPanel>
+                            </Border>
+                     </Grid>
+       </Grid>
 </Page>

@@ -8,7 +8,7 @@
     d:DesignHeight="749" d:DesignWidth="1216"
     Title="DisEnchanter">
 
-    <Grid Background="Transparent" Margin="0,0,10,10">
+    <Grid Background="Transparent" Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -18,8 +18,7 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.ColumnSpan="2" Padding="12" Background="#FF3A3A3A" CornerRadius="8" BorderBrush="#FF4C4C4C"
-                BorderThickness="1">
+        <Border Grid.ColumnSpan="2" Style="{StaticResource SurfacePanelStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -29,30 +28,29 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ui:Button Content="Disenchant selected" Height="40" Width="170" Click="OnDisenchantSelectedClick" />
-                <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Select all champs" Height="40" Width="150"
+                <ui:Button Content="Disenchant selected" MinWidth="170" Click="OnDisenchantSelectedClick" />
+                <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Select all champions" MinWidth="150"
                            Click="OnToggleSelectChampionsClick" />
-                <ui:Button Grid.Column="2" Margin="8,0,0,0" Content="Select all skins" Height="40" Width="150"
+                <ui:Button Grid.Column="2" Margin="8,0,0,0" Content="Select all skins" MinWidth="140"
                            Click="OnToggleSelectSkinsClick" />
                 <StackPanel Grid.Column="4" Orientation="Vertical" Margin="12,0,0,0" VerticalAlignment="Center">
-                    <Label Content="Blue essense to be gained: 0" Name="belabel" Foreground="White" />
-                    <Label Content="Orange essense to be gained: 0" Name="oelabel" Foreground="White" />
+                    <Label Content="Blue essence to be gained: 0" Name="belabel" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <Label Content="Orange essence to be gained: 0" Name="oelabel" Foreground="{StaticResource TextPrimaryBrush}" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="0" Margin="0,12,8,0" Padding="12" Background="#FF2F2F2F"
-                CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+        <Border Grid.Row="1" Grid.Column="0" Margin="0,12,7,0" Style="{StaticResource SurfacePanelStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="White" Text="Blue essence sources" />
+                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Blue essence sources" />
                 <ListBox SelectionChanged="OnLootSelectionChanged" Name="ChampLootTable" Grid.Row="1"
-                         SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
-                         Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
+                         SelectionMode="Multiple" Padding="4" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                         Background="{StaticResource SurfaceBrush}" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel IsItemsHost="True" Orientation="Horizontal" ItemWidth="189" ItemHeight="97" />
@@ -64,18 +62,18 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C"
+                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="{StaticResource StrokeBrush}"
                                                 BorderThickness="1"
-                                                CornerRadius="6" Background="#FF303030">
+                                            CornerRadius="6" Background="{StaticResource SurfaceRaisedBrush}">
                                             <ContentPresenter />
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF7FA8FF" />
-                                                <Setter TargetName="Bd" Property="Background" Value="#FF3B3B3B" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
                                             </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF5A5A5A" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource TextSecondaryBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -92,13 +90,13 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border Width="56" Height="56" CornerRadius="4" ClipToBounds="True"
-                                            BorderBrush="#2D333B" BorderThickness="1">
+                                            BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
                                         <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
                                         <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="White" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Value}" FontSize="12" Foreground="#9AA4B1" />
+                                                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Value}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -108,18 +106,17 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Grid.Column="1" Margin="8,12,0,0" Padding="12" Background="#FF2F2F2F"
-                CornerRadius="8" BorderBrush="#FF4C4C4C" BorderThickness="1">
+        <Border Grid.Row="1" Grid.Column="1" Margin="7,12,0,0" Style="{StaticResource SurfacePanelStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="Orange essence sources" FontSize="18" FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="Orange essence sources" Style="{StaticResource SectionTitleStyle}" />
                 <ListBox SelectionChanged="OnLootSelectionChanged" x:Name="SkinLootTable" Grid.Row="1"
-                         SelectionMode="Multiple" Padding="4" BorderBrush="#FF4C4C4C" BorderThickness="1"
-                         Background="#FF202020" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
+                         SelectionMode="Multiple" Padding="4" BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                         Background="{StaticResource SurfaceBrush}" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel IsItemsHost="True" Orientation="Horizontal" ItemWidth="189" ItemHeight="97" />
@@ -131,18 +128,18 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListBoxItem">
-                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="#FF4C4C4C"
+                                        <Border Width="177" Height="85" x:Name="Bd" BorderBrush="{StaticResource StrokeBrush}"
                                                 BorderThickness="1"
-                                                CornerRadius="6" Background="#FF303030">
+                                            CornerRadius="6" Background="{StaticResource SurfaceRaisedBrush}">
                                             <ContentPresenter />
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF7FA8FF" />
-                                                <Setter TargetName="Bd" Property="Background" Value="#FF3B3B3B" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
                                             </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#FF5A5A5A" />
+                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource TextSecondaryBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -159,13 +156,13 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border Width="56" Height="56" CornerRadius="4" ClipToBounds="True"
-                                            BorderBrush="#2D333B" BorderThickness="1">
+                                            BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1">
                                         <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
                                         <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="White" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Value}" FontSize="12" Foreground="#9AA4B1" />
+                                                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Value}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
                             </Border>

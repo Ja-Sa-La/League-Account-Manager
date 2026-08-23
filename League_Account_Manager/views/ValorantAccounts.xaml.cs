@@ -7,6 +7,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using CsvHelper.Configuration;
 using FlaUI.Core.AutomationElements;
@@ -43,6 +44,11 @@ public partial class ValorantAccounts : Page
     private bool _pendingReload;
     private bool Executing;
     private FileSystemWatcher? fileWatcher;
+    private ScrollViewer? _valorantScrollViewer;
+    private readonly Stopwatch _valorantScrollAnimationClock = new();
+    private double _valorantScrollAnimationStart;
+    private double _valorantScrollAnimationTarget;
+    private bool _valorantScrollAnimationRunning;
 
     public ValorantAccounts()
         : this(true)
@@ -59,6 +65,86 @@ public partial class ValorantAccounts : Page
     }
 
     public static List<Utils.AccountList> ActualAccountlists { get; set; } = new();
+
+    private void ValorantAccounts_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        UpdateValorantAccountsGridHeight();
+        StopValorantScrollAnimation();
+    }
+
+    private void ValorantAccounts_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateValorantAccountsGridHeight();
+    }
+
+    private void UpdateValorantAccountsGridHeight()
+    {
+        var window = System.Windows.Window.GetWindow(this);
+        if (window == null || window.ActualHeight <= 0) return;
+
+        ValorantAccountsDataGrid.Height = Math.Max(120, window.ActualHeight - 325);
+    }
+
+    private void ValorantAccountsDataGrid_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is not DataGrid dataGrid) return;
+        var scrollViewer = FindVisualChild<ScrollViewer>(dataGrid);
+        if (scrollViewer == null) return;
+
+        _valorantScrollViewer = scrollViewer;
+        if (!_valorantScrollAnimationRunning)
+        {
+            _valorantScrollAnimationStart = scrollViewer.VerticalOffset;
+            _valorantScrollAnimationTarget = scrollViewer.VerticalOffset;
+            _valorantScrollAnimationClock.Restart();
+            _valorantScrollAnimationRunning = true;
+            CompositionTarget.Rendering += ValorantScrollAnimation_OnRendering;
+        }
+
+        _valorantScrollAnimationTarget = Math.Clamp(
+            _valorantScrollAnimationTarget - e.Delta / 6.0,
+            0,
+            scrollViewer.ScrollableHeight);
+        e.Handled = true;
+    }
+
+    private void ValorantScrollAnimation_OnRendering(object? sender, EventArgs e)
+    {
+        if (_valorantScrollViewer == null)
+        {
+            StopValorantScrollAnimation();
+            return;
+        }
+
+        var progress = Math.Min(1, _valorantScrollAnimationClock.Elapsed.TotalSeconds / 0.16);
+        var easedProgress = 1 - Math.Pow(1 - progress, 3);
+        var offset = _valorantScrollAnimationStart +
+                     (_valorantScrollAnimationTarget - _valorantScrollAnimationStart) * easedProgress;
+        _valorantScrollViewer.ScrollToVerticalOffset(offset);
+
+        if (progress >= 1) StopValorantScrollAnimation();
+    }
+
+    private void StopValorantScrollAnimation()
+    {
+        CompositionTarget.Rendering -= ValorantScrollAnimation_OnRendering;
+        _valorantScrollAnimationClock.Stop();
+        _valorantScrollAnimationRunning = false;
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var childIndex = 0; childIndex < VisualTreeHelper.GetChildrenCount(parent); childIndex++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, childIndex);
+            if (child is T matchingChild) return matchingChild;
+
+            var descendant = FindVisualChild<T>(child);
+            if (descendant != null) return descendant;
+        }
+
+        return null;
+    }
 
     public static void RunPullDataInBackground()
     {

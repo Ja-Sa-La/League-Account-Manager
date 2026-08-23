@@ -7,41 +7,51 @@
       mc:Ignorable="d"
       Title="SettingsEditor" d:DesignHeight="749" d:DesignWidth="1216">
 
-    <Grid>
+    <Grid Margin="18">
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="12">
-                <TextBlock Text="Manage League config file protection and create portable settings backups."
-                           TextWrapping="Wrap" Margin="0,0,0,12" />
-
-                <Label Content="game.cfg" />
-                <ui:TextBox x:Name="GameCfgPathBox" IsReadOnly="True" Margin="0,0,0,6" />
-                <CheckBox x:Name="GameCfgReadOnly" Content="Set game.cfg to read-only" Margin="0,0,0,12" />
-
-                <Label Content="PersistedSettings.json" />
-                <ui:TextBox x:Name="PersistedSettingsPathBox" IsReadOnly="True" Margin="0,0,0,6" />
-                <CheckBox x:Name="PersistedSettingsReadOnly" Content="Set PersistedSettings.json to read-only" Margin="0,0,0,12" />
-
-                <WrapPanel Margin="0,0,0,16">
-                    <ui:Button Content="Refresh file status" Click="OnRefreshClick" Width="150" Height="34" Margin="0,0,8,8" />
-                    <ui:Button Content="Apply selected setting" Click="OnApplyReadOnlyClick" Width="170" Height="34" Margin="0,0,8,8" />
-                </WrapPanel>
-
-                <Separator Margin="0,0,0,12" />
-
-                <TextBlock Text="Backup / Restore" FontWeight="SemiBold" Margin="0,0,0,8" />
-                <WrapPanel>
-                    <ui:Button Content="Export backup" Click="OnExportBackupClick" Width="130" Height="34" Margin="0,0,8,8" />
-                    <ui:Button Content="Import backup" Click="OnImportBackupClick" Width="130" Height="34" Margin="0,0,8,8" />
-                </WrapPanel>
-
-                <TextBlock x:Name="StatusText" Text="" TextWrapping="Wrap" Margin="0,8,0,0" />
-            </StackPanel>
-        </ScrollViewer>
-
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="In-game settings" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Protect League configuration files and create portable backups."
+                       Style="{StaticResource PageSubtitleStyle}" />
+        </StackPanel>
+        <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource SurfacePanelStyle}" VerticalAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="File protection" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,14" />
+                        <TextBlock Text="game.cfg" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                        <ui:TextBox x:Name="GameCfgPathBox" IsReadOnly="True" Margin="0,0,0,6" />
+                        <CheckBox x:Name="GameCfgReadOnly" Content="Set game.cfg to read-only" Margin="0,0,0,16" />
+                        <TextBlock Text="PersistedSettings.json" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                        <ui:TextBox x:Name="PersistedSettingsPathBox" IsReadOnly="True" Margin="0,0,0,6" />
+                        <CheckBox x:Name="PersistedSettingsReadOnly" Content="Set PersistedSettings.json to read-only" Margin="0,0,0,16" />
+                        <WrapPanel>
+                            <ui:Button Content="Refresh status" Click="OnRefreshClick" Margin="0,0,8,8" />
+                            <ui:Button Content="Apply selection" Click="OnApplyReadOnlyClick" Margin="0,0,8,8" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource SurfacePanelStyle}" VerticalAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="Backup and restore" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,8" />
+                        <TextBlock Text="Export these files as a portable backup or restore one created earlier."
+                                   TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,14" />
+                        <WrapPanel>
+                            <ui:Button Content="Export backup" Click="OnExportBackupClick" Margin="0,0,8,8" />
+                            <ui:Button Content="Import backup" Click="OnImportBackupClick" Margin="0,0,8,8" />
+                        </WrapPanel>
+                        <TextBlock x:Name="StatusText" Text="" TextWrapping="Wrap" Margin="0,12,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+        </Grid>
     </Grid>
 </Page>

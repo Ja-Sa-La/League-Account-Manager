@@ -56,7 +56,15 @@ public partial class Accounts : Page
     private DateTime _lastKnownFileWrite = DateTime.MinValue;
     private bool _pendingReload;
     private bool Executing;
+    private CancellationTokenSource? _accountOperationCancellation;
+    private bool _accountOperationRunning;
+    private CancellationTokenSource? _rankUpdateCancellation;
     private FileSystemWatcher? fileWatcher;
+    private ScrollViewer? _accountsScrollViewer;
+    private readonly Stopwatch _accountsScrollAnimationClock = new();
+    private double _accountsScrollAnimationStart;
+    private double _accountsScrollAnimationTarget;
+    private bool _accountsScrollAnimationRunning;
 
     public Accounts()
     {
@@ -70,6 +78,85 @@ public partial class Accounts : Page
 
     public static List<Utils.AccountList> ActualAccountlists { get; set; } = new();
     public static event Action? PullDataCompleted;
+
+    private void Accounts_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        UpdateAccountsGridHeight();
+    }
+
+    private void Accounts_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateAccountsGridHeight();
+    }
+
+    private void UpdateAccountsGridHeight()
+    {
+        var window = System.Windows.Window.GetWindow(this);
+        if (window == null || window.ActualHeight <= 0) return;
+
+        AccountsDataGrid.Height = Math.Max(120, window.ActualHeight - 325);
+    }
+
+    private void AccountsDataGrid_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is not DataGrid dataGrid) return;
+        var scrollViewer = FindVisualChild<ScrollViewer>(dataGrid);
+        if (scrollViewer == null) return;
+
+        _accountsScrollViewer = scrollViewer;
+        if (!_accountsScrollAnimationRunning)
+        {
+            _accountsScrollAnimationStart = scrollViewer.VerticalOffset;
+            _accountsScrollAnimationTarget = scrollViewer.VerticalOffset;
+            _accountsScrollAnimationClock.Restart();
+            _accountsScrollAnimationRunning = true;
+            CompositionTarget.Rendering += AccountsScrollAnimation_OnRendering;
+        }
+
+        _accountsScrollAnimationTarget = Math.Clamp(
+            _accountsScrollAnimationTarget - e.Delta / 6.0,
+            0,
+            scrollViewer.ScrollableHeight);
+        e.Handled = true;
+    }
+
+    private void AccountsScrollAnimation_OnRendering(object? sender, EventArgs e)
+    {
+        if (_accountsScrollViewer == null)
+        {
+            StopAccountsScrollAnimation();
+            return;
+        }
+
+        var progress = Math.Min(1, _accountsScrollAnimationClock.Elapsed.TotalSeconds / 0.16);
+        var easedProgress = 1 - Math.Pow(1 - progress, 3);
+        var offset = _accountsScrollAnimationStart +
+                     (_accountsScrollAnimationTarget - _accountsScrollAnimationStart) * easedProgress;
+        _accountsScrollViewer.ScrollToVerticalOffset(offset);
+
+        if (progress >= 1) StopAccountsScrollAnimation();
+    }
+
+    private void StopAccountsScrollAnimation()
+    {
+        CompositionTarget.Rendering -= AccountsScrollAnimation_OnRendering;
+        _accountsScrollAnimationClock.Stop();
+        _accountsScrollAnimationRunning = false;
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var childIndex = 0; childIndex < VisualTreeHelper.GetChildrenCount(parent); childIndex++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, childIndex);
+            if (child is T matchingChild) return matchingChild;
+
+            var descendant = FindVisualChild<T>(child);
+            if (descendant != null) return descendant;
+        }
+
+        return null;
+    }
 
     private async void Accounts_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
@@ -87,6 +174,8 @@ public partial class Accounts : Page
 
     private void Accounts_Unloaded(object sender, RoutedEventArgs e)
     {
+        _accountOperationCancellation?.Cancel();
+        StopAccountsScrollAnimation();
         AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
         Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
         if (fileWatcher != null)
@@ -472,7 +561,12 @@ public partial class Accounts : Page
             box.Items.Clear();
             foreach (var t in tasks)
             {
-                var item = new ListBoxItem { Tag = t, Content = $"◻ {t}", Foreground = Brushes.White };
+                var item = new ListBoxItem
+                {
+                    Tag = t,
+                    Content = $"◻ {t}",
+                    Foreground = (Brush)System.Windows.Application.Current.FindResource("TextPrimaryBrush")
+                };
                 box.Items.Add(item);
             }
 
@@ -505,36 +599,205 @@ public partial class Accounts : Page
         });
     }
 
-    private async void OnPullDataClick(object sender, RoutedEventArgs e)
+    private void OnPullDataClick(object sender, RoutedEventArgs e)
     {
-        // Fire-and-forget wrapper for async Task
-        _ = PullDataAsync();
+        StartAccountOperation("Pulling account data", GetPullTasks(), PullDataAsync);
     }
 
-    private async Task PullDataAsync()
+    private static string[] GetPullTasks() => new[]
+    {
+        "Waiting for summoner readiness",
+        "Fetch summoner info",
+        "Fetch skins",
+        "Fetch ranked info",
+        "Fetch loot",
+        "Fetch wallet",
+        "Fetch region",
+        "Fetch champions"
+    };
+
+    private TextBlock? GetAccountOperationStatusControl() => FindName("AccountOperationStatus") as TextBlock;
+    private TextBlock? GetAccountOperationTitleControl() => FindName("AccountOperationTitle") as TextBlock;
+    private Button? GetAccountOperationButton() => FindName("CancelAccountOperationButton") as Button;
+
+    private void ShowRankProgress(int total)
+    {
+        _rankUpdateCancellation = new CancellationTokenSource();
+        _accountOperationCancellation = _rankUpdateCancellation;
+        _accountOperationRunning = true;
+        RankProgressToastBar.Maximum = total;
+        RankProgressToastBar.Value = 0;
+        RankProgressToastPercent.Text = "0%";
+        RankProgressToastStatus.Text = $"Preparing 0 of {total} accounts...";
+        RankProgressToastCancel.IsEnabled = true;
+        RankProgressToast.Visibility = Visibility.Visible;
+    }
+
+    private void UpdateRankProgress(int current, int total, string accountLabel)
+    {
+        RankProgressToastBar.Value = current;
+        RankProgressToastPercent.Text = $"{current / (double)total:P0}";
+        RankProgressToastStatus.Text = $"{accountLabel}  |  {current} of {total} completed";
+    }
+
+    private void HideRankProgress()
+    {
+        _accountOperationRunning = false;
+        _accountOperationCancellation = null;
+        _rankUpdateCancellation?.Dispose();
+        _rankUpdateCancellation = null;
+        RankProgressToast.Visibility = Visibility.Collapsed;
+    }
+
+    private CancellationTokenSource? BeginAccountOperation(string title, IEnumerable<string> tasks)
+    {
+        if (_accountOperationRunning)
+            return null;
+
+        var cancellation = new CancellationTokenSource();
+        _accountOperationCancellation = cancellation;
+        _accountOperationRunning = true;
+        var titleControl = GetAccountOperationTitleControl();
+        var statusControl = GetAccountOperationStatusControl();
+        var operationButton = GetAccountOperationButton();
+        Dispatcher.Invoke(() =>
+        {
+            if (titleControl != null) titleControl.Text = title;
+            if (statusControl != null) statusControl.Text = "Preparing...";
+            if (operationButton != null)
+            {
+                operationButton.Content = "Cancel";
+                operationButton.IsEnabled = true;
+            }
+
+            Progressgrid.Visibility = Visibility.Visible;
+            InitializeProgressTasks(tasks);
+        });
+
+        return cancellation;
+    }
+
+    private void StartAccountOperation(string title, IEnumerable<string> tasks,
+        Func<CancellationToken, Task<bool>> operation)
+    {
+        var cancellation = BeginAccountOperation(title, tasks);
+        if (cancellation == null)
+            return;
+
+        _ = RunAccountOperationAsync(operation, cancellation);
+    }
+
+    private async Task RunAccountOperationAsync(Func<CancellationToken, Task<bool>> operation,
+        CancellationTokenSource cancellation)
     {
         try
         {
-            // show spinner and task list
+            var completed = await operation(cancellation.Token);
+            if (completed && !cancellation.IsCancellationRequested)
+                SetAccountOperationStatus("Finished successfully.");
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            SetAccountOperationStatus("Cancelled.");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Account operation failed");
+            SetAccountOperationStatus("The operation could not be completed.");
+        }
+        finally
+        {
+            FinishAccountOperation(cancellation);
+        }
+    }
+
+    private void FinishAccountOperation(CancellationTokenSource cancellation)
+    {
+        _accountOperationRunning = false;
+        if (ReferenceEquals(_accountOperationCancellation, cancellation))
+            _accountOperationCancellation = null;
+        cancellation.Dispose();
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        Dispatcher.Invoke(() =>
+        {
+            var operationButton = GetAccountOperationButton();
+            if (operationButton != null)
+            {
+                operationButton.Content = "Close";
+                operationButton.IsEnabled = true;
+            }
+        });
+    }
+
+    private void SetAccountOperationStatus(string status)
+    {
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        void UpdateStatus()
+        {
+            var statusControl = GetAccountOperationStatusControl();
+            if (statusControl != null) statusControl.Text = status;
+        }
+
+        if (Dispatcher.CheckAccess())
+            UpdateStatus();
+        else
+            Dispatcher.Invoke(UpdateStatus);
+    }
+
+    private void CancelAccountOperation_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rankUpdateCancellation != null)
+        {
+            RankProgressToastStatus.Text = "Cancelling rank update...";
+            RankProgressToastCancel.IsEnabled = false;
+            _rankUpdateCancellation.Cancel();
+            return;
+        }
+
+        if (!_accountOperationRunning)
+        {
+            Progressgrid.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SetAccountOperationStatus("Cancelling...");
+        var operationButton = GetAccountOperationButton();
+        if (operationButton != null) operationButton.IsEnabled = false;
+        _accountOperationCancellation?.Cancel();
+    }
+
+    private async Task<bool> PullDataAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SetAccountOperationStatus("Checking the League client...");
 
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0)
             {
+                SetAccountOperationStatus("League of Legends is not running.");
                 Notif.notificationManager.Show("Error", "League of Legends client is not running!",
                     NotificationType.Notification,
                     "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                     NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
-                return;
+                return false;
             }
 
             // Try to select an account from any id token provided by the Riot client
+            SetAccountOperationStatus("Reading the active Riot account...");
             try
             {
                 var authResp =
-                    await Lcu.Connector("riot", "get", "/riot-client-auth/v1/authorization", "") as HttpResponseMessage;
+                    await Lcu.Connector("riot", "get", "/riot-client-auth/v1/authorization", "", cancellationToken)
+                        as HttpResponseMessage;
                 if (authResp != null)
                 {
-                    var authBody = await authResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var authBody = await authResp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     try
                     {
                         var authJson = JObject.Parse(authBody);
@@ -547,6 +810,10 @@ public partial class Accounts : Page
                     }
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch
             {
                 // ignore errors contacting riot client for id token
@@ -554,12 +821,14 @@ public partial class Accounts : Page
 
             if (SelectedUsername == null || SelectedPassword == null)
             {
+                SetAccountOperationStatus("Select an account before continuing.");
                 new MissingInfo().ShowDialog();
-                return;
+                return false;
             }
 
 
-            var (isBanned, banNote) = await CheckPermanentBanAsync();
+            SetAccountOperationStatus("Checking account status...");
+            var (isBanned, banNote) = await CheckPermanentBanAsync(cancellationToken);
             if (isBanned)
             {
                 // Kill client
@@ -594,40 +863,28 @@ public partial class Accounts : Page
                     note = banNote
                 });
 
+                cancellationToken.ThrowIfCancellationRequested();
                 await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Progressgrid.Visibility = Visibility.Hidden;
                     AccountsDataGrid.ItemsSource = null;
                     AccountsDataGrid.ItemsSource = ActualAccountlists;
                     AccountsDataGrid.Items.Refresh();
                 });
 
-                return;
+                return true;
             }
 
-            Dispatcher.Invoke(() =>
-            {
-                Progressgrid.Visibility = Visibility.Visible;
-                InitializeProgressTasks(new[]
-                {
-                    "Waiting for summoner readiness",
-                    "Fetch summoner info",
-                    "Fetch skins",
-                    "Fetch ranked info",
-                    "Fetch loot",
-                    "Fetch wallet",
-                    "Fetch region",
-                    "Fetch champions"
-                });
-            });
+            SetAccountOperationStatus("Waiting for summoner readiness...");
             while (true)
             {
                 try
                 {
-                    var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/summoner-requests-ready", "");
-                    var content = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/summoner-requests-ready", "",
+                        cancellationToken);
+                    var content = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
                     if (content.Trim().Equals("true", StringComparison.OrdinalIgnoreCase))
                     {
@@ -636,89 +893,94 @@ public partial class Accounts : Page
                         break;
                     }
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
                 catch
                 {
                     // LCU not ready yet
                 }
 
-                await Task.Delay(1000);
+                await Task.Delay(1000, cancellationToken);
             }
 
             // Fetch all API data in parallel and mark tasks as they complete
             var summonerTask = Task.Run(async () =>
             {
-                var res = await GetSummonerInfoAsync();
+                var res = await GetSummonerInfoAsync(cancellationToken);
                 if (res != null) MarkTaskCompleted("Fetch summoner info");
                 return res;
-            });
+            }, cancellationToken);
 
             var skinTask = Task.Run(async () =>
             {
-                var res = await GetSkinInfoAsync();
+                var res = await GetSkinInfoAsync(cancellationToken);
                 if (res != null) MarkTaskCompleted("Fetch skins");
                 return res;
-            });
+            }, cancellationToken);
 
             var rankedTask = Task.Run(async () =>
             {
-                var res = await GetRankedInfoAsync();
+                var res = await GetRankedInfoAsync(cancellationToken);
                 if (res != null) MarkTaskCompleted("Fetch ranked info");
                 return res;
-            });
+            }, cancellationToken);
 
             var lootTask = Task.Run(async () =>
             {
-                var res = await GetLootInfoAsync();
+                var res = await GetLootInfoAsync(cancellationToken);
                 if (res != null) MarkTaskCompleted("Fetch loot");
                 return res;
-            });
+            }, cancellationToken);
 
             var walletTask = Task.Run(async () =>
             {
-                var res = await GetWalletAsync();
+                var res = await GetWalletAsync(cancellationToken);
                 if (res != null) MarkTaskCompleted("Fetch wallet");
                 return res;
-            });
+            }, cancellationToken);
 
             var regionTask = Task.Run(async () =>
             {
-                var res = await GetRegionAsync();
+                var res = await GetRegionAsync(cancellationToken);
                 if (res != null) MarkTaskCompleted("Fetch region");
                 return res;
-            });
+            }, cancellationToken);
 
             await Task.WhenAll(summonerTask, skinTask, rankedTask, lootTask, walletTask, regionTask);
 
             var summonerInfo = summonerTask.Result;
             if (summonerInfo == null)
             {
+                SetAccountOperationStatus("Could not load summoner information.");
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Progressgrid.Visibility = Visibility.Hidden;
                     Notif.notificationManager.Show("Error",
                         "Could not load summoner info (account banned or not logged in).",
                         NotificationType.Notification,
                         "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                         NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 });
-                return;
+                    return false;
             }
 
             var summonerId = summonerInfo["summonerId"]?.ToString();
             if (string.IsNullOrEmpty(summonerId))
             {
+                SetAccountOperationStatus("Summoner information was incomplete.");
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Progressgrid.Visibility = Visibility.Hidden;
                     Notif.notificationManager.Show("Error", "SummonerId missing (account banned or invalid response).",
                         NotificationType.Notification,
                         "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                         NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
                 });
-                return;
+                return false;
             }
 
-            var matchHistoryData = await GetCurrentSummonerMatchHistoryAsync();
+            SetAccountOperationStatus("Fetching match history...");
+            var matchHistoryData = await GetCurrentSummonerMatchHistoryAsync(cancellationToken);
             if (!string.IsNullOrWhiteSpace(matchHistoryData.LastPlayed))
             {
                 _logger.Info($"[Accounts] Last played from match history endpoint: {matchHistoryData.LastPlayed}");
@@ -726,7 +988,8 @@ public partial class Accounts : Page
             }
 
             // Now get champion info (depends on summonerId)
-            var champInfo = await GetChampionInfoAsync(summonerId);
+            SetAccountOperationStatus("Fetching champion inventory...");
+            var champInfo = await GetChampionInfoAsync(summonerId, cancellationToken);
             if (champInfo != null) MarkTaskCompleted("Fetch champions");
 
             // Loot info may need async per item
@@ -743,14 +1006,16 @@ public partial class Accounts : Page
                     if (thing["count"]?.ToObject<int>() > 0)
                         try
                         {
+                            cancellationToken.ThrowIfCancellationRequested();
                             var lootId = thing["lootId"]?.ToString();
                             if (string.IsNullOrEmpty(lootId)) continue;
 
-                            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "")
+                            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "",
+                                    cancellationToken)
                                 as HttpResponseMessage;
                             if (resp == null) continue;
 
-                            var responseBody = await resp.Content.ReadAsStringAsync();
+                            var responseBody = await resp.Content.ReadAsStringAsync(cancellationToken);
                             var Loot = JObject.Parse(responseBody);
 
                             var itemDescription = Loot["itemDesc"]?.ToString();
@@ -854,6 +1119,10 @@ public partial class Accounts : Page
                                 value = countVal
                             });
                             lootCount++;
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
                         }
                         catch
                         {
@@ -1133,12 +1402,12 @@ public partial class Accounts : Page
                 note = existingAccount?.note
             });
 
+            cancellationToken.ThrowIfCancellationRequested();
             await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
 
             // Update UI last
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                Progressgrid.Visibility = Visibility.Hidden;
                 AccountsDataGrid.ItemsSource = null;
                 AccountsDataGrid.ItemsSource = ActualAccountlists;
                 ApplyLeagueSortToGrid();
@@ -1147,12 +1416,17 @@ public partial class Accounts : Page
 
             PullDataCompleted?.Invoke();
             ValorantAccounts.RunPullDataInBackground();
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                Progressgrid.Visibility = Visibility.Hidden;
+                SetAccountOperationStatus("The account data could not be loaded.");
             });
             LogManager.GetCurrentClassLogger().Error(ex, "Error pulling account data");
             try
@@ -1163,66 +1437,77 @@ public partial class Accounts : Page
             {
                 // ignore debug console errors
             }
+
+            return false;
         }
     }
 
-    private async Task<T?> RetryAsync<T>(Func<Task<T?>> action, int maxRetries = 5, int delayMs = 1500)
+    private async Task<T?> RetryAsync<T>(Func<Task<T?>> action, CancellationToken cancellationToken,
+        int maxRetries = 5, int delayMs = 1500)
     {
         for (var attempt = 0; attempt < maxRetries; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var result = await action();
                 if (result != null)
                     return result;
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch
             {
             }
 
-            await Task.Delay(delayMs);
+            await Task.Delay(delayMs, cancellationToken);
         }
 
         return default;
     }
 
-    private Task<JObject?> GetSummonerInfoAsync()
+    private Task<JObject?> GetSummonerInfoAsync(CancellationToken cancellationToken)
     {
         return RetryAsync<JObject>(async () =>
         {
-            var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-summoner/v1/current-summoner", "",
+                cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             return ApiResponseParser.ParseSummoner(body);
-        });
+        }, cancellationToken);
     }
 
-    private Task<(string? LastPlayed, string? SerializedEntries)> GetCurrentSummonerMatchHistoryAsync()
+    private Task<(string? LastPlayed, string? SerializedEntries)> GetCurrentSummonerMatchHistoryAsync(
+        CancellationToken cancellationToken)
     {
         return RetryAsync<(string? LastPlayed, string? SerializedEntries)>(async () =>
         {
             var resp = await Lcu.Connector("league", "get",
-                "/lol-match-history/v1/products/lol/current-summoner/matches", "");
+                "/lol-match-history/v1/products/lol/current-summoner/matches", "", cancellationToken);
             if (resp == null) return default;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return default;
 
             return ApiResponseParser.ParseMatchHistory(body);
-        });
+        }, cancellationToken);
     }
 
-    private Task<JArray?> GetSkinInfoAsync()
+    private Task<JArray?> GetSkinInfoAsync(CancellationToken cancellationToken)
     {
         return RetryAsync<JArray>(async () =>
         {
-            var resp = await Lcu.Connector("league", "get", "/lol-catalog/v1/items/CHAMPION_SKIN", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-catalog/v1/items/CHAMPION_SKIN", "",
+                cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             try
@@ -1233,17 +1518,17 @@ public partial class Accounts : Page
             {
                 return null;
             }
-        });
+        }, cancellationToken);
     }
 
-    private Task<JToken?> GetLootInfoAsync()
+    private Task<JToken?> GetLootInfoAsync(CancellationToken cancellationToken)
     {
         return RetryAsync<JToken>(async () =>
         {
-            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "", cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             try
@@ -1254,49 +1539,49 @@ public partial class Accounts : Page
             {
                 return null;
             }
-        });
+        }, cancellationToken);
     }
 
-    private Task<Utils.Wallet?> GetWalletAsync()
+    private Task<Utils.Wallet?> GetWalletAsync(CancellationToken cancellationToken)
     {
         return RetryAsync<Utils.Wallet>(async () =>
         {
             var resp = await Lcu.Connector("league", "get",
-                "/lol-inventory/v1/wallet?currencyTypes=[%22RP%22,%22lol_blue_essence%22]", "");
+                "/lol-inventory/v1/wallet?currencyTypes=[%22RP%22,%22lol_blue_essence%22]", "", cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             return ApiResponseParser.ParseWallet(body);
-        });
+        }, cancellationToken);
     }
 
-    private Task<JToken?> GetRankedInfoAsync()
+    private Task<JToken?> GetRankedInfoAsync(CancellationToken cancellationToken)
     {
         return RetryAsync<JToken>(async () =>
         {
-            var resp = await Lcu.Connector("league", "get", "/lol-ranked/v1/current-ranked-stats", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-ranked/v1/current-ranked-stats", "", cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             var parsed = ApiResponseParser.ParseRankedStats(body);
             if (parsed != null)
                 DebugConsole.WriteLine("[Accounts] Ranked stats fetched");
             return parsed;
-        });
+        }, cancellationToken);
     }
 
-    private Task<JToken?> GetRegionAsync()
+    private Task<JToken?> GetRegionAsync(CancellationToken cancellationToken)
     {
         return RetryAsync<JToken>(async () =>
         {
-            var resp = await Lcu.Connector("league", "get", "/riotclient/region-locale", "");
+            var resp = await Lcu.Connector("league", "get", "/riotclient/region-locale", "", cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             try
@@ -1307,18 +1592,18 @@ public partial class Accounts : Page
             {
                 return null;
             }
-        });
+        }, cancellationToken);
     }
 
-    private Task<JArray?> GetChampionInfoAsync(string summonerId)
+    private Task<JArray?> GetChampionInfoAsync(string summonerId, CancellationToken cancellationToken)
     {
         return RetryAsync<JArray>(async () =>
         {
             var resp = await Lcu.Connector("league", "get",
-                $"/lol-champions/v1/inventories/{summonerId}/champions-minimal", "");
+                $"/lol-champions/v1/inventories/{summonerId}/champions-minimal", "", cancellationToken);
             if (resp == null) return null;
 
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return null;
 
             if (body.TrimStart().StartsWith("{"))
@@ -1336,17 +1621,18 @@ public partial class Accounts : Page
             {
                 return null;
             }
-        });
+        }, cancellationToken);
     }
 
-    private async Task<(bool isBanned, string note)> CheckPermanentBanAsync()
+    private async Task<(bool isBanned, string note)> CheckPermanentBanAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "");
+            var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "",
+                cancellationToken);
             if (resp == null) return (false, "");
 
-            var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var responseBody = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var parsed = JObject.Parse(responseBody);
 
             foreach (var property in parsed.Properties())
@@ -1388,6 +1674,10 @@ public partial class Accounts : Page
                 }
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch
         {
         }
@@ -1416,23 +1706,56 @@ public partial class Accounts : Page
 
             DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
 
-            Utils.KillLeagueFunc();
-            var num = 0;
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
+            StartAccountOperation(clickedButton.Name == "Stealthlogin" ? "Stealth login" : "Logging in",
+                new[]
+                {
+                    "Start Riot client",
+                    "Find login window",
+                    "Submit credentials",
+                    "Wait for authentication",
+                    "Open League client",
+                    "Waiting for summoner readiness",
+                    "Fetch account data"
+                },
+                cancellationToken => LoginAsync(clickedButton.Name, cancellationToken));
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error starting login");
+            Notif.notificationManager.Show("Error", "An error occurred while starting login",
+                NotificationType.Notification,
+                "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
+                NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
+        }
+    }
+
+    private async Task<bool> LoginAsync(string loginButtonName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Utils.KillLeagueFunc();
+            var num = 0;
             var loginAttempts = 0;
 
-
-            switch (clickedButton.Name)
+            SetAccountOperationStatus("Starting Riot client...");
+            switch (loginButtonName)
             {
                 case "Login":
                     StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
                     break;
 
                 case "Stealthlogin":
-                    await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath);
+                    await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath,
+                        cancellationToken: cancellationToken);
                     break;
+
+                default:
+                    return false;
             }
 
             var riotval = string.Empty;
@@ -1450,16 +1773,20 @@ public partial class Accounts : Page
                     break;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
+                SetAccountOperationStatus("Waiting for Riot client...");
                 DebugConsole.WriteLine($"[Accounts] Waiting for riot process");
 
-                await Task.Delay(200);
+                await Task.Delay(200, cancellationToken);
                 num++;
-                if (num == 80) return;
+                if (num == 80) return false;
             }
+            MarkTaskCompleted("Start Riot client");
 
             while (true)
                 try
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var restartLogin = false;
                     var cancelLogin = false;
                     var app = Application.Attach(riotval);
@@ -1471,8 +1798,10 @@ public partial class Accounts : Page
                         var riotcontent =
                             window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND")) ??
                             throw new Exception("Riot content not found");
+                        MarkTaskCompleted("Find login window");
 
 
+                        SetAccountOperationStatus("Finding login controls...");
                         var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
                             .AsTextBox();
                         if (usernameField == null) throw new Exception("Username field not found");
@@ -1508,14 +1837,22 @@ public partial class Accounts : Page
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
                         if (signInElement != null)
                         {
-                            while (!signInElement.IsEnabled) await Task.Delay(200);
+                            SetAccountOperationStatus("Submitting credentials...");
+                            while (!signInElement.IsEnabled)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                await Task.Delay(200, cancellationToken);
+                            }
                             signInElement.Invoke();
+                            MarkTaskCompleted("Submit credentials");
 
                             // brief pause to allow any login error tooltip to appear
-                            await Task.Delay(500);
+                            await Task.Delay(500, cancellationToken);
 
+                            SetAccountOperationStatus("Waiting for Riot authentication...");
                             while (true)
                             {
+                                cancellationToken.ThrowIfCancellationRequested();
                                 try
                                 {
                                     // look for a Tooltip with name "Login error" in the same window
@@ -1602,7 +1939,7 @@ public partial class Accounts : Page
                                                 AccountsDataGrid.Items.Refresh();
                                             });
 
-                                            return; // pause/stop login processing
+                                            return false; // pause/stop login processing
                                         }
 
                                         if (loginAttempts >= 3)
@@ -1619,75 +1956,98 @@ public partial class Accounts : Page
                                 {
                                 }
 
-                                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
-                                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "",
+                                    cancellationToken);
+                                string status = await resp.Content.ReadAsStringAsync(cancellationToken)
+                                    .ConfigureAwait(false);
                                 if (status == "\"Accepted\"") break;
                                 if (status == "\"AcceptanceRequired\"")
                                 {
-                                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                                    await Task.Delay(200);
+                                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "",
+                                        cancellationToken);
+                                    await Task.Delay(200, cancellationToken);
                                 }
                                 else
                                 {
-                                    await Task.Delay(500);
+                                    await Task.Delay(500, cancellationToken);
                                 }
                             }
 
-                            if (cancelLogin) return;
+                            MarkTaskCompleted("Wait for authentication");
+                            if (cancelLogin) return false;
 
                             if (restartLogin)
                             {
-                                await Task.Delay(500);
+                                await Task.Delay(500, cancellationToken);
                                 continue;
                             }
 
+                            SetAccountOperationStatus("Opening League client...");
                             await Lcu.Connector("riot", "post",
-                                "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-                            await WaitForSummonerReadyAsync();
-                            break;
+                                "/product-launcher/v1/products/league_of_legends/patchlines/live", "",
+                                cancellationToken);
+                            MarkTaskCompleted("Open League client");
+                            return await WaitForSummonerReadyAsync(cancellationToken);
                         }
 
-                        await Task.Delay(500);
+                        await Task.Delay(500, cancellationToken);
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
                     _logger.Warn(ex, "Transient error during login automation");
                     DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                    await Task.Delay(200);
+                    await Task.Delay(200, cancellationToken);
                 }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            Utils.KillLeagueFunc();
+            throw;
         }
         catch (Exception exception)
         {
-            LogManager.GetCurrentClassLogger().Error(exception, "Error loading data");
+            LogManager.GetCurrentClassLogger().Error(exception, "Error logging in");
+            return false;
         }
     }
 
 
-    private async Task WaitForSummonerReadyAsync()
+    private async Task<bool> WaitForSummonerReadyAsync(CancellationToken cancellationToken)
     {
         while (true)
         {
             try
             {
-                var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "")
+                cancellationToken.ThrowIfCancellationRequested();
+                var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "",
+                        cancellationToken)
                     as HttpResponseMessage;
 
                 if (resp != null && resp.IsSuccessStatusCode) // Ensure HTTP 200
                 {
-                    var content = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var content = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
                     // Optional: you can parse content here or just call PullDataAsync
-                    await PullDataAsync();
-                    return; // exit the loop
+                    SetAccountOperationStatus("Pulling account data...");
+                    InitializeProgressTasks(GetPullTasks());
+                    return await PullDataAsync(cancellationToken);
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch
             {
                 // LCU not ready yet, ignore and retry
             }
 
-            await Task.Delay(1000); // retry every 1 second
+            await Task.Delay(1000, cancellationToken); // retry every 1 second
         }
     }
 
@@ -1701,24 +2061,9 @@ public partial class Accounts : Page
         var processed = 0;
         var anyChanges = false;
 
-        ProgressWindow progressWindow = null!;
-        DispatcherTimer? followTimer = null;
-
         Dispatcher.Invoke(() =>
         {
-            progressWindow = new ProgressWindow(total)
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            };
-            progressWindow.Show();
-            progressWindow.FollowOwner();
-
-            followTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(250)
-            };
-            followTimer.Tick += (_, _) => progressWindow.FollowOwner();
-            followTimer.Start();
+            ShowRankProgress(total);
         });
 
         try
@@ -1753,11 +2098,9 @@ public partial class Accounts : Page
                         ? account.username
                         : $"account #{processed}";
 
-                // Keep window following main window
-                Dispatcher.Invoke(() => progressWindow.FollowOwner());
-
                 try
                 {
+                    _rankUpdateCancellation?.Token.ThrowIfCancellationRequested();
                     if (string.IsNullOrWhiteSpace(account.riotID))
                     {
                         DebugConsole.WriteLine(
@@ -1843,8 +2186,6 @@ public partial class Accounts : Page
                         anyChanges = true;
                     }
 
-                    Dispatcher.Invoke(() => progressWindow.FollowOwner());
-
                     if (string.IsNullOrWhiteSpace(soloRank) && string.IsNullOrWhiteSpace(flexRank))
                     {
                         DebugConsole.WriteLine(
@@ -1869,10 +2210,10 @@ public partial class Accounts : Page
                         ConsoleColor.Red);
                 }
 
-                await Task.Delay(2000);
+                await Task.Delay(2000, _rankUpdateCancellation?.Token ?? CancellationToken.None);
 
                 // Update progress bar
-                Dispatcher.Invoke(() => progressWindow.UpdateProgress(processed));
+                Dispatcher.Invoke(() => UpdateRankProgress(processed, total, accountLabel));
             }
 
             // Save CSV if any changes
@@ -1890,11 +2231,7 @@ public partial class Accounts : Page
         }
         finally
         {
-            Dispatcher.Invoke(() =>
-            {
-                followTimer?.Stop();
-                progressWindow?.Close();
-            });
+            Dispatcher.Invoke(HideRankProgress);
         }
     }
 

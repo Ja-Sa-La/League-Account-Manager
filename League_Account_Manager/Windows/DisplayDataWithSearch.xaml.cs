@@ -236,8 +236,8 @@ public partial class DisplayDataWithSearch : Window
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
             Topmost = true;
-            Background = new SolidColorBrush(Color.FromRgb(31, 31, 31));
-            BorderBrush = new SolidColorBrush(Color.FromRgb(76, 76, 76));
+            Background = (Brush)Application.Current.FindResource("SurfaceBrush");
+            BorderBrush = (Brush)Application.Current.FindResource("StrokeBrush");
             BorderThickness = new Thickness(1);
 
             _previewImage = new Image

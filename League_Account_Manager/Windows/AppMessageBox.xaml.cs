@@ -158,10 +158,10 @@ public partial class AppMessageBox : Window
     {
         return icon switch
         {
-            MessageBoxImage.Error => Brushes.IndianRed,
-            MessageBoxImage.Warning => Brushes.Gold,
-            MessageBoxImage.Question => Brushes.LightSkyBlue,
-            MessageBoxImage.Information => Brushes.DeepSkyBlue,
+            MessageBoxImage.Error => (Brush)Application.Current.FindResource("DangerBrush"),
+            MessageBoxImage.Warning => (Brush)Application.Current.FindResource("WarningBrush"),
+            MessageBoxImage.Question => (Brush)Application.Current.FindResource("AccentBrush"),
+            MessageBoxImage.Information => (Brush)Application.Current.FindResource("AccentBrush"),
             _ => Brushes.Transparent
         };
     }
