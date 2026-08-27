@@ -40,29 +40,53 @@
                                 TextChanged="OnFilterTextChanged" VerticalAlignment="Center" />
                 </Grid>
                 <Separator Grid.Row="1" Margin="0,16,0,12" Background="{StaticResource StrokeBrush}" />
-                <WrapPanel Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <ui:Button Margin="0,0,8,8" x:Name="openleague1" Content="Open League"
-                               Click="OnOpenLeagueClick" MinWidth="116" />
-                    <ui:Button Margin="0,0,8,8" x:Name="Login" Content="Login"
-                               Click="OnLoginClick" MinWidth="100" />
-                    <ui:Button Margin="0,0,8,8" x:Name="Stealthlogin" Content="Stealth login"
-                               Click="OnLoginClick" MinWidth="116" />
-                    <ui:Button Margin="0,0,8,8" x:Name="PullData" Content="Pull data"
-                               Click="OnPullDataClick" MinWidth="108" />
-                    <ui:Button Margin="0,0,8,8" x:Name="SecondaryClient" Content="Second client"
-                               Click="OnSecondaryClientClick" MinWidth="116" />
-                    <ui:Button Margin="0,0,8,8" x:Name="GenerateLoginToken" Content="Generate token"
-                               Click="GenerateLoginToken_OnClick" MinWidth="120" />
-                    <ui:Button Margin="0,0,8,8" x:Name="UseLoginToken" Content="Login with token"
-                               Click="UseLoginToken_OnClick" MinWidth="124" />
-                    <ui:Button Margin="0,0,8,8" x:Name="openleague1_Copy" Content="Name change"
-                               Click="OnNameChangeClick" MinWidth="112" />
-                    <ui:Button Margin="0,0,8,8" x:Name="DuplicateRemover" Content="Remove duplicates"
-                               Click="OnRemoveDuplicatesClick" MinWidth="132" />
-                    <ui:Button Margin="0,0,8,8" x:Name="killleague" Content="Kill client"
-                               Click="OnKillClientClick" MinWidth="104" />
-                    <ui:Button Margin="0,0,0,8" x:Name="Delete" Content="Delete"
-                               Click="OnDeleteClick" MinWidth="90" />
+                <WrapPanel Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <StackPanel Margin="0,0,20,8">
+                        <TextBlock Text="SESSION" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <WrapPanel>
+                            <ui:Button Margin="0,0,8,0" x:Name="openleague1" Content="Open League"
+                                       Click="OnOpenLeagueClick" MinWidth="116" />
+                            <ui:Button Margin="0,0,8,0" x:Name="Login" Content="Login"
+                                       Click="OnLoginClick" MinWidth="100" />
+                            <ui:Button Margin="0,0,8,0" x:Name="DebugLogin" Content="Debug mode login"
+                                       Click="OnLoginClick" MinWidth="108" />
+                            <ui:Button Margin="0,0,8,0" x:Name="Stealthlogin" Content="Stealth login"
+                                       Click="OnLoginClick" MinWidth="116" />
+                            <ui:Button Margin="0,0,8,0" x:Name="SecondaryClient" Content="Second client"
+                                       Click="OnSecondaryClientClick" MinWidth="116" />
+                            <ui:Button x:Name="killleague" Content="Kill client"
+                                       Click="OnKillClientClick" MinWidth="104" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,20,8">
+                        <TextBlock Text="DATA" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <ui:Button x:Name="PullData" Content="Pull data"
+                                   Click="OnPullDataClick" MinWidth="108" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,20,8">
+                        <TextBlock Text="TOKENS" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <WrapPanel>
+                            <ui:Button Margin="0,0,8,0" x:Name="GenerateLoginToken" Content="Generate token"
+                                       Click="GenerateLoginToken_OnClick" MinWidth="120" />
+                            <ui:Button x:Name="UseLoginToken" Content="Login with token"
+                                       Click="UseLoginToken_OnClick" MinWidth="124" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="ACCOUNT" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <WrapPanel>
+                            <ui:Button Margin="0,0,8,0" x:Name="openleague1_Copy" Content="Name change"
+                                       Click="OnNameChangeClick" MinWidth="112" />
+                            <ui:Button Margin="0,0,8,0" x:Name="DuplicateRemover" Content="Remove duplicates"
+                                       Click="OnRemoveDuplicatesClick" MinWidth="132" />
+                            <ui:Button x:Name="Delete" Content="Delete"
+                                       Click="OnDeleteClick" MinWidth="90" />
+                        </WrapPanel>
+                    </StackPanel>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -124,14 +148,10 @@
                             </MenuItem>
                             <Separator />
                             <MenuItem Header="Login" Click="AccountsContextLogin_Click" />
+                            <MenuItem Header="Debug mode login" Click="AccountsContextDebugLogin_Click" />
                             <MenuItem Header="Stealth login" Click="AccountsContextStealthLogin_Click" />
-                            <MenuItem Header="Second client" Click="AccountsContextSecondClient_Click" />
                             <Separator />
                             <MenuItem Header="Generate login token" Click="AccountsContextGenerateToken_Click" />
-                            <MenuItem Header="Login with token" Click="AccountsContextUseToken_Click" />
-                            <MenuItem Header="Name change" Click="AccountsContextNameChange_Click" />
-                            <Separator />
-                            <MenuItem Header="Remove duplicates" Click="AccountsContextRemoveDuplicates_Click" />
                             <MenuItem Header="Delete account" Click="AccountsContextDelete_Click" />
                         </ContextMenu>
                     </DataGrid.ContextMenu>

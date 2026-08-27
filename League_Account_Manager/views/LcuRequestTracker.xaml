@@ -35,6 +35,10 @@
                 <ComboBoxItem Content="All traffic" Tag="All" />
                 <ComboBoxItem Content="REST" Tag="REST" />
                 <ComboBoxItem Content="WebSocket" Tag="WebSocket" />
+                <ComboBoxItem Content="HTTP" Tag="HTTP" />
+                <ComboBoxItem Content="XMPP" Tag="XMPP" />
+                <ComboBoxItem Content="RMS" Tag="RMS" />
+                <ComboBoxItem Content="RTMP" Tag="RTMP" />
             </ComboBox>
             <StackPanel Grid.Column="3" Orientation="Horizontal">
                 <ui:Button Content="Select all" Click="SelectAll_OnClick" Margin="4,0" />

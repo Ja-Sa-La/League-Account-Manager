@@ -47,10 +47,8 @@ public partial class Accounts : Page
     public static string? SelectedPassword;
     private readonly Dictionary<string, ListSortDirection?> _columnSortState = new();
     private readonly object _fileChangeLock = new();
-    private readonly AuthRouteLauncher _launcher = new();
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
-    private readonly OfflineLauncher offlineLauncher = new();
     private bool _initialized;
     private DateTime _lastFileChange = DateTime.MinValue;
     private DateTime _lastKnownFileWrite = DateTime.MinValue;
@@ -690,11 +688,15 @@ public partial class Accounts : Page
     private async Task RunAccountOperationAsync(Func<CancellationToken, Task<bool>> operation,
         CancellationTokenSource cancellation)
     {
+        var closeOnFinish = false;
         try
         {
             var completed = await operation(cancellation.Token);
             if (completed && !cancellation.IsCancellationRequested)
+            {
                 SetAccountOperationStatus("Finished successfully.");
+                closeOnFinish = true;
+            }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -707,11 +709,11 @@ public partial class Accounts : Page
         }
         finally
         {
-            FinishAccountOperation(cancellation);
+            FinishAccountOperation(cancellation, closeOnFinish);
         }
     }
 
-    private void FinishAccountOperation(CancellationTokenSource cancellation)
+    private void FinishAccountOperation(CancellationTokenSource cancellation, bool closeOnFinish)
     {
         _accountOperationRunning = false;
         if (ReferenceEquals(_accountOperationCancellation, cancellation))
@@ -722,6 +724,12 @@ public partial class Accounts : Page
 
         Dispatcher.Invoke(() =>
         {
+            if (closeOnFinish)
+            {
+                Progressgrid.Visibility = Visibility.Collapsed;
+                return;
+            }
+
             var operationButton = GetAccountOperationButton();
             if (operationButton != null)
             {
@@ -1709,7 +1717,13 @@ public partial class Accounts : Page
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
-            StartAccountOperation(clickedButton.Name == "Stealthlogin" ? "Stealth login" : "Logging in",
+            var operationTitle = clickedButton.Name switch
+            {
+                "Stealthlogin" => "Stealth login",
+                "DebugLogin" => "Debug mode login",
+                _ => "Logging in"
+            };
+            StartAccountOperation(operationTitle,
                 new[]
                 {
                     "Start Riot client",
@@ -1749,8 +1763,15 @@ public partial class Accounts : Page
                     StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
                     break;
 
+                case "DebugLogin":
+                    LcuWebSocketMonitor.Start();
+                    StartRiotClient(
+                        "--launch-product=league_of_legends --launch-patchline=live --allow-multiple-clients");
+                    DebugConsole.WriteLine("[Accounts] Started Riot client in native debug mode; LCU traffic capture is active.");
+                    break;
+
                 case "Stealthlogin":
-                    await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath,
+                    await App.OfflineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath,
                         cancellationToken: cancellationToken);
                     break;
 
@@ -2544,6 +2565,7 @@ public partial class Accounts : Page
     }
 
     private void AccountsContextLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login" }, e);
+    private void AccountsContextDebugLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "DebugLogin" }, e);
     private void AccountsContextStealthLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Stealthlogin" }, e);
     private void AccountsContextSecondClient_Click(object sender, RoutedEventArgs e) => OnSecondaryClientClick(sender, e);
     private void AccountsContextGenerateToken_Click(object sender, RoutedEventArgs e) => GenerateLoginToken_OnClick(sender, e);
@@ -2919,7 +2941,7 @@ public partial class Accounts : Page
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
-            await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
+            await App.AuthLauncher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
                 persistLogin: persist,
                 tokenProduct: "league");
 
