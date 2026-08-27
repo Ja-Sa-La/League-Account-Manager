@@ -1765,7 +1765,7 @@ public partial class Accounts : Page
 
                 case "DebugLogin":
                     LcuWebSocketMonitor.Start();
-                    StartRiotClient(
+                    await App.DebugClientTrafficLauncher.LaunchAsync(Misc.Settings.settingsloaded.riotPath,
                         "--launch-product=league_of_legends --launch-patchline=live --allow-multiple-clients");
                     DebugConsole.WriteLine("[Accounts] Started Riot client in native debug mode; LCU traffic capture is active.");
                     break;
