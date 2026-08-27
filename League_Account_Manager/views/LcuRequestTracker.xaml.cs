@@ -57,8 +57,11 @@ public partial class LcuRequestTracker : Page
             return false;
 
         var selectedType = (TrafficTypeFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "All";
-        if (selectedType != "All" && !string.Equals(row.Record.TrafficType, selectedType,
-                StringComparison.OrdinalIgnoreCase))
+        var matchesType = selectedType == "HTTP"
+            ? row.Record.TrafficType is "HTTP" or "REST"
+            : selectedType == "All" || string.Equals(row.Record.TrafficType, selectedType,
+                StringComparison.OrdinalIgnoreCase);
+        if (!matchesType)
             return false;
 
         var search = SearchText.Text.Trim();

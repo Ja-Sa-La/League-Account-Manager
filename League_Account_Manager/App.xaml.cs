@@ -12,6 +12,7 @@ public partial class App : Application
     internal static AuthRouteLauncher AuthLauncher { get; } = new();
     internal static OfflineLauncher OfflineLauncher { get; } = new();
     internal static DebugTrafficCaptureSession DebugTrafficCapture { get; } = new();
+    internal static DebugClientTrafficLauncher DebugClientTrafficLauncher { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -26,6 +27,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         LcuWebSocketMonitor.Stop();
+        DebugClientTrafficLauncher.Dispose();
         DebugTrafficCapture.Dispose();
         base.OnExit(e);
     }
