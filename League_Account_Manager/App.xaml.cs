@@ -9,6 +9,9 @@ namespace League_Account_Manager;
 public partial class App : Application
 {
     public static string[]? StartupArgs { get; private set; }
+    internal static AuthRouteLauncher AuthLauncher { get; } = new();
+    internal static OfflineLauncher OfflineLauncher { get; } = new();
+    internal static DebugTrafficCaptureSession DebugTrafficCapture { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -16,12 +19,14 @@ public partial class App : Application
 
         base.OnStartup(e);
         ProxyLoginTokenManager.RegisterLoginUriScheme();
+        DebugTrafficCapture.Start();
         LcuWebSocketMonitor.Start();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         LcuWebSocketMonitor.Stop();
+        DebugTrafficCapture.Dispose();
         base.OnExit(e);
     }
 }

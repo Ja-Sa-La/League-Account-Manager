@@ -279,6 +279,17 @@ internal class Lcu
         try
         {
             var requestHeaders = FormatRequestHeaders(client, request);
+            LcuRequestLog.Add(
+                target,
+                method,
+                request.RequestUri?.PathAndQuery ?? endpoint,
+                data,
+                null,
+                "Pending",
+                string.Empty,
+                0,
+                requestHeaders: requestHeaders,
+                direction: "Outgoing");
             var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead,
                 cancellationToken);
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -292,7 +303,8 @@ internal class Lcu
                 response.ReasonPhrase ?? response.StatusCode.ToString(),
                 responseBody,
                 started.ElapsedMilliseconds,
-                requestHeaders: requestHeaders);
+                requestHeaders: requestHeaders,
+                direction: "Incoming");
             return response;
         }
         catch (Exception ex)
@@ -301,7 +313,8 @@ internal class Lcu
             LcuRequestLog.Add(target, method, request.RequestUri?.PathAndQuery ?? endpoint, data, null,
                 ex is OperationCanceledException ? "Cancelled" : "Failed", string.Empty,
                 started.ElapsedMilliseconds, ex.Message,
-                requestHeaders: FormatRequestHeaders(client, request));
+                requestHeaders: FormatRequestHeaders(client, request),
+                direction: "Incoming");
             throw;
         }
         finally

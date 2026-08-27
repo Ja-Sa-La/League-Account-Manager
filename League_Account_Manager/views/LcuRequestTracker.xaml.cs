@@ -102,7 +102,7 @@ public partial class LcuRequestTracker : Page
     {
         var firstLine = record.TrafficType == "WebSocket"
             ? $"WebSocket {record.Direction} {record.EventType} {record.Endpoint}"
-            : $"{record.Method} {record.Endpoint}";
+            : $"{record.Direction} {record.Method} {record.Endpoint}";
 
         return string.IsNullOrWhiteSpace(record.RequestHeaders)
             ? firstLine
