@@ -621,8 +621,6 @@ public partial class Accounts : Page
     private void ShowRankProgress(int total)
     {
         _rankUpdateCancellation = new CancellationTokenSource();
-        _accountOperationCancellation = _rankUpdateCancellation;
-        _accountOperationRunning = true;
         RankProgressToastBar.Maximum = total;
         RankProgressToastBar.Value = 0;
         RankProgressToastPercent.Text = "0%";
@@ -640,8 +638,6 @@ public partial class Accounts : Page
 
     private void HideRankProgress()
     {
-        _accountOperationRunning = false;
-        _accountOperationCancellation = null;
         _rankUpdateCancellation?.Dispose();
         _rankUpdateCancellation = null;
         RankProgressToast.Visibility = Visibility.Collapsed;
@@ -2121,7 +2117,7 @@ public partial class Accounts : Page
 
                 try
                 {
-                    _rankUpdateCancellation?.Token.ThrowIfCancellationRequested();
+                    (_rankUpdateCancellation?.Token ?? CancellationToken.None).ThrowIfCancellationRequested();
                     if (string.IsNullOrWhiteSpace(account.riotID))
                     {
                         DebugConsole.WriteLine(
