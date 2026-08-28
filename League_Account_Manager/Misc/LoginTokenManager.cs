@@ -458,7 +458,7 @@ public static class LoginTokenManager
                 else if (entryPath.StartsWith("config/", StringComparison.OrdinalIgnoreCase))
                 {
                     var relative = entryPath.Substring("config/".Length).Replace('/', Path.DirectorySeparatorChar);
-                    var destPath = Path.Combine(RiotConfigPath, relative);
+                    var destPath = GetValidatedExtractionPath(RiotConfigPath, relative);
                     Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                     using var entryStream = entry.Open();
                     using var mem = new MemoryStream();
@@ -468,7 +468,7 @@ public static class LoginTokenManager
                 else if (entryPath.StartsWith("metadata/", StringComparison.OrdinalIgnoreCase))
                 {
                     var relative = entryPath.Substring("metadata/".Length).Replace('/', Path.DirectorySeparatorChar);
-                    var destPath = Path.Combine(RiotMetadataPath, relative);
+                    var destPath = GetValidatedExtractionPath(RiotMetadataPath, relative);
                     Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
                     using var entryStream = entry.Open();
                     using var mem = new MemoryStream();

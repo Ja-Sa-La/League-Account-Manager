@@ -18,7 +18,7 @@ public partial class AddAccounts : Page
 
     public List<Utils.AccountList> AccountLists { get; } = new();
 
-    private void OnAddSingleAccountClick(object sender, RoutedEventArgs e)
+    private async void OnAddSingleAccountClick(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(Password.Password) || string.IsNullOrWhiteSpace(Username.Text))
         {
@@ -28,22 +28,22 @@ public partial class AddAccounts : Page
             return;
         }
 
-        AddAccountAsync(Username.Text, Password.Password);
+        await AddAccountAsync(Username.Text, Password.Password);
         Username.Text = "";
         Password.Password = "";
     }
 
-    private void OnAddBulkAccountsClick(object sender, RoutedEventArgs e)
+    private async void OnAddBulkAccountsClick(object sender, RoutedEventArgs e)
     {
         var lines = BulkInput.Text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
         var addedAny = false;
         foreach (var line in lines)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            var credentials = line.Split(":");
+            var credentials = line.Split(':', 2);
             if (credentials.Length >= 2)
             {
-                AddAccountAsync(credentials[0], credentials[1]);
+                await AddAccountAsync(credentials[0], credentials[1]);
                 addedAny = true;
             }
         }
@@ -55,7 +55,7 @@ public partial class AddAccounts : Page
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
     }
 
-    private async void AddAccountAsync(string username, string password)
+    private async Task AddAccountAsync(string username, string password)
     {
         var accountLists = Accounts.ActualAccountlists ?? new List<Utils.AccountList>();
         accountLists.RemoveAll(r => r.username == "username" && r.password == "password");

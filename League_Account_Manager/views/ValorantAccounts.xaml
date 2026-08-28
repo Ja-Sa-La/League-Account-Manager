@@ -39,17 +39,49 @@
                                 TextChanged="OnFilterTextChanged" VerticalAlignment="Center" />
                 </Grid>
                 <Separator Grid.Row="1" Margin="0,16,0,12" Background="{StaticResource StrokeBrush}" />
-                <WrapPanel Grid.Row="2">
-                    <ui:Button Margin="0,0,8,8" x:Name="openleague1" Content="Open VALORANT" Click="OnOpenValorantClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="Login" Content="Login" Click="OnLoginClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="StealthLogin" Content="Stealth login" Click="OnLoginClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="PullData" Content="Pull data" Click="OnPullDataClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="GenerateLoginToken" Content="Generate token" Click="GenerateLoginToken_OnClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="UseLoginToken" Content="Login with token" Click="UseLoginToken_OnClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="NameChangeButton" Content="Name change" Click="OnNameChangeClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="DuplicateRemover" Content="Remove duplicates" Click="OnRemoveDuplicatesClick" />
-                    <ui:Button Margin="0,0,8,8" x:Name="killleague" Content="Kill client" Click="OnKillClientClick" />
-                    <ui:Button Margin="0,0,0,8" x:Name="Delete" Content="Delete" Click="OnDeleteClick" />
+                <WrapPanel Grid.Row="2" VerticalAlignment="Top">
+                    <StackPanel Margin="0,0,20,8">
+                        <TextBlock Text="SESSION" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <WrapPanel>
+                            <ui:Button Margin="0,0,8,0" x:Name="openleague1" Content="Open VALORANT"
+                                       Click="OnOpenValorantClick" MinWidth="126" />
+                            <ui:Button Margin="0,0,8,0" x:Name="Login" Content="Login"
+                                       Click="OnLoginClick" MinWidth="100" />
+                            <ui:Button Margin="0,0,8,0" x:Name="StealthLogin" Content="Stealth login"
+                                       Click="OnLoginClick" MinWidth="116" />
+                            <ui:Button x:Name="killleague" Content="Kill client"
+                                       Click="OnKillClientClick" MinWidth="104" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,20,8">
+                        <TextBlock Text="DATA" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <ui:Button x:Name="PullData" Content="Pull data"
+                                   Click="OnPullDataClick" MinWidth="108" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,20,8">
+                        <TextBlock Text="TOKENS" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <WrapPanel>
+                            <ui:Button Margin="0,0,8,0" x:Name="GenerateLoginToken" Content="Generate token"
+                                       Click="GenerateLoginToken_OnClick" MinWidth="120" />
+                            <ui:Button x:Name="UseLoginToken" Content="Login with token"
+                                       Click="UseLoginToken_OnClick" MinWidth="124" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="ACCOUNT" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <WrapPanel>
+                            <ui:Button Margin="0,0,8,0" x:Name="NameChangeButton" Content="Name change"
+                                       Click="OnNameChangeClick" MinWidth="112" />
+                            <ui:Button Margin="0,0,8,0" x:Name="DuplicateRemover" Content="Remove duplicates"
+                                       Click="OnRemoveDuplicatesClick" MinWidth="132" />
+                            <ui:Button x:Name="Delete" Content="Delete"
+                                       Click="OnDeleteClick" MinWidth="90" />
+                        </WrapPanel>
+                    </StackPanel>
                 </WrapPanel>
             </Grid>
         </Border>
@@ -114,10 +146,6 @@
                             <MenuItem Header="Stealth login" Click="ValorantContextStealthLogin_Click" />
                             <Separator />
                             <MenuItem Header="Generate login token" Click="ValorantContextGenerateToken_Click" />
-                            <MenuItem Header="Login with token" Click="ValorantContextUseToken_Click" />
-                            <MenuItem Header="Name change" Click="ValorantContextNameChange_Click" />
-                            <Separator />
-                            <MenuItem Header="Remove duplicates" Click="ValorantContextRemoveDuplicates_Click" />
                             <MenuItem Header="Delete account" Click="ValorantContextDelete_Click" />
                         </ContextMenu>
                     </DataGrid.ContextMenu>

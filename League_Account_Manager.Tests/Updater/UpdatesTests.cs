@@ -168,6 +168,27 @@ public class UpdatesTests
     }
 
     [TestMethod]
+    public void UpdateCompletion_InvalidMetadataIsRetained()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "update-complete.json");
+        try
+        {
+            File.WriteAllText(path, "{ invalid json");
+
+            var completion = Updates.TakeUpdateCompletion(directory);
+
+            Assert.IsNull(completion);
+            Assert.IsTrue(File.Exists(path));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [TestMethod]
     public async Task DeleteTemporaryUpdateAsync_RemovesExistingFile()
     {
         var path = Path.Combine(Path.GetTempPath(), $"lam-update-{Guid.NewGuid():N}.exe");

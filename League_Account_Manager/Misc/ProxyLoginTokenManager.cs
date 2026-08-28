@@ -20,6 +20,8 @@ internal static class ProxyLoginTokenManager
     private const string LoginRedirectBaseUrl = "https://redirect.leagueaccountmanager.xyz/login";
     private const string ProductLeague = "league";
     private const string ProductValorant = "valorant";
+    private static readonly TimeSpan LoginReadinessTimeout = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan LoginPollDelay = TimeSpan.FromMilliseconds(200);
     private static int _captureInProgress;
     private static TaskCompletionSource<bool> _captureTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -240,7 +242,7 @@ internal static class ProxyLoginTokenManager
                 if (Process.GetProcessesByName("RiotClientUx").Length != 0) break;
 
 
-                Thread.Sleep(200);
+                await Task.Delay(200);
                 num++;
                 if (num == 200)
                 {
@@ -251,8 +253,15 @@ internal static class ProxyLoginTokenManager
             LogFlow("League", "Riot client process detected.");
 
             LogFlow("League", "Waiting for /rso-auth ready state...");
+            var readyDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
             while (true)
             {
+                if (DateTimeOffset.UtcNow >= readyDeadline)
+                {
+                    LogFlow("League", "Timed out waiting for Riot ready state.", ConsoleColor.Red);
+                    return false;
+                }
+
                 var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
                 if (readyResp != null)
                 {
@@ -270,7 +279,7 @@ internal static class ProxyLoginTokenManager
                     }
                 }
 
-                await Task.Delay(200);
+                await Task.Delay(LoginPollDelay);
             }
             LogFlow("League", "Riot ready state reached.");
 
@@ -362,8 +371,15 @@ internal static class ProxyLoginTokenManager
 
             LogFlow("League", "Checking EULA acceptance state...");
             string? lastEulaStatus = null;
+            var eulaDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
             while (true)
             {
+                if (DateTimeOffset.UtcNow >= eulaDeadline)
+                {
+                    LogFlow("League", "Timed out waiting for EULA acceptance.", ConsoleColor.Red);
+                    return false;
+                }
+
                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                 string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
@@ -376,11 +392,11 @@ internal static class ProxyLoginTokenManager
                 {
                     LogFlow("League", "EULA acceptance required; sending acceptance request.");
                     await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                    Thread.Sleep(200);
+                    await Task.Delay(LoginPollDelay);
                 }
                 else
                 {
-                    Thread.Sleep(500);
+                    await Task.Delay(TimeSpan.FromMilliseconds(500));
                 }
             }
             LogFlow("League", "EULA accepted.");
@@ -438,7 +454,7 @@ internal static class ProxyLoginTokenManager
                 if (Process.GetProcessesByName("RiotClientUx").Length != 0) break;
 
 
-                Thread.Sleep(200);
+                await Task.Delay(200);
                 num++;
                 if (num == 20)
                 {
@@ -449,8 +465,15 @@ internal static class ProxyLoginTokenManager
             LogFlow("Valorant", "Riot client process detected.");
 
             LogFlow("Valorant", "Waiting for /rso-auth ready state...");
+            var readyDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
             while (true)
             {
+                if (DateTimeOffset.UtcNow >= readyDeadline)
+                {
+                    LogFlow("Valorant", "Timed out waiting for Riot ready state.", ConsoleColor.Red);
+                    return false;
+                }
+
                 var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
                 if (readyResp != null)
                 {
@@ -468,7 +491,7 @@ internal static class ProxyLoginTokenManager
                     }
                 }
 
-                await Task.Delay(200);
+                await Task.Delay(LoginPollDelay);
             }
             LogFlow("Valorant", "Riot ready state reached.");
 
@@ -559,8 +582,15 @@ internal static class ProxyLoginTokenManager
                 return false;
             LogFlow("Valorant", "Checking EULA acceptance state...");
             string? lastEulaStatus = null;
+            var eulaDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
             while (true)
             {
+                if (DateTimeOffset.UtcNow >= eulaDeadline)
+                {
+                    LogFlow("Valorant", "Timed out waiting for EULA acceptance.", ConsoleColor.Red);
+                    return false;
+                }
+
                 var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
                 string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
@@ -573,11 +603,11 @@ internal static class ProxyLoginTokenManager
                 {
                     LogFlow("Valorant", "EULA acceptance required; sending acceptance request.");
                     await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                    Thread.Sleep(200);
+                    await Task.Delay(LoginPollDelay);
                 }
                 else
                 {
-                    Thread.Sleep(500);
+                    await Task.Delay(TimeSpan.FromMilliseconds(500));
                 }
             }
             LogFlow("Valorant", "EULA accepted.");

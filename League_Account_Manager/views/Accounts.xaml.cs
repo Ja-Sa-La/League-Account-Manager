@@ -47,6 +47,7 @@ public partial class Accounts : Page
     public static string? SelectedPassword;
     private readonly Dictionary<string, ListSortDirection?> _columnSortState = new();
     private readonly object _fileChangeLock = new();
+    private readonly SemaphoreSlim _accountDataGate = new(1, 1);
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly CsvConfiguration config = new(CultureInfo.CurrentCulture) { Delimiter = ";" };
     private bool _initialized;
@@ -173,6 +174,7 @@ public partial class Accounts : Page
     private void Accounts_Unloaded(object sender, RoutedEventArgs e)
     {
         _accountOperationCancellation?.Cancel();
+        _rankUpdateCancellation?.Cancel();
         StopAccountsScrollAnimation();
         AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
         Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
@@ -183,6 +185,7 @@ public partial class Accounts : Page
             fileWatcher.Dispose();
             fileWatcher = null;
         }
+        _initialized = false;
     }
 
     private async void OnAccountsFileUpdated(object? sender, EventArgs e)
@@ -204,6 +207,10 @@ public partial class Accounts : Page
     {
         if (_initialized) return;
         _initialized = true;
+        Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
+        Misc.Settings.AccountPasswordSupplied += OnAccountPasswordSupplied;
+        AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
+        AccountFileStore.AccountsFileUpdated += OnAccountsFileUpdated;
 
         try
         {
@@ -496,6 +503,7 @@ public partial class Accounts : Page
 
     public async Task LoadDataAsync()
     {
+        await _accountDataGate.WaitAsync();
         try
         {
             await Task.Run(async () =>
@@ -539,6 +547,10 @@ public partial class Accounts : Page
             {
                 // ignore debug console errors
             }
+        }
+        finally
+        {
+            _accountDataGate.Release();
         }
     }
 
@@ -618,9 +630,9 @@ public partial class Accounts : Page
     private TextBlock? GetAccountOperationTitleControl() => FindName("AccountOperationTitle") as TextBlock;
     private Button? GetAccountOperationButton() => FindName("CancelAccountOperationButton") as Button;
 
-    private void ShowRankProgress(int total)
+    private void ShowRankProgress(int total, CancellationTokenSource cancellation)
     {
-        _rankUpdateCancellation = new CancellationTokenSource();
+        _rankUpdateCancellation = cancellation;
         RankProgressToastBar.Maximum = total;
         RankProgressToastBar.Value = 0;
         RankProgressToastPercent.Text = "0%";
@@ -775,6 +787,19 @@ public partial class Accounts : Page
     }
 
     private async Task<bool> PullDataAsync(CancellationToken cancellationToken)
+    {
+        await _accountDataGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await PullDataCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _accountDataGate.Release();
+        }
+    }
+
+    private async Task<bool> PullDataCoreAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -2070,6 +2095,19 @@ public partial class Accounts : Page
 
     public async Task UpdateAllRanks()
     {
+        await _accountDataGate.WaitAsync();
+        try
+        {
+            await UpdateAllRanksCoreAsync();
+        }
+        finally
+        {
+            _accountDataGate.Release();
+        }
+    }
+
+    private async Task UpdateAllRanksCoreAsync()
+    {
         if (ActualAccountlists == null || ActualAccountlists.Count == 0)
             return;
 
@@ -2077,10 +2115,13 @@ public partial class Accounts : Page
         var total = ActualAccountlists.Count;
         var processed = 0;
         var anyChanges = false;
+        var rankCancellation = new CancellationTokenSource();
+        _rankUpdateCancellation = rankCancellation;
+        var cancellationToken = rankCancellation.Token;
 
         Dispatcher.Invoke(() =>
         {
-            ShowRankProgress(total);
+            ShowRankProgress(total, rankCancellation);
         });
 
         try
@@ -2117,7 +2158,7 @@ public partial class Accounts : Page
 
                 try
                 {
-                    (_rankUpdateCancellation?.Token ?? CancellationToken.None).ThrowIfCancellationRequested();
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (string.IsNullOrWhiteSpace(account.riotID))
                     {
                         DebugConsole.WriteLine(
@@ -2163,7 +2204,7 @@ public partial class Accounts : Page
                     http.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Site", "same-site");
                     http.DefaultRequestHeaders.Referrer = new Uri("https://xdx.gg/");
 
-                    var response = await http.GetAsync(url);
+                    var response = await http.GetAsync(url, cancellationToken);
                     response.EnsureSuccessStatusCode();
 
                     var payload = await response.Content.ReadAsStringAsync();
@@ -2227,7 +2268,7 @@ public partial class Accounts : Page
                         ConsoleColor.Red);
                 }
 
-                await Task.Delay(2000, _rankUpdateCancellation?.Token ?? CancellationToken.None);
+                await Task.Delay(2000, cancellationToken);
 
                 // Update progress bar
                 Dispatcher.Invoke(() => UpdateRankProgress(processed, total, accountLabel));
