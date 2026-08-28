@@ -137,7 +137,10 @@ internal class Lcu
 
         var clientHandler = new HttpClientHandler
         {
-            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+            ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip |
+                                     System.Net.DecompressionMethods.Deflate |
+                                     System.Net.DecompressionMethods.Brotli
         };
         var client = new HttpClient(clientHandler);
         var token = Encoding.UTF8.GetBytes("riot:" + authToken);
@@ -247,7 +250,7 @@ internal class Lcu
         client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
         client.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
         client.DefaultRequestHeaders.Add("Referer", "https://127.0.0.1:" + port + "/index.html");
-        client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, be");
+        client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate, br");
         client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
     }
 
@@ -293,6 +296,7 @@ internal class Lcu
             var response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead,
                 cancellationToken);
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var responseHeaders = FormatResponseHeaders(response);
             started.Stop();
             LcuRequestLog.Add(
                 target,
@@ -304,6 +308,7 @@ internal class Lcu
                 responseBody,
                 started.ElapsedMilliseconds,
                 requestHeaders: requestHeaders,
+                responseHeaders: responseHeaders,
                 direction: "Incoming");
             return response;
         }
@@ -333,6 +338,12 @@ internal class Lcu
             .Select(group => $"{group.Key}: {string.Join(", ", group.SelectMany(header => header.Value))}");
 
         return string.Join(Environment.NewLine, headers);
+    }
+
+    private static string FormatResponseHeaders(HttpResponseMessage response)
+    {
+        return string.Join(Environment.NewLine, response.Headers.Concat(response.Content.Headers)
+            .SelectMany(header => header.Value.Select(value => $"{header.Key}: {value}")));
     }
 
     private static string showMatch(string text, string expr)

@@ -12,7 +12,7 @@ public class DebugTrafficCaptureSessionTests
     }
 
     [TestMethod]
-    public void CaptureHttp_AddsRedactedHttpRecord()
+    public void CaptureHttp_PreservesHttpRecord()
     {
         using var session = new DebugTrafficCaptureSession();
 
@@ -24,9 +24,9 @@ public class DebugTrafficCaptureSessionTests
         Assert.AreEqual("HTTP", record.TrafficType);
         Assert.AreEqual("Outgoing", record.Direction);
         Assert.AreEqual("POST", record.Method);
-        Assert.IsFalse(record.RequestBody.Contains("visible", StringComparison.Ordinal));
-        Assert.IsFalse(record.ResponseBody.Contains("visible", StringComparison.Ordinal));
-        Assert.IsFalse(record.RequestHeaders.Contains("visible", StringComparison.Ordinal));
+        StringAssert.Contains(record.RequestBody, "\"password\":\"visible\"");
+        StringAssert.Contains(record.ResponseBody, "\"token\":\"visible\"");
+        StringAssert.Contains(record.RequestHeaders, "Authorization: Basic visible");
     }
 
     [TestMethod]
@@ -42,7 +42,7 @@ public class DebugTrafficCaptureSessionTests
         Assert.AreEqual("XMPP", records[0].TrafficType);
         Assert.AreEqual("Outgoing", records[0].Direction);
         Assert.AreEqual("Incoming", records[1].Direction);
-        Assert.IsFalse(records[0].RequestBody.Contains("visible", StringComparison.Ordinal));
+        StringAssert.Contains(records[0].RequestBody, "token=\"visible\"");
     }
 
     [TestMethod]
@@ -59,6 +59,6 @@ public class DebugTrafficCaptureSessionTests
         Assert.AreEqual("RTMP", records[1].TrafficType);
         Assert.AreEqual("Incoming", records[0].Direction);
         Assert.AreEqual("Outgoing", records[1].Direction);
-        Assert.IsFalse(records[0].ResponseBody.Contains("visible", StringComparison.Ordinal));
+        StringAssert.Contains(records[0].ResponseBody, "\"authorization\":\"visible\"");
     }
 }

@@ -12,9 +12,19 @@ namespace League_Account_Manager.Misc;
 internal sealed partial class DebugClientTrafficLauncher : IDisposable
 {
     private const string ClientConfigBaseUrl = "https://clientconfig.rpg.riotgames.com";
-    private readonly HttpClient _httpClient = new(new HttpClientHandler
+    private readonly HttpClient _configHttpClient = new(new HttpClientHandler
     {
-        ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli
+    });
+    private readonly HttpClient _forwardHttpClient = new(new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        AutomaticDecompression = DecompressionMethods.None
     });
     private readonly ConcurrentDictionary<string, ForwardProxy> _proxies = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _sync = new();
@@ -26,7 +36,8 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var configProxy = new ConfigProxy(this, _httpClient);
+        Stop();
+        var configProxy = new ConfigProxy(this, _configHttpClient);
         await configProxy.StartAsync(cancellationToken).ConfigureAwait(false);
         lock (_sync)
             _configProxy = configProxy;
@@ -41,8 +52,6 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
 
         DebugConsole.WriteLine($"[Debug Capture] Launch args: {startInfo.Arguments}");
         var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start Riot Client.");
-        process.EnableRaisingEvents = true;
-        process.Exited += (_, _) => Stop();
         DebugConsole.WriteLine($"[Debug Capture] Riot Client started with PID {process.Id}; HTTP proxies are active.");
         return process;
     }
@@ -54,7 +63,8 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
 
         _disposed = true;
         Stop();
-        _httpClient.Dispose();
+        _configHttpClient.Dispose();
+        _forwardHttpClient.Dispose();
     }
 
     private void Stop()
@@ -70,25 +80,33 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         _proxies.Clear();
     }
 
-    private string RewriteConfig(string content)
+    internal string RewriteConfig(string content)
     {
         return ServiceUrlRegex().Replace(content, match =>
         {
             var origin = match.Value.TrimEnd('/');
-            if (origin.Equals(ClientConfigBaseUrl, StringComparison.OrdinalIgnoreCase) ||
-                origin.Contains("riotcdn", StringComparison.OrdinalIgnoreCase) ||
-                origin.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
-                origin.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+            if (IsExcludedOrigin(origin))
                 return match.Value;
 
             var proxy = _proxies.GetOrAdd(origin, key =>
             {
-                var created = new ForwardProxy(key, _httpClient);
+                var created = new ForwardProxy(key, _forwardHttpClient);
                 created.Start();
                 return created;
             });
             return $"http://127.0.0.1:{proxy.Port}";
         });
+    }
+
+    private static bool IsExcludedOrigin(string origin)
+    {
+        return origin.Equals(ClientConfigBaseUrl, StringComparison.OrdinalIgnoreCase) ||
+               origin.Equals("https://auth.riotgames.com", StringComparison.OrdinalIgnoreCase) ||
+               origin.Equals("https://authenticate.riotgames.com", StringComparison.OrdinalIgnoreCase) ||
+               origin.Contains("riotcdn", StringComparison.OrdinalIgnoreCase) ||
+               origin.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+               origin.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+               origin.Contains("%1", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class ConfigProxy : IDisposable
@@ -132,24 +150,77 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 try
                 {
                     context = await _listener.GetContextAsync().ConfigureAwait(false);
+                    _ = HandleAsync(context, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException && _listener.IsListening)
+                {
+                    DebugConsole.WriteLine($"[Debug Capture] Config proxy error: {ex.Message}", ConsoleColor.Yellow);
+                    if (context is not null)
+                        try { context.Response.StatusCode = 502; context.Response.Close(); } catch { }
+                }
+            }
+        }
+
+        private async Task HandleAsync(HttpListenerContext context, CancellationToken cancellationToken)
+        {
+            try
+            {
                     var rawUrl = context.Request.RawUrl ?? "/";
-                    using var response = await _httpClient.GetAsync(ClientConfigBaseUrl + rawUrl, cancellationToken)
+                    using var configRequest = new HttpRequestMessage(HttpMethod.Get, ClientConfigBaseUrl + rawUrl);
+                    CopyHeaderIfPresent(context.Request, configRequest, "User-Agent");
+                    CopyHeaderIfPresent(context.Request, configRequest, "Authorization");
+                    CopyHeaderIfPresent(context.Request, configRequest, "X-Riot-Entitlements-JWT");
+                    CopyHeaderIfPresent(context.Request, configRequest, "X-Riot-ClientPlatform");
+                    CopyHeaderIfPresent(context.Request, configRequest, "X-Riot-ClientVersion");
+                    using var response = await _httpClient.SendAsync(configRequest, cancellationToken)
                         .ConfigureAwait(false);
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     var rewritten = _owner.RewriteConfig(content);
                     var bytes = Encoding.UTF8.GetBytes(rewritten);
                     context.Response.StatusCode = (int)response.StatusCode;
                     context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/json";
+                    CopyResponseHeaders(response, context.Response);
                     context.Response.ContentLength64 = bytes.LongLength;
                     await context.Response.OutputStream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
                     context.Response.Close();
                     DebugConsole.WriteLine($"[Debug Capture] CONFIG GET {rawUrl} -> {(int)response.StatusCode}");
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                DebugConsole.WriteLine($"[Debug Capture] Config proxy error: {ex.Message}", ConsoleColor.Yellow);
+                try { context.Response.StatusCode = 502; context.Response.Close(); } catch { }
+            }
+        }
+
+        private static void CopyHeaderIfPresent(HttpListenerRequest source, HttpRequestMessage destination,
+            string name)
+        {
+            var value = source.Headers[name];
+            if (!string.IsNullOrWhiteSpace(value))
+                destination.Headers.TryAddWithoutValidation(name, value);
+        }
+
+        private static void CopyResponseHeaders(HttpResponseMessage source, HttpListenerResponse destination)
+        {
+            foreach (var header in source.Headers.Concat(source.Content.Headers))
+            {
+                if (header.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Content-Encoding", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Content-MD5", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("ETag", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Connection", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Date", StringComparison.OrdinalIgnoreCase) ||
+                    header.Key.Equals("Server", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
                 {
-                    DebugConsole.WriteLine($"[Debug Capture] Config proxy error: {ex.Message}", ConsoleColor.Yellow);
-                    if (context is not null)
-                        try { context.Response.StatusCode = 502; context.Response.Close(); } catch { }
+                    destination.Headers[header.Key] = string.Join(", ", header.Value);
+                }
+                catch (ArgumentException)
+                {
                 }
             }
         }
@@ -201,9 +272,9 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 try
                 {
                     context = await _listener.GetContextAsync().ConfigureAwait(false);
-                    await ForwardAsync(context).ConfigureAwait(false);
+                    _ = ForwardAsync(context);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (ex is not OperationCanceledException && _listener.IsListening)
                 {
                     DebugConsole.WriteLine($"[Debug Capture] HTTP proxy error: {ex.Message}", ConsoleColor.Yellow);
                     if (context is not null)
@@ -220,34 +291,46 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
             var url = _origin + (endpoint.StartsWith('/') ? endpoint : "/" + endpoint);
             using var outgoing = new HttpRequestMessage(new HttpMethod(request.HttpMethod), url);
             CopyHeaders(request, outgoing);
-            if (body.Length > 0)
+            if (request.HasEntityBody || HasContentHeaders(request))
+            {
                 outgoing.Content = new ByteArrayContent(body);
+                CopyContentHeaders(request, outgoing.Content);
+            }
 
             var stopwatch = Stopwatch.StartNew();
             try
             {
                 var headers = string.Join(Environment.NewLine,
                     request.Headers.AllKeys.Where(key => key is not null).Select(key => $"{key}: {request.Headers[key]}"));
-                LcuRequestLog.Add("league", request.HttpMethod, endpoint, Encoding.UTF8.GetString(body), null,
+                var requestBody = TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers);
+                LcuRequestLog.Add("league", request.HttpMethod, endpoint, requestBody, null,
                     "Pending", string.Empty, 0, trafficType: "HTTP", requestHeaders: headers, direction: "Outgoing");
                 using var response = await _httpClient.SendAsync(outgoing, HttpCompletionOption.ResponseContentRead)
                     .ConfigureAwait(false);
                 var responseBody = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
                 stopwatch.Stop();
-                LcuRequestLog.Add("league", request.HttpMethod, endpoint, Encoding.UTF8.GetString(body),
+                var responseHeaders = FormatHeaders(response);
+                var decodedResponseBody = TrafficPayloadDecoder.Decode(responseBody, response.Content.Headers);
+                LcuRequestLog.Add("league", request.HttpMethod, endpoint, requestBody,
                     (int)response.StatusCode, response.ReasonPhrase ?? response.StatusCode.ToString(),
-                    Encoding.UTF8.GetString(responseBody), stopwatch.ElapsedMilliseconds,
-                    trafficType: "HTTP", direction: "Incoming");
+                    decodedResponseBody, stopwatch.ElapsedMilliseconds,
+                    trafficType: "HTTP", responseHeaders: responseHeaders, direction: "Incoming");
                 context.Response.StatusCode = (int)response.StatusCode;
-                context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
-                context.Response.ContentLength64 = responseBody.LongLength;
-                await context.Response.OutputStream.WriteAsync(responseBody).ConfigureAwait(false);
+                context.Response.StatusDescription = response.ReasonPhrase ?? response.StatusCode.ToString();
+                CopyResponseHeaders(response, context.Response);
+                var suppressBody = request.HttpMethod.Equals("HEAD", StringComparison.OrdinalIgnoreCase) ||
+                                   response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.NotModified;
+                if (!suppressBody)
+                    context.Response.ContentLength64 = responseBody.LongLength;
+                if (!suppressBody)
+                    await context.Response.OutputStream.WriteAsync(responseBody).ConfigureAwait(false);
                 context.Response.Close();
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                LcuRequestLog.Add("league", request.HttpMethod, endpoint, Encoding.UTF8.GetString(body), null,
+                LcuRequestLog.Add("league", request.HttpMethod, endpoint,
+                    TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers), null,
                     "Failed", string.Empty, stopwatch.ElapsedMilliseconds, ex.Message,
                     trafficType: "HTTP", direction: "Incoming");
                 context.Response.StatusCode = 502;
@@ -266,8 +349,65 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         {
             foreach (var key in source.Headers.AllKeys)
                 if (key is not null && !key.Equals("Host", StringComparison.OrdinalIgnoreCase) &&
+                    !IsHopByHopHeader(key) && !key.StartsWith("Content-", StringComparison.OrdinalIgnoreCase))
+                    destination.Headers.TryAddWithoutValidation(key, source.Headers[key]);
+        }
+
+        private static bool HasContentHeaders(HttpListenerRequest request)
+        {
+            return request.Headers.AllKeys.Any(key =>
+                key is not null && key.StartsWith("Content-", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void CopyContentHeaders(HttpListenerRequest source, HttpContent destination)
+        {
+            foreach (var key in source.Headers.AllKeys)
+                if (key is not null && key.StartsWith("Content-", StringComparison.OrdinalIgnoreCase) &&
                     !key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))
                     destination.Headers.TryAddWithoutValidation(key, source.Headers[key]);
+        }
+
+        private static void CopyResponseHeaders(HttpResponseMessage source, HttpListenerResponse destination)
+        {
+            foreach (var header in source.Headers.Concat(source.Content.Headers))
+            {
+                if (IsHopByHopHeader(header.Key) || header.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                foreach (var value in header.Value)
+                {
+                    try
+                    {
+                        if (header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
+                            destination.ContentType = value;
+                        else if (header.Key.Equals("Location", StringComparison.OrdinalIgnoreCase))
+                            destination.RedirectLocation = value;
+                        else
+                            destination.Headers.Add(header.Key, value);
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+                    {
+                    }
+                }
+            }
+        }
+
+        private static string FormatHeaders(HttpResponseMessage response)
+        {
+            return string.Join(Environment.NewLine, response.Headers.Concat(response.Content.Headers)
+                .SelectMany(header => header.Value.Select(value => $"{header.Key}: {value}")));
+        }
+
+        private static bool IsHopByHopHeader(string name)
+        {
+            return name.Equals("Connection", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Proxy-Authenticate", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("TE", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Trailer", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase);
         }
 
         private static int GetFreePort()
@@ -278,6 +418,6 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         }
     }
 
-    [GeneratedRegex("https://[A-Za-z0-9.-]+(?::\\d+)?")]
+    [GeneratedRegex("https?://[A-Za-z0-9.%_-]+(?::\\d+)?")]
     private static partial Regex ServiceUrlRegex();
 }

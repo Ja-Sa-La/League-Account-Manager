@@ -33,6 +33,7 @@ public partial class LcuRequestTracker : Page
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         LcuRequestLog.RequestCompleted += OnRequestCompleted;
+        LcuWebSocketMonitor.Start();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -64,12 +65,19 @@ public partial class LcuRequestTracker : Page
         if (!matchesType)
             return false;
 
+        var selectedDirection = (DirectionFilter.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "All";
+        if (selectedDirection != "All" && !string.Equals(row.Record.Direction, selectedDirection,
+                StringComparison.OrdinalIgnoreCase))
+            return false;
+
         var search = SearchText.Text.Trim();
         return string.IsNullOrEmpty(search) ||
                row.Record.Endpoint.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                row.Record.Method.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                row.Record.RequestBody.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-               row.Record.ResponseBody.Contains(search, StringComparison.OrdinalIgnoreCase);
+               row.Record.ResponseBody.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               row.Record.RequestHeaders.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               row.Record.ResponseHeaders.Contains(search, StringComparison.OrdinalIgnoreCase);
     }
 
     private void SearchText_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -79,6 +87,12 @@ public partial class LcuRequestTracker : Page
     }
 
     private void TrafficTypeFilter_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _view?.Refresh();
+        UpdateStatus();
+    }
+
+    private void DirectionFilter_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _view?.Refresh();
         UpdateStatus();
@@ -95,10 +109,8 @@ public partial class LcuRequestTracker : Page
 
         RequestDetails.Text = string.IsNullOrWhiteSpace(row.Record.RequestBody)
             ? FormatRequestDetails(row.Record)
-            : $"{FormatRequestDetails(row.Record)}{Environment.NewLine}{Environment.NewLine}{row.Record.RequestBody}";
-        ResponseDetails.Text = string.IsNullOrWhiteSpace(row.Record.Error)
-            ? row.Record.ResponseBody
-            : $"{row.Record.Error}{Environment.NewLine}{Environment.NewLine}{row.Record.ResponseBody}";
+            : $"{FormatRequestDetails(row.Record)}{Environment.NewLine}{Environment.NewLine}{FormatPayload(row.Record.RequestBody)}";
+        ResponseDetails.Text = FormatResponseDetails(row.Record);
     }
 
     private static string FormatRequestDetails(LcuRequestRecord record)
@@ -110,6 +122,106 @@ public partial class LcuRequestTracker : Page
         return string.IsNullOrWhiteSpace(record.RequestHeaders)
             ? firstLine
             : $"{firstLine}{Environment.NewLine}{record.RequestHeaders}";
+    }
+
+    private static string FormatResponseDetails(LcuRequestRecord record)
+    {
+        var parts = new[] { record.ResponseHeaders, record.Error, FormatPayload(record.ResponseBody) }
+            .Where(value => !string.IsNullOrWhiteSpace(value));
+        return string.Join(Environment.NewLine + Environment.NewLine, parts);
+    }
+
+    private static string FormatPayload(string payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+            return string.Empty;
+
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind == JsonValueKind.String)
+            {
+                var nested = document.RootElement.GetString();
+                if (!string.IsNullOrWhiteSpace(nested) &&
+                    (nested.TrimStart().StartsWith('{') || nested.TrimStart().StartsWith('[')))
+                    return FormatPayload(nested);
+            }
+
+            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (JsonException)
+        {
+            return payload;
+        }
+    }
+
+    private void LoadSelectedRequest_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (TrafficGrid.SelectedItem is not TrafficRow row)
+        {
+            StatusText.Text = "Select a traffic item to load.";
+            return;
+        }
+
+        CustomTarget.SelectedIndex = row.Record.Target.Equals("riot", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        CustomMethod.SelectedItem = CustomMethod.Items.Cast<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Content?.ToString(), row.Record.Method,
+                StringComparison.OrdinalIgnoreCase));
+        CustomEndpoint.Text = row.Record.Endpoint;
+        CustomBody.Text = FormatPayload(row.Record.RequestBody);
+        StatusText.Text = "Loaded the selected request into the composer.";
+    }
+
+    private void CopyRequest_OnClick(object sender, RoutedEventArgs e)
+    {
+        CopyDetails(RequestDetails.Text, "request");
+    }
+
+    private void CopyResponse_OnClick(object sender, RoutedEventArgs e)
+    {
+        CopyDetails(ResponseDetails.Text, "response");
+    }
+
+    private void CopyDetails(string text, string label)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            StatusText.Text = $"No {label} data to copy.";
+            return;
+        }
+
+        Clipboard.SetText(text);
+        StatusText.Text = $"Copied {label} data.";
+    }
+
+    private async void SendCustomRequest_OnClick(object sender, RoutedEventArgs e)
+    {
+        var endpoint = CustomEndpoint.Text.Trim();
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            StatusText.Text = "Enter an LCU endpoint.";
+            return;
+        }
+
+        var target = (CustomTarget.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "league";
+        var method = (CustomMethod.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "GET";
+        try
+        {
+            StatusText.Text = $"Sending {method} {endpoint}...";
+            var result = await Lcu.Connector(target, method, endpoint, CustomBody.Text);
+            if (result is not System.Net.Http.HttpResponseMessage response)
+            {
+                StatusText.Text = "The selected client is not running.";
+                return;
+            }
+
+            using (response)
+                StatusText.Text = $"{method} {endpoint}: {(int)response.StatusCode} {response.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Request failed: {ex.Message}";
+        }
     }
 
     private void SelectAll_OnClick(object sender, RoutedEventArgs e)

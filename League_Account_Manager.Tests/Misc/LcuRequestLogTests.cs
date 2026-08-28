@@ -12,7 +12,7 @@ public class LcuRequestLogTests
     }
 
     [TestMethod]
-    public void Add_RedactsSensitiveJsonAndQueryValues()
+    public void Add_PreservesSensitiveJsonAndQueryValues()
     {
         var record = LcuRequestLog.Add(
             "riot",
@@ -25,15 +25,11 @@ public class LcuRequestLogTests
             12,
             requestHeaders: "Accept: application/json\nAuthorization: Basic visible\nCookie: session=visible");
 
-        Assert.IsFalse(record.Endpoint.Contains("visible", StringComparison.Ordinal));
-        Assert.IsFalse(record.RequestBody.Contains("visible", StringComparison.Ordinal));
-        Assert.IsFalse(record.ResponseBody.Contains("visible", StringComparison.Ordinal));
-        StringAssert.Contains(record.RequestBody, "[REDACTED]");
-        StringAssert.Contains(record.ResponseBody, "[REDACTED]");
-        StringAssert.Contains(record.RequestHeaders, "Accept: application/json");
-        StringAssert.Contains(record.RequestHeaders, "Authorization: [REDACTED]");
-        StringAssert.Contains(record.RequestHeaders, "Cookie: [REDACTED]");
-        Assert.IsFalse(record.RequestHeaders.Contains("visible", StringComparison.Ordinal));
+        StringAssert.Contains(record.Endpoint, "access_token=visible");
+        StringAssert.Contains(record.RequestBody, "\"password\":\"visible\"");
+        StringAssert.Contains(record.ResponseBody, "\"token\":\"visible\"");
+        StringAssert.Contains(record.RequestHeaders, "Authorization: Basic visible");
+        StringAssert.Contains(record.RequestHeaders, "Cookie: session=visible");
     }
 
     [TestMethod]
@@ -51,7 +47,7 @@ public class LcuRequestLogTests
         StringAssert.Contains(record.ResponseBody, "OnJsonApiEvent");
         StringAssert.Contains(record.ResponseBody, "eventType");
         StringAssert.Contains(record.ResponseBody, "Lobby");
-        Assert.IsFalse(record.ResponseBody.Contains("visible", StringComparison.Ordinal));
+        StringAssert.Contains(record.ResponseBody, "\"token\":\"visible\"");
     }
 
     [TestMethod]
