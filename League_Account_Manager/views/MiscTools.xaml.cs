@@ -113,6 +113,7 @@ public partial class MiscTools : Page
     {
         try
         {
+            RemoveFriendsChoice = 0;
             new RemoveFriendsConfirmation().ShowDialog();
             if (RemoveFriendsChoice == 1)
             {

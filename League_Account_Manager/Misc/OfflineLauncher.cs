@@ -585,7 +585,6 @@ internal class OfflineLauncher
                     break;
 
                 var text = Encoding.UTF8.GetString(bytes, 0, read);
-
                 if (text.Contains(StealthUserJid, StringComparison.OrdinalIgnoreCase))
                 {
                     DebugConsole.WriteLine(
@@ -638,7 +637,6 @@ internal class OfflineLauncher
                     break;
 
                 var content = Encoding.UTF8.GetString(bytes, 0, read);
-
                 if (!state.InsertedStealthUser && content.Contains(rosterMarker, StringComparison.Ordinal))
                 {
                     state.InsertedStealthUser = true;

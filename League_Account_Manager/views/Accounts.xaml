@@ -239,11 +239,11 @@
 
                     <Border Grid.Row="2" Padding="10" Background="{StaticResource SubtleOverlayBrush}" CornerRadius="5">
                         <ListBox x:Name="TaskListBox" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  Padding="4" FontSize="13">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
-                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Height" Value="22" />
                                     <Setter Property="Padding" Value="1,0" />
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="HorizontalContentAlignment" Value="Left" />

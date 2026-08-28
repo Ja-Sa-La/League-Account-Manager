@@ -21,6 +21,8 @@ internal static class AccountFileStore
     private const int TagSize = 16;
     private const int KeySize = 32;
     private const int Pbkdf2Iterations = 100_000;
+    private static readonly SemaphoreSlim StoreGate = new(1, 1);
+    private static readonly TimeSpan FileUnlockTimeout = TimeSpan.FromSeconds(30);
     private static readonly IReadOnlyList<IAccountTransferFormat> TransferFormats = new List<IAccountTransferFormat>
     {
         new StructuredJsonTransferFormat(),
@@ -67,6 +69,19 @@ internal static class AccountFileStore
     }
 
     public static async Task<List<Utils.AccountList>> LoadAsync(string filePath, CsvConfiguration config)
+    {
+        await StoreGate.WaitAsync();
+        try
+        {
+            return await LoadCoreAsync(filePath, config);
+        }
+        finally
+        {
+            StoreGate.Release();
+        }
+    }
+
+    private static async Task<List<Utils.AccountList>> LoadCoreAsync(string filePath, CsvConfiguration config)
     {
         if (!File.Exists(filePath)) return new List<Utils.AccountList>();
 
@@ -137,19 +152,28 @@ internal static class AccountFileStore
 
     public static async Task SaveAsync(string filePath, IEnumerable<Utils.AccountList> records, CsvConfiguration config)
     {
-        if (IsEncryptionEnabled)
+        await StoreGate.WaitAsync();
+        try
         {
-            var password = GetPassword();
-            if (string.IsNullOrWhiteSpace(password))
-                throw new InvalidOperationException("Account file encryption password not set.");
+            if (IsEncryptionEnabled)
+            {
+                var password = GetPassword();
+                if (string.IsNullOrWhiteSpace(password))
+                    throw new InvalidOperationException("Account file encryption password not set.");
 
-            await SaveEncryptedAsync(filePath, records, config, password);
+                await SaveEncryptedAsync(filePath, records, config, password);
+            }
+            else
+            {
+                await SavePlaintextAsync(filePath, records, config);
+            }
+
             AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
-            return;
         }
-
-        await SavePlaintextAsync(filePath, records, config);
-        AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
+        finally
+        {
+            StoreGate.Release();
+        }
     }
 
     public static void Save(string filePath, IEnumerable<Utils.AccountList> records, CsvConfiguration config)
@@ -169,8 +193,25 @@ internal static class AccountFileStore
 
     public static async Task<List<Utils.AccountList>> ImportAsync(string sourcePath, CsvConfiguration config)
     {
-        await WaitForFileUnlockAsync(sourcePath);
-        var data = await File.ReadAllBytesAsync(sourcePath);
+        await StoreGate.WaitAsync();
+        try
+        {
+            await WaitForFileUnlockAsync(sourcePath);
+            var data = await File.ReadAllBytesAsync(sourcePath);
+            if (data.Length == 0)
+                return new List<Utils.AccountList>();
+
+            return await ImportCoreAsync(sourcePath, data, config);
+        }
+        finally
+        {
+            StoreGate.Release();
+        }
+    }
+
+    private static async Task<List<Utils.AccountList>> ImportCoreAsync(string sourcePath, byte[] data,
+        CsvConfiguration config)
+    {
         if (data.Length == 0)
             return new List<Utils.AccountList>();
 
@@ -204,43 +245,62 @@ internal static class AccountFileStore
     public static async Task ExportAsync(string destinationPath, IEnumerable<Utils.AccountList> records,
         CsvConfiguration config, bool encryptExport, string? encryptionPassword)
     {
-        var format = ResolveTransferFormatByPath(destinationPath);
-        var content = format.Serialize(records.ToList(), config);
-
-        await WaitForFileUnlockAsync(destinationPath);
-
-        if (encryptExport)
+        await StoreGate.WaitAsync();
+        try
         {
-            if (string.IsNullOrWhiteSpace(encryptionPassword))
-                throw new InvalidOperationException("Export password is required when encryption is enabled.");
+            var format = ResolveTransferFormatByPath(destinationPath);
+            var content = format.Serialize(records.ToList(), config);
 
-            var encrypted = Encrypt(content, encryptionPassword);
-            await File.WriteAllBytesAsync(destinationPath, encrypted);
-            return;
+            await WaitForFileUnlockAsync(destinationPath);
+
+            if (encryptExport)
+            {
+                if (string.IsNullOrWhiteSpace(encryptionPassword))
+                    throw new InvalidOperationException("Export password is required when encryption is enabled.");
+
+                await AtomicWriteBytesAsync(destinationPath, Encrypt(content, encryptionPassword));
+            }
+            else
+            {
+                await AtomicWriteTextAsync(destinationPath, content);
+            }
         }
-
-        await File.WriteAllTextAsync(destinationPath, content);
+        finally
+        {
+            StoreGate.Release();
+        }
     }
 
     public static async Task ImportIntoCurrentStoreAsync(string sourcePath, CsvConfiguration config,
         bool combineAndDedupe)
     {
-        var importedRecords = await ImportAsync(sourcePath, config);
-        if (!combineAndDedupe)
+        await StoreGate.WaitAsync();
+        try
         {
-            await SaveAsync(GetAccountsFilePath(), importedRecords, config);
-            return;
+            await WaitForFileUnlockAsync(sourcePath);
+            var importedRecords = await ImportCoreAsync(sourcePath, await File.ReadAllBytesAsync(sourcePath), config);
+            if (!combineAndDedupe)
+            {
+                await SaveCoreAsync(GetAccountsFilePath(), importedRecords, config);
+                AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
+                return;
+            }
+
+            var existingRecords = await LoadCoreAsync(GetAccountsFilePath(), config);
+            var merged = existingRecords
+                .Concat(importedRecords)
+                .GroupBy(x => ((x.username ?? string.Empty).Trim().ToLowerInvariant(),
+                    (x.password ?? string.Empty).Trim()))
+                .Select(g => g.Last())
+                .ToList();
+
+            await SaveCoreAsync(GetAccountsFilePath(), merged, config);
+            AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
         }
-
-        var existingRecords = await LoadAsync(GetAccountsFilePath(), config);
-        var merged = existingRecords
-            .Concat(importedRecords)
-            .GroupBy(x => ((x.username ?? string.Empty).Trim().ToLowerInvariant(),
-                (x.password ?? string.Empty).Trim()))
-            .Select(g => g.Last())
-            .ToList();
-
-        await SaveAsync(GetAccountsFilePath(), merged, config);
+        finally
+        {
+            StoreGate.Release();
+        }
     }
 
     private static string? PromptForPassword(string message)
@@ -290,6 +350,21 @@ internal static class AccountFileStore
     }
 
     public static async Task RewriteForEncryptionStateAsync(string sourceFilePath, string destinationFilePath,
+        CsvConfiguration config, bool encrypt, string? currentPassword, string? newPassword)
+    {
+        await StoreGate.WaitAsync();
+        try
+        {
+            await RewriteForEncryptionStateCoreAsync(sourceFilePath, destinationFilePath, config, encrypt,
+                currentPassword, newPassword);
+        }
+        finally
+        {
+            StoreGate.Release();
+        }
+    }
+
+    private static async Task RewriteForEncryptionStateCoreAsync(string sourceFilePath, string destinationFilePath,
         CsvConfiguration config, bool encrypt, string? currentPassword, string? newPassword)
     {
         var isRename = !string.Equals(sourceFilePath, destinationFilePath, StringComparison.OrdinalIgnoreCase);
@@ -346,7 +421,7 @@ internal static class AccountFileStore
     {
         await WaitForFileUnlockAsync(filePath);
         var csvText = WriteStorageToString(records);
-        await File.WriteAllTextAsync(filePath, csvText);
+        await AtomicWriteTextAsync(filePath, csvText);
     }
 
     private static async Task SaveEncryptedAsync(string filePath, IEnumerable<Utils.AccountList> records,
@@ -358,7 +433,7 @@ internal static class AccountFileStore
         await WaitForFileUnlockAsync(filePath);
         var csvText = WriteStorageToString(records);
         var encrypted = Encrypt(csvText, password);
-        await File.WriteAllBytesAsync(filePath, encrypted);
+        await AtomicWriteBytesAsync(filePath, encrypted);
     }
 
     private static StorageReadResult ReadStorageFromString(string content, CsvConfiguration config)
@@ -463,8 +538,11 @@ internal static class AccountFileStore
         }
     }
 
-    private static async Task WaitForFileUnlockAsync(string filePath)
+    private static async Task WaitForFileUnlockAsync(string filePath, CancellationToken cancellationToken = default)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(FileUnlockTimeout);
+
         while (true)
             try
             {
@@ -475,8 +553,79 @@ internal static class AccountFileStore
             }
             catch (IOException)
             {
-                await Task.Delay(300);
+                await Task.Delay(300, timeout.Token);
             }
+    }
+
+    private static async Task SaveCoreAsync(string filePath, IEnumerable<Utils.AccountList> records,
+        CsvConfiguration config)
+    {
+        if (IsEncryptionEnabled)
+        {
+            var password = GetPassword();
+            if (string.IsNullOrWhiteSpace(password))
+                throw new InvalidOperationException("Account file encryption password not set.");
+
+            await SaveEncryptedAsync(filePath, records, config, password);
+        }
+        else
+        {
+            await SavePlaintextAsync(filePath, records, config);
+        }
+    }
+
+    private static async Task AtomicWriteTextAsync(string filePath, string content)
+    {
+        var temporaryPath = GetTemporaryPath(filePath);
+        try
+        {
+            await File.WriteAllTextAsync(temporaryPath, content, new UTF8Encoding(false));
+            ReplaceFile(temporaryPath, filePath);
+        }
+        finally
+        {
+            TryDeleteTemporaryFile(temporaryPath);
+        }
+    }
+
+    private static async Task AtomicWriteBytesAsync(string filePath, byte[] content)
+    {
+        var temporaryPath = GetTemporaryPath(filePath);
+        try
+        {
+            await File.WriteAllBytesAsync(temporaryPath, content);
+            ReplaceFile(temporaryPath, filePath);
+        }
+        finally
+        {
+            TryDeleteTemporaryFile(temporaryPath);
+        }
+    }
+
+    private static string GetTemporaryPath(string filePath)
+    {
+        return Path.Combine(Path.GetDirectoryName(filePath) ?? AppContext.BaseDirectory,
+            $".{Path.GetFileName(filePath)}.{Guid.NewGuid():N}.tmp");
+    }
+
+    private static void ReplaceFile(string temporaryPath, string destinationPath)
+    {
+        if (File.Exists(destinationPath))
+            File.Replace(temporaryPath, destinationPath, null);
+        else
+            File.Move(temporaryPath, destinationPath);
+    }
+
+    private static void TryDeleteTemporaryFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+        }
     }
 
     private static List<Utils.AccountList> ReadCsvFromString(string csvText, CsvConfiguration config)
@@ -885,6 +1034,9 @@ internal static class AccountFileStore
     private static string Decrypt(byte[] data, string password)
     {
         var headerBytes = Encoding.ASCII.GetBytes(EncryptionHeader);
+        if (data.Length < headerBytes.Length + SaltSize + NonceSize + TagSize)
+            throw new CryptographicException("Encrypted account data is incomplete.");
+
         var offset = headerBytes.Length;
 
         var salt = data.AsSpan(offset, SaltSize).ToArray();

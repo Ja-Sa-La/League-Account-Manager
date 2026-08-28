@@ -43,4 +43,30 @@ public class DebugClientTrafficLauncherTests
         Assert.AreEqual(matches[0].Groups[1].Value, matches[1].Groups[1].Value);
         Assert.AreNotEqual(matches[0].Groups[1].Value, matches[2].Groups[1].Value);
     }
+
+      [TestMethod]
+      public void RewriteConfig_RoutesRmsWebSocketOriginAndPreservesPath()
+      {
+        using var launcher = new DebugClientTrafficLauncher();
+        const string config = "{\"rms\":\"wss://eu.edge.rms.si.riotgames.com:443/v1/events\"}";
+
+        var rewritten = launcher.RewriteConfig(config);
+
+        StringAssert.Matches(rewritten,
+          new System.Text.RegularExpressions.Regex("ws://127\\.0\\.0\\.1:\\d+/v1/events"));
+      }
+
+      [TestMethod]
+      public void RewriteConfig_RoutesRtmpLcdsSettings()
+      {
+        using var launcher = new DebugClientTrafficLauncher();
+        const string config = "{\"lcds.lcds_host\":\"feapp.euw1.lol.pvp.net\",\"lcds.lcds_port\":2099,\"lcds.use_tls\":true}";
+
+        var rewritten = launcher.RewriteConfig(config);
+        var json = Newtonsoft.Json.Linq.JObject.Parse(rewritten);
+
+        Assert.AreEqual("127.0.0.1", json["lcds.lcds_host"]?.ToString());
+        Assert.AreNotEqual(2099, int.Parse(json["lcds.lcds_port"]?.ToString() ?? "0"));
+        Assert.AreEqual("False", json["lcds.use_tls"]?.ToString());
+      }
 }

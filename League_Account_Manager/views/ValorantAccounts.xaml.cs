@@ -64,7 +64,11 @@ public partial class ValorantAccounts : Page
         IsVisibleChanged += ValorantAccounts_IsVisibleChanged;
     }
 
-    public static List<Utils.AccountList> ActualAccountlists { get; set; } = new();
+    public static List<Utils.AccountList> ActualAccountlists
+    {
+        get => Accounts.ActualAccountlists;
+        set => Accounts.ActualAccountlists = value;
+    }
 
     private void ValorantAccounts_OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -635,7 +639,7 @@ public partial class ValorantAccounts : Page
                 }
 
 
-                Thread.Sleep(200);
+                await Task.Delay(200);
                 num++;
                 if (num == 80)
                 {
@@ -696,7 +700,10 @@ public partial class ValorantAccounts : Page
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
                         if (signInElement != null)
                         {
-                            while (!signInElement.IsEnabled) Thread.Sleep(200);
+                            for (var waitAttempt = 0; !signInElement.IsEnabled && waitAttempt < 150; waitAttempt++)
+                                await Task.Delay(200);
+                            if (!signInElement.IsEnabled)
+                                throw new TimeoutException("Timed out waiting for the sign-in button.");
                             DebugConsole.WriteLine("[ValorantAccounts] Sign-in button enabled, invoking login");
                             signInElement.Invoke();
 
@@ -814,11 +821,11 @@ public partial class ValorantAccounts : Page
                                 if (status == "\"AcceptanceRequired\"")
                                 {
                                     await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                                    Thread.Sleep(200);
+                                    await Task.Delay(200);
                                 }
                                 else
                                 {
-                                    Thread.Sleep(500);
+                                    await Task.Delay(500);
                                 }
                             }
 
@@ -839,14 +846,14 @@ public partial class ValorantAccounts : Page
                             break;
                         }
 
-                        Thread.Sleep(500);
+                        await Task.Delay(500);
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.Warn(ex, "Transient error during login automation");
                     DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                    Thread.Sleep(200);
+                    await Task.Delay(200);
                 }
         }
         catch (Exception exception)

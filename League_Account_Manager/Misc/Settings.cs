@@ -22,7 +22,30 @@ public class Settings
         var copy = settingsloaded;
         copy.AccountFileEncryptionPassword = null;
         var json = JsonSerializer.Serialize(copy);
-        File.WriteAllText(GetSettingsPath(), json);
+        var settingsPath = GetSettingsPath();
+        var temporaryPath = settingsPath + ".tmp";
+        var backupPath = settingsPath + ".bak";
+
+        try
+        {
+            using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream))
+            {
+                writer.Write(json);
+                writer.Flush();
+                stream.Flush(true);
+            }
+
+            if (File.Exists(settingsPath))
+                File.Replace(temporaryPath, settingsPath, backupPath, true);
+            else
+                File.Move(temporaryPath, settingsPath);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
     }
 
     public static async
@@ -32,8 +55,20 @@ public class Settings
         var settingsPath = GetSettingsPath();
         if (File.Exists(settingsPath))
         {
-            var settingstemp = File.ReadAllText(settingsPath);
-            settingsloaded = MergeWithDefaults(settingstemp);
+            try
+            {
+                settingsloaded = MergeWithDefaults(File.ReadAllText(settingsPath));
+            }
+            catch (Exception ex) when (ex is JsonException or IOException)
+            {
+                var backupPath = settingsPath + ".bak";
+                if (!File.Exists(backupPath))
+                    throw;
+
+                DebugConsole.WriteLine($"[Settings] Recovering settings backup: {ex.Message}");
+                settingsloaded = MergeWithDefaults(File.ReadAllText(backupPath));
+                File.Copy(backupPath, settingsPath, true);
+            }
             NormalizeAndMigrateAccountFileName();
             if (string.IsNullOrWhiteSpace(settingsloaded.LeagueDefaultSortColumn))
                 settingsloaded.LeagueDefaultSortColumn = "level";
@@ -317,36 +352,42 @@ public class Settings
             startedclient = 1;
         }
 
-        var num = 0;
-        while (true)
+        var clientDetected = false;
+        for (var attempt = 0; attempt < 25; attempt++)
         {
             if (Process.GetProcessesByName("Riot Client").Length != 0 ||
-                Process.GetProcessesByName("RiotClientUx").Length != 0) break;
-            Thread.Sleep(2000);
-            num++;
-            if (num == 5) break;
-        }
-
-        while (true)
-        {
-            var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "")
-                as System.Net.Http.HttpResponseMessage;
-            if (readyResp != null)
+                Process.GetProcessesByName("RiotClientUx").Length != 0)
             {
-                var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                try
-                {
-                    var node = JsonNode.Parse(readyBody);
-                    var ready = node?["ready"]?.GetValue<bool>() ?? false;
-                    if (ready)
-                        break;
-                }
-                catch
-                {
-                }
+                clientDetected = true;
+                break;
             }
 
-            await Task.Delay(200);
+            await Task.Delay(2000).ConfigureAwait(true);
+        }
+
+        if (clientDetected)
+        {
+            for (var attempt = 0; attempt < 150; attempt++)
+            {
+                var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "")
+                    as System.Net.Http.HttpResponseMessage;
+                if (readyResp != null)
+                {
+                    var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    try
+                    {
+                        var node = JsonNode.Parse(readyBody);
+                        var ready = node?["ready"]?.GetValue<bool>() ?? false;
+                        if (ready)
+                            break;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                await Task.Delay(200).ConfigureAwait(true);
+            }
         }
 
         DebugConsole.WriteLine("[Settings] Querying Riot client for League installation path.");

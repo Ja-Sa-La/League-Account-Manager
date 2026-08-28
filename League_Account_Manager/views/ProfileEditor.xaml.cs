@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -127,12 +128,14 @@ public partial class ProfileEditor : Page
     {
         try
         {
+            var statusMessage = StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ");
             var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me",
-                "{\"statusMessage\": \"" +
-                StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ") + "\"}");
+                JsonSerializer.Serialize(new { statusMessage }));
             responseBody2 = await ExecuteCommand("riot", "patch", "/chat/v1/settings",
-                "{\"chat-status-message\": \"" +
-                StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ") + "\"}");
+                JsonSerializer.Serialize(new Dictionary<string, string>
+                {
+                    ["chat-status-message"] = statusMessage
+                }));
             DebugConsole.WriteLine(responseBody2);
         }
         catch (Exception exception)

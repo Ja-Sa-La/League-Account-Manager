@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace League_Account_Manager.Misc;
@@ -27,8 +28,11 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         AutomaticDecompression = DecompressionMethods.None
     });
     private readonly ConcurrentDictionary<string, ForwardProxy> _proxies = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DebugRmsTrafficProxy> _rmsProxies = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DebugRtmpTrafficProxy> _rtmpProxies = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _sync = new();
     private ConfigProxy? _configProxy;
+    private DebugXmppTrafficProxy? _xmppProxy;
     private bool _disposed;
 
     internal async Task<Process> LaunchAsync(string riotClientPath, string arguments,
@@ -37,23 +41,32 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         Stop();
-        var configProxy = new ConfigProxy(this, _configHttpClient);
-        await configProxy.StartAsync(cancellationToken).ConfigureAwait(false);
-        lock (_sync)
-            _configProxy = configProxy;
-
-        var startInfo = new ProcessStartInfo
+        try
         {
-            FileName = riotClientPath,
-            Arguments = $"--client-config-url=\"{configProxy.Url}\" {arguments}",
-            WorkingDirectory = Path.GetDirectoryName(riotClientPath) ?? AppContext.BaseDirectory,
-            UseShellExecute = false
-        };
+            _xmppProxy = await DebugXmppTrafficProxy.CreateAsync(cancellationToken).ConfigureAwait(false);
+            var configProxy = new ConfigProxy(this, _configHttpClient);
+            await configProxy.StartAsync(cancellationToken).ConfigureAwait(false);
+            lock (_sync)
+                _configProxy = configProxy;
 
-        DebugConsole.WriteLine($"[Debug Capture] Launch args: {startInfo.Arguments}");
-        var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start Riot Client.");
-        DebugConsole.WriteLine($"[Debug Capture] Riot Client started with PID {process.Id}; HTTP proxies are active.");
-        return process;
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = riotClientPath,
+                Arguments = $"--client-config-url=\"{configProxy.Url}\" {arguments}",
+                WorkingDirectory = Path.GetDirectoryName(riotClientPath) ?? AppContext.BaseDirectory,
+                UseShellExecute = false
+            };
+
+            DebugConsole.WriteLine($"[Debug Capture] Launch args: {startInfo.Arguments}");
+            var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start Riot Client.");
+            DebugConsole.WriteLine($"[Debug Capture] Riot Client started with PID {process.Id}; HTTP, XMPP, RMS, and RTMP proxies are active.");
+            return process;
+        }
+        catch
+        {
+            Stop();
+            throw;
+        }
     }
 
     public void Dispose()
@@ -78,10 +91,33 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         foreach (var proxy in _proxies.Values)
             proxy.Dispose();
         _proxies.Clear();
+        foreach (var proxy in _rmsProxies.Values)
+            proxy.Dispose();
+        _rmsProxies.Clear();
+        foreach (var proxy in _rtmpProxies.Values)
+            proxy.Dispose();
+        _rtmpProxies.Clear();
+        _xmppProxy?.Dispose();
+        _xmppProxy = null;
     }
 
     internal string RewriteConfig(string content)
     {
+        content = RmsServiceUrlRegex().Replace(content, match =>
+        {
+            var origin = match.Value.TrimEnd('/');
+            if (!origin.Contains("rms", StringComparison.OrdinalIgnoreCase))
+                return match.Value;
+            var proxy = _rmsProxies.GetOrAdd(origin, key =>
+            {
+                var created = new DebugRmsTrafficProxy(key);
+                created.Start();
+                return created;
+            });
+            return $"ws://127.0.0.1:{proxy.Port}";
+        });
+        content = RewriteRtmpSettings(content);
+        content = RewriteXmppSettings(content);
         return ServiceUrlRegex().Replace(content, match =>
         {
             var origin = match.Value.TrimEnd('/');
@@ -96,6 +132,57 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
             });
             return $"http://127.0.0.1:{proxy.Port}";
         });
+    }
+
+    private string RewriteXmppSettings(string content)
+    {
+        if (_xmppProxy is null)
+            return content;
+
+        JsonNode? root;
+        try { root = JsonNode.Parse(content); }
+        catch { return content; }
+
+        if (root is not JsonObject config || config["chat.host"] is not JsonValue hostValue ||
+            !hostValue.TryGetValue<string>(out var host) || string.IsNullOrWhiteSpace(host) ||
+            config["chat.port"] is not JsonValue portValue || !portValue.TryGetValue<int>(out var port) || port <= 0)
+            return content;
+
+        if (config["chat.affinity.enabled"]?.GetValue<bool>() == true && config["chat.affinities"] is JsonObject affinities)
+        {
+            foreach (var affinity in affinities.ToList())
+                affinities[affinity.Key] = DebugXmppTrafficProxy.LocalhostDomain;
+        }
+
+        _xmppProxy.SetUpstream(host, port);
+        config["chat.host"] = DebugXmppTrafficProxy.LocalhostDomain;
+        config["chat.port"] = _xmppProxy.Port;
+        config["chat.use_tls.enabled"] = true;
+        return config.ToJsonString();
+    }
+
+    private string RewriteRtmpSettings(string content)
+    {
+        JsonNode? root;
+        try { root = JsonNode.Parse(content); }
+        catch { return content; }
+
+        if (root is not JsonObject config || config["lcds.lcds_host"] is not JsonValue hostValue ||
+            !hostValue.TryGetValue<string>(out var host) || string.IsNullOrWhiteSpace(host) ||
+            config["lcds.lcds_port"] is not JsonValue portValue || !portValue.TryGetValue<int>(out var port) || port <= 0)
+            return content;
+
+        var key = $"{host}:{port}";
+        var proxy = _rtmpProxies.GetOrAdd(key, _ =>
+        {
+            var created = new DebugRtmpTrafficProxy(host, port);
+            created.Start();
+            return created;
+        });
+        config["lcds.lcds_host"] = "127.0.0.1";
+        config["lcds.lcds_port"] = proxy.LocalPort;
+        config["lcds.use_tls"] = false;
+        return config.ToJsonString();
     }
 
     private static bool IsExcludedOrigin(string origin)
@@ -420,4 +507,7 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
 
     [GeneratedRegex("https?://[A-Za-z0-9.%_-]+(?::\\d+)?")]
     private static partial Regex ServiceUrlRegex();
+
+    [GeneratedRegex("wss?://[A-Za-z0-9.%_-]+(?::\\d+)?")]
+    private static partial Regex RmsServiceUrlRegex();
 }

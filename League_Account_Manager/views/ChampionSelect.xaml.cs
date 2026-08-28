@@ -103,9 +103,9 @@ public partial class ChampionSelect : Page
             }
 
             Gamestats gameStats = CalculateGameStats(games);
-            var wr = gameStats.Wins + gameStats.Losses > 0 ? gameStats.Wins / (gameStats.Wins + gameStats.Losses) : 0;
+            var wr = gameStats.Wins + gameStats.Losses > 0 ? gameStats.Wins / (double)(gameStats.Wins + gameStats.Losses) : 0;
             var kdaDen = gameStats.Deaths <= 0 ? 1 : gameStats.Deaths;
-            var kda = (gameStats.Kills + gameStats.Assists) / kdaDen;
+            var kda = (gameStats.Kills + gameStats.Assists) / (double)kdaDen;
 
             var solo = rankedinfo["queueMap"]?["RANKED_SOLO_5x5"];
             if (solo == null)
@@ -170,9 +170,9 @@ public partial class ChampionSelect : Page
             var deaths = gameStats.Deaths;
             var assists = gameStats.Assists;
 
-            var wr = wins + losses > 0 ? wins / (wins + losses) : 0;
+            var wr = wins + losses > 0 ? wins / (double)(wins + losses) : 0;
             var kdaDen = deaths <= 0 ? 1 : deaths;
-            var kda = (kills + assists) / kdaDen;
+            var kda = (kills + assists) / (double)kdaDen;
 
             var border = RanksList.ItemContainerGenerator.ContainerFromIndex(I) as FrameworkElement;
 

@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Windows;
 using League_Account_Manager;
 using Newtonsoft.Json;
@@ -131,12 +132,23 @@ public class Updates
             return null;
 
         var downloadUrl = channelData?["DownloadUrl"]?.Value<string>();
+        var sha256 = channelData?["Sha256"]?.Value<string>();
         var releaseUrl = channelData?["ReleaseUrl"]?.Value<string>();
         if (channel == UpdateReleaseChannel.Beta &&
             (string.IsNullOrWhiteSpace(downloadUrl) || string.IsNullOrWhiteSpace(releaseUrl)))
             return null;
         return new UpdateRelease(channelName, availableVersion!, downloadUrl ?? StableDownloadUrl,
-            releaseUrl ?? StableReleaseUrl);
+            releaseUrl ?? StableReleaseUrl, sha256);
+    }
+
+    private static bool IsTrustedDownloadUrl(string downloadUrl)
+    {
+        if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return uri.AbsolutePath.StartsWith("/Ja-Sa-La/League-Account-Manager/releases/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string> GetPatchNotesAsync(HttpClient client, string releaseUrl)
@@ -207,11 +219,16 @@ public class Updates
 
         try
         {
-            return JsonConvert.DeserializeObject<UpdateCompletion>(File.ReadAllText(completionPath));
+            var completion = JsonConvert.DeserializeObject<UpdateCompletion>(File.ReadAllText(completionPath));
+            if (completion != null)
+                File.Delete(completionPath);
+
+            return completion;
         }
-        finally
+        catch (JsonException ex)
         {
-            File.Delete(completionPath);
+            LogManager.GetCurrentClassLogger().Warn(ex, "Unable to parse update completion metadata");
+            return null;
         }
     }
 
@@ -246,12 +263,20 @@ public class Updates
         var downloadPath = Path.Combine(ApplicationDirectory, "temp_update.exe");
         try
         {
+            if (!IsTrustedDownloadUrl(release.DownloadUrl))
+                throw new InvalidDataException("Update download URL is not trusted.");
+
             using var client = new HttpClient();
             var updateBytes = await client.GetByteArrayAsync(release.DownloadUrl);
-            await File.WriteAllBytesAsync(downloadPath, updateBytes);
-            SaveUpdateCompletion(ApplicationDirectory,
-                new UpdateCompletion(release.Version, release.Channel, release.PatchNotes));
+            if (!string.IsNullOrWhiteSpace(release.Sha256))
+            {
+                var expectedHash = Convert.FromHexString(release.Sha256);
+                var actualHash = SHA256.HashData(updateBytes);
+                if (!CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
+                    throw new InvalidDataException("Downloaded update hash does not match the release manifest.");
+            }
 
+            await File.WriteAllBytesAsync(downloadPath, updateBytes);
             var startInfo = new ProcessStartInfo
             {
                 FileName = downloadPath,
@@ -259,7 +284,10 @@ public class Updates
             };
             startInfo.ArgumentList.Add("--finish-update");
             startInfo.ArgumentList.Add(ApplicationPath);
-            Process.Start(startInfo);
+            if (Process.Start(startInfo) == null)
+                throw new InvalidOperationException("Failed to start update helper.");
+            SaveUpdateCompletion(ApplicationDirectory,
+                new UpdateCompletion(release.Version, release.Channel, release.PatchNotes));
 
             Environment.Exit(1);
         }
@@ -276,7 +304,8 @@ internal enum UpdateReleaseChannel
     Beta
 }
 
-internal sealed record UpdateRelease(string Channel, string Version, string DownloadUrl, string ReleaseUrl)
+internal sealed record UpdateRelease(string Channel, string Version, string DownloadUrl, string ReleaseUrl,
+    string? Sha256 = null)
 {
     public string PatchNotes { get; set; } = string.Empty;
 }
