@@ -23,6 +23,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -89,36 +90,35 @@
                     </StackPanel>
                 </WrapPanel>
                 
-                <Border x:Name="RankProgressPanel" Grid.Row="2" Padding="12"
-                        Background="{StaticResource SurfaceRaisedBrush}" CornerRadius="6"
-                        BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1"
-                        Margin="0,8,0,0" Visibility="Collapsed">
+                <Border x:Name="RankProgressPanel" Grid.Row="3" Padding="10,8"
+                        Background="{StaticResource SubtleOverlayBrush}" CornerRadius="5"
+                        Margin="0,12,0,0" Visibility="Collapsed">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="180" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
-                            <Ellipse Width="8" Height="8" Margin="0,0,8,0"
+                        <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
+                            <Ellipse Width="7" Height="7" Margin="0,0,7,0"
                                      Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="Updating ranks" Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
-                        <StackPanel Grid.Column="1">
-                            <Grid Margin="0,0,0,6">
-                                <TextBlock x:Name="RankProgressStatus" Foreground="{StaticResource TextSecondaryBrush}"
-                                           FontSize="12" TextTrimming="CharacterEllipsis" />
-                                <TextBlock x:Name="RankProgressPercent" HorizontalAlignment="Right"
-                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                            </Grid>
-                            <ProgressBar x:Name="RankProgressBar" Height="6" Minimum="0"
-                                         Foreground="{StaticResource SuccessBrush}"
-                                         Background="{StaticResource StrokeBrush}" />
+                        <ProgressBar x:Name="RankProgressBar" Grid.Column="1" Height="5" Minimum="0"
+                                     VerticalAlignment="Center" Foreground="{StaticResource SuccessBrush}"
+                                     Background="{StaticResource StrokeBrush}" />
+                        <TextBlock x:Name="RankProgressStatus" Grid.Column="2" Margin="12,0,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                            <TextBlock x:Name="RankProgressPercent" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"
+                                       Margin="0,0,12,0" />
+                            <ui:Button x:Name="RankProgressCancel" Content="Cancel"
+                                       Click="CancelAccountOperation_Click" MinWidth="64" Padding="8,4" />
                         </StackPanel>
-                        <ui:Button x:Name="RankProgressCancel" Grid.Column="2" Content="Cancel"
-                                   Click="CancelAccountOperation_Click" MinWidth="80" Padding="10,6"
-                                   Margin="16,0,0,0" />
                     </Grid>
                 </Border>
             </Grid>
