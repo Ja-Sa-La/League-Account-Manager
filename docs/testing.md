@@ -24,6 +24,8 @@ The same commands are available as the VS Code tasks `test League_Account_Manage
 - LCU summoner, wallet, ranked stats, match history, ready-state, and EULA response parsing
 - Utility formatting, region conversion, queue conversion, sorting, and derived account counts
 - Offline launcher path normalization and PowerShell escaping
+- LCU request-log field preservation and request/response merging
+- Debug client proxy configuration and service-origin routing
 
 API fixtures follow the response metadata documented by `KebsCS/lcu-and-riotclient-api`.
 
@@ -35,7 +37,7 @@ The following behavior requires an installed Riot client, operating-system chang
 - Launching, stopping, or replacing Riot and application processes
 - Self-update replacement of the running executable
 - Hosts-file elevation and certificate download/cache behavior
-- TLS chat proxying and live presence injection
+- TLS chat proxying, live presence injection, and debug traffic proxying
 - File pickers, message boxes, clipboard access, and full WPF navigation/event lifecycles
 
 These areas should be exercised by a Windows integration smoke test before publishing a release.

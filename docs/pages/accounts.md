@@ -9,12 +9,14 @@ The accounts page focuses on viewing and working with account entries, including
 - Display account entries in a list with account metadata.
 - Trigger client actions like login, stealth login, and client launch.
 - Pull account data and manage stored entries.
+- Update ranks for all accounts with progress shown directly below the account actions.
 
 ## Options
 
 - `Kill client`: close the League client.
 - `Open League`: launch the League client.
 - `PullData`: fetch account-related data and update the grid.
+- Rank update: refresh SoloQ and FlexQ ranks for all accounts and show progress, completion count, and cancellation.
 - `Delete`: remove the selected account entry.
 - `Login`: log in with the selected account.
 - `Stealth Login`: log in without showing online status.
@@ -29,7 +31,8 @@ The accounts page focuses on viewing and working with account entries, including
 
 1. Open the accounts page from the main window.
 2. Review the list of accounts and use the filter to narrow results.
-3. Select an account and use the action buttons to manage it.
+3. Use the account action groups to launch, log in, pull data, manage tokens, or edit entries.
+4. Start a rank update and monitor its progress in the Accounts header; it continues while you navigate to another page.
 
 ### Login token generation and usage
 
@@ -48,4 +51,5 @@ The accounts page focuses on viewing and working with account entries, including
 
 - View: `views/Accounts.xaml`
 - Code-behind: `views/Accounts.xaml.cs`
-- Uses a WPF `DataGrid` with columns for username, password, Riot ID, level, server, currency, ranks, champions, skins, loot, and notes.
+- Uses a WPF `DataGrid` with columns for username, password, Riot ID, level, server, currency, SoloQ, FlexQ, champions, skins, loot, and notes.
+- The account activity panel reports the current operation and its task list, with cancellation available for supported operations.
