@@ -16,6 +16,8 @@ This site documents the app, its features, and the WPF pages in the UI.
 - Report tool with improved post-game UI
 - Misc tools: log remover, loot value checker, queue helpers, etc.
 - Stealth login (launch/login without showing yourself online)
+- Debug mode login and LCU traffic inspection
+- Automatic update checks and optional beta releases
 
 ## Screenshots
 
@@ -78,14 +80,15 @@ This site documents the app, its features, and the WPF pages in the UI.
 ## Requirements
 
 - Windows
-- .NET 8 Desktop Runtime (for the packaged app) or SDK (for building)
+- .NET 10 Desktop Runtime for the packaged app
+- .NET 10 SDK for building and testing from source
 
 ## Install & Run (binary)
 
 <a href="https://github.com/Ja-Sa-La/League-Account-Manager/releases" class="download-button">Download Latest Release</a>
 
 1. [Download](https://github.com/Ja-Sa-La/League-Account-Manager/releases) the latest release build
-2. Ensure .NET 8 Desktop Runtime is installed
+2. Ensure .NET 10 Desktop Runtime is installed
 3. Run `League Account Manager.exe`
 4. If League permissions block some operations, start the app as Administrator
 
@@ -103,6 +106,7 @@ dotnet run --project League_Account_Manager/League_Account_Manager.csproj
 
 - All account data stays on your machine (local CSV)
 - Uses only LCU endpoints; no automation via autoclickers
+- Account credentials and captured traffic may contain sensitive data; protect exported files and debug logs.
 
 ## Troubleshooting
 
@@ -115,10 +119,15 @@ PRs and issues are welcome. Please keep changes within Riot’s ToS and LCU guid
 
 ## Technical details
 
-- UI framework: WPF on .NET 8.
+- UI framework: WPF on .NET 10 (`net10.0-windows7.0`) with WPF-UI controls.
 - Each page uses a XAML view and a code-behind file (for example, `views/Accounts.xaml` and `views/Accounts.xaml.cs`).
 - Windows and dialogs live under `Windows` and are opened by the main workflow as needed.
 
 ## Tutorials
 
 For each page, open the relevant view from the main window, follow the steps listed on that page, and return here for navigation.
+
+## Release channels
+
+- Stable: tested releases only.
+- Beta: early access to new features and fixes; beta builds may contain bugs.
