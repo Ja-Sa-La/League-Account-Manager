@@ -145,55 +145,158 @@ internal class DebugConsoleWindow : Window
     private const int MaxLength = 500;
     private const int MaxEntries = 2000;
     private readonly TextBox _commandBox;
+    private readonly Button _clearButton;
+    private readonly Button _copyAllButton;
+    private readonly Button _exportButton;
     private readonly KeyGesture _keyGesture;
     private readonly StackPanel _outputPanel;
+    private readonly ScrollViewer _scrollViewer;
 
     private ConsoleEntry? _lastEntry;
 
     public DebugConsoleWindow()
     {
         Title = "LAM Console";
-        Width = 900;
-        Height = 450;
-        Background = Brushes.Black;
+        Width = 1000;
+        Height = 600;
+        Background = new SolidColorBrush(Color.FromRgb(16, 19, 21));
         WindowStyle = WindowStyle.ToolWindow;
         ResizeMode = ResizeMode.CanResize;
         _keyGesture = new KeyGesture(Key.F12);
 
         _outputPanel = new StackPanel
         {
-            Background = Brushes.Black
+            Background = new SolidColorBrush(Color.FromRgb(24, 28, 31))
         };
 
-        var scrollViewer = new ScrollViewer
+        _scrollViewer = new ScrollViewer
         {
             Content = _outputPanel,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Background = Brushes.Black
+            Background = new SolidColorBrush(Color.FromRgb(24, 28, 31)),
+            Padding = new Thickness(8)
         };
+
+        var titleBar = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(16, 19, 21)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(52, 59, 64)),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(12, 8, 12, 8)
+        };
+
+        var titleStack = new StackPanel
+        {
+            Orientation = Orientation.Horizontal
+        };
+
+        var titleText = new TextBlock
+        {
+            Text = "LAM Console",
+            FontFamily = new FontFamily("Segoe UI Variable Display"),
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(244, 247, 248)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var subtitleText = new TextBlock
+        {
+            Text = " • Press F12 to toggle",
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromRgb(174, 184, 190)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0)
+        };
+
+        titleStack.Children.Add(titleText);
+        titleStack.Children.Add(subtitleText);
+        titleBar.Child = titleStack;
 
         _commandBox = new TextBox
         {
-            Margin = new Thickness(6, 4, 6, 4),
-            Background = Brushes.Black,
-            Foreground = Brushes.White,
-            BorderBrush = Brushes.Gray,
+            Margin = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromRgb(32, 37, 41)),
+            Foreground = new SolidColorBrush(Color.FromRgb(244, 247, 248)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(52, 59, 64)),
             BorderThickness = new Thickness(1),
             FontFamily = new FontFamily("Consolas"),
-            FontSize = 12
+            FontSize = 13,
+            Padding = new Thickness(10, 8, 10, 8),
+            VerticalContentAlignment = VerticalAlignment.Center
         };
 
         var sendButton = new Button
         {
             Content = "Send",
-            Margin = new Thickness(0, 4, 6, 4),
-            Padding = new Thickness(12, 4, 12, 4),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
+            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(16, 8, 16, 8),
+            Background = new SolidColorBrush(Color.FromRgb(77, 163, 255)),
+            Foreground = new SolidColorBrush(Color.FromRgb(244, 247, 248)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(77, 163, 255)),
+            BorderThickness = new Thickness(0),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            MinWidth = 80
+        };
+
+        _clearButton = new Button
+        {
+            Content = "Clear",
+            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(16, 8, 16, 8),
+            Background = new SolidColorBrush(Color.FromRgb(32, 37, 41)),
+            Foreground = new SolidColorBrush(Color.FromRgb(244, 247, 248)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(52, 59, 64)),
+            BorderThickness = new Thickness(1),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            MinWidth = 80
+        };
+
+        _copyAllButton = new Button
+        {
+            Content = "Copy All",
+            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(16, 8, 16, 8),
+            Background = new SolidColorBrush(Color.FromRgb(32, 37, 41)),
+            Foreground = new SolidColorBrush(Color.FromRgb(244, 247, 248)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(52, 59, 64)),
+            BorderThickness = new Thickness(1),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            MinWidth = 80
+        };
+
+        _exportButton = new Button
+        {
+            Content = "Export",
+            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(16, 8, 16, 8),
+            Background = new SolidColorBrush(Color.FromRgb(32, 37, 41)),
+            Foreground = new SolidColorBrush(Color.FromRgb(244, 247, 248)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(52, 59, 64)),
+            BorderThickness = new Thickness(1),
+            FontFamily = new FontFamily("Segoe UI Variable Text"),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            MinWidth = 80
         };
 
         sendButton.Click += async (_, _) => await ExecuteCommandAsync(_commandBox.Text);
+        _clearButton.Click += (_, _) => ClearConsole();
+        _copyAllButton.Click += (_, _) => CopyAllLogs();
+        _exportButton.Click += (_, _) => ExportLogs();
+
         _commandBox.KeyDown += async (_, e) =>
         {
             if (e.Key == Key.Enter)
@@ -203,24 +306,38 @@ internal class DebugConsoleWindow : Window
             }
         };
 
+        var buttonStack = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        buttonStack.Children.Add(_clearButton);
+        buttonStack.Children.Add(_copyAllButton);
+        buttonStack.Children.Add(_exportButton);
+        buttonStack.Children.Add(sendButton);
+
         var commandPanel = new DockPanel
         {
             LastChildFill = true,
-            Background = Brushes.Black
+            Background = new SolidColorBrush(Color.FromRgb(16, 19, 21)),
+            Margin = new Thickness(12)
         };
 
-        DockPanel.SetDock(sendButton, Dock.Right);
-        commandPanel.Children.Add(sendButton);
+        DockPanel.SetDock(buttonStack, Dock.Right);
+        commandPanel.Children.Add(buttonStack);
         commandPanel.Children.Add(_commandBox);
 
         var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        Grid.SetRow(scrollViewer, 0);
-        Grid.SetRow(commandPanel, 1);
+        Grid.SetRow(titleBar, 0);
+        Grid.SetRow(_scrollViewer, 1);
+        Grid.SetRow(commandPanel, 2);
 
-        layout.Children.Add(scrollViewer);
+        layout.Children.Add(titleBar);
+        layout.Children.Add(_scrollViewer);
         layout.Children.Add(commandPanel);
 
         Content = layout;
@@ -256,8 +373,53 @@ internal class DebugConsoleWindow : Window
                     _outputPanel.Children.RemoveAt(0);
             }
 
-            if (_outputPanel.Parent is ScrollViewer sv) sv.ScrollToEnd();
+            _scrollViewer.ScrollToEnd();
         });
+    }
+
+    private void ClearConsole()
+    {
+        _outputPanel.Children.Clear();
+        _lastEntry = null;
+    }
+
+    private void CopyAllLogs()
+    {
+        var text = GetAllLogsText();
+        if (!string.IsNullOrEmpty(text))
+            Clipboard.SetText(text);
+    }
+
+    private void ExportLogs()
+    {
+        var text = GetAllLogsText();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"LAM-Console-{DateTime.Now:yyyy-MM-dd_HHmmss}.log",
+            Filter = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+            DefaultExt = ".log"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+            File.WriteAllText(dialog.FileName, text);
+    }
+
+    private string GetAllLogsText()
+    {
+        var builder = new StringBuilder();
+        foreach (var child in _outputPanel.Children)
+            if (child is Border { Tag: ConsoleEntry entry })
+            {
+                builder.Append(entry.FullText);
+                if (entry.Count > 1)
+                    builder.Append($" (x{entry.Count})");
+                builder.Append(Environment.NewLine);
+            }
+
+        return builder.ToString();
     }
 
     private ConsoleEntry CreateEntry(string text, ConsoleColor color)
@@ -271,23 +433,32 @@ internal class DebugConsoleWindow : Window
             IsTruncated = text?.Length > MaxLength
         };
 
+        var textBox = new TextBox
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = ColorToBrush(color),
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 12,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            Cursor = Cursors.Arrow
+        };
+
         var border = new Border
         {
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Padding = new Thickness(6, 2, 6, 2),
-            Child = new TextBox
-            {
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = ColorToBrush(color),
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 12,
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                IsReadOnly = true,
-                AcceptsReturn = true
-            }
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0, 1, 0, 1),
+            Tag = entry,
+            Child = textBox
         };
+
+        border.MouseEnter += (_, _) => border.Background = new SolidColorBrush(Color.FromRgb(41, 47, 52));
+        border.MouseLeave += (_, _) => border.Background = Brushes.Transparent;
 
         border.PreviewMouseLeftButtonDown += (_, e) =>
         {
@@ -299,15 +470,19 @@ internal class DebugConsoleWindow : Window
         };
         border.MouseRightButtonUp += (_, _) => Clipboard.SetText(entry.FullText);
 
-        if (border.Child is TextBox tb)
-            tb.PreviewMouseLeftButtonDown += (_, e) =>
+        textBox.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            if (e.ClickCount == 2)
             {
-                if (e.ClickCount == 2)
-                {
-                    ToggleExpand(entry);
-                    e.Handled = true;
-                }
-            };
+                ToggleExpand(entry);
+                e.Handled = true;
+            }
+        };
+        textBox.MouseRightButtonUp += (_, e) =>
+        {
+            Clipboard.SetText(entry.FullText);
+            e.Handled = true;
+        };
 
         entry.Container = border;
         UpdateEntryVisual(entry);

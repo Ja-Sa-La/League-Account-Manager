@@ -32,8 +32,8 @@
                                                  <CheckBox Name="savesettingsupdates" Content="Check for updates automatically" Margin="0,0,0,12" />
                                                  <TextBlock Text="Release channel" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
                                                  <ComboBox x:Name="ReleaseChannel" SelectedIndex="0">
-                                                        <ComboBoxItem Content="Stable releases only" />
-                                                        <ComboBoxItem Content="Stable and beta releases" />
+                                                        <ComboBoxItem Content="Stable — Tested releases only" />
+                                                        <ComboBoxItem Content="Beta — Early access to new features (may have bugs)" />
                                                  </ComboBox>
                                           </StackPanel>
                                    </Border>

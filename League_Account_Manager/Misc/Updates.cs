@@ -284,8 +284,10 @@ public class Updates
             };
             startInfo.ArgumentList.Add("--finish-update");
             startInfo.ArgumentList.Add(ApplicationPath);
-            if (Process.Start(startInfo) == null)
-                throw new InvalidOperationException("Failed to start update helper.");
+            var process = Process.Start(startInfo);
+            if (process == null)
+                throw new InvalidOperationException("Failed to start update helper");
+            process.Dispose();
             SaveUpdateCompletion(ApplicationDirectory,
                 new UpdateCompletion(release.Version, release.Channel, release.PatchNotes));
 
