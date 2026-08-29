@@ -174,7 +174,6 @@ public partial class Accounts : Page
     private void Accounts_Unloaded(object sender, RoutedEventArgs e)
     {
         _accountOperationCancellation?.Cancel();
-        _rankUpdateCancellation?.Cancel();
         StopAccountsScrollAnimation();
         AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
         Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
@@ -200,7 +199,10 @@ public partial class Accounts : Page
                 await LoadDataAsync();
             }).Task.Unwrap();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error reloading accounts after file update");
+        }
     }
 
     private async void Accounts_Loaded(object sender, RoutedEventArgs e)
@@ -633,26 +635,26 @@ public partial class Accounts : Page
     private void ShowRankProgress(int total, CancellationTokenSource cancellation)
     {
         _rankUpdateCancellation = cancellation;
-        RankProgressToastBar.Maximum = total;
-        RankProgressToastBar.Value = 0;
-        RankProgressToastPercent.Text = "0%";
-        RankProgressToastStatus.Text = $"Preparing 0 of {total} accounts...";
-        RankProgressToastCancel.IsEnabled = true;
-        RankProgressToast.Visibility = Visibility.Visible;
+        RankProgressBar.Maximum = total;
+        RankProgressBar.Value = 0;
+        RankProgressPercent.Text = "0%";
+        RankProgressStatus.Text = $"Preparing 0 of {total} accounts...";
+        RankProgressCancel.IsEnabled = true;
+        RankProgressPanel.Visibility = Visibility.Visible;
     }
 
     private void UpdateRankProgress(int current, int total, string accountLabel)
     {
-        RankProgressToastBar.Value = current;
-        RankProgressToastPercent.Text = $"{current / (double)total:P0}";
-        RankProgressToastStatus.Text = $"{accountLabel}  |  {current} of {total} completed";
+        RankProgressBar.Value = current;
+        RankProgressPercent.Text = $"{current / (double)total:P0}";
+        RankProgressStatus.Text = $"{accountLabel}  |  {current} of {total} completed";
     }
 
     private void HideRankProgress()
     {
         _rankUpdateCancellation?.Dispose();
         _rankUpdateCancellation = null;
-        RankProgressToast.Visibility = Visibility.Collapsed;
+        RankProgressPanel.Visibility = Visibility.Collapsed;
     }
 
     private CancellationTokenSource? BeginAccountOperation(string title, IEnumerable<string> tasks)
@@ -768,8 +770,8 @@ public partial class Accounts : Page
     {
         if (_rankUpdateCancellation != null)
         {
-            RankProgressToastStatus.Text = "Cancelling rank update...";
-            RankProgressToastCancel.IsEnabled = false;
+            RankProgressStatus.Text = "Cancelling rank update...";
+            RankProgressCancel.IsEnabled = false;
             _rankUpdateCancellation.Cancel();
             return;
         }

@@ -5,11 +5,13 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
+using NLog;
 
 namespace League_Account_Manager.Misc;
 
 internal class Lcu
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private const string ValorantClientPlatformHeader =
         "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
 
@@ -44,8 +46,9 @@ internal class Lcu
                         break;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Logger.Debug(ex, "Failed to retrieve Riot process command line for process {ProcessId}", ritoprocess.Id);
                 }
         }
         else if (leagueClientProcess != null)
@@ -56,8 +59,9 @@ internal class Lcu
                 SetRiotValues(leagueClientProcess, value, true);
                 TryGetConnectionDetails(Riot, out riotPort, out riotToken, out _);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Logger.Debug(ex, "Failed to retrieve League client command line for Riot connection");
             }
         }
 
@@ -70,8 +74,9 @@ internal class Lcu
                 if (TryGetConnectionDetails(League, out leaguePort, out leagueToken, out _))
                     break;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Logger.Debug(ex, "Failed to retrieve League client command line for process {ProcessId}", leagueprocess.Id);
             }
 
         return Task.FromResult((riotPort, riotToken, leaguePort, leagueToken));
@@ -101,8 +106,9 @@ internal class Lcu
                         if (Riot.port[1].ToString() != "2")
                             break;
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Logger.Debug(ex, "Failed to retrieve Riot process command line in Connector for process {ProcessId}", ritoprocess.Id);
                     }
             }
             else if (leagueClientProcess != null)
@@ -126,8 +132,9 @@ internal class Lcu
                     SetLeagueValues(leagueprocess, value);
                     break;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Logger.Debug(ex, "Failed to retrieve League client command line in Connector for process {ProcessId}", leagueprocess.Id);
                 }
         }
 
@@ -315,17 +322,14 @@ internal class Lcu
         catch (Exception ex)
         {
             started.Stop();
+            request.Dispose();
+            client.Dispose();
             LcuRequestLog.Add(target, method, request.RequestUri?.PathAndQuery ?? endpoint, data, null,
                 ex is OperationCanceledException ? "Cancelled" : "Failed", string.Empty,
                 started.ElapsedMilliseconds, ex.Message,
-                requestHeaders: FormatRequestHeaders(client, request),
+                requestHeaders: string.Empty,
                 direction: "Incoming");
             throw;
-        }
-        finally
-        {
-            request.Dispose();
-            client.Dispose();
         }
     }
 

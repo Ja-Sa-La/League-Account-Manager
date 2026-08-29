@@ -103,9 +103,11 @@ public partial class ChampionSelect : Page
             }
 
             Gamestats gameStats = CalculateGameStats(games);
-            var wr = gameStats.Wins + gameStats.Losses > 0 ? gameStats.Wins / (double)(gameStats.Wins + gameStats.Losses) : 0;
-            var kdaDen = gameStats.Deaths <= 0 ? 1 : gameStats.Deaths;
-            var kda = (gameStats.Kills + gameStats.Assists) / (double)kdaDen;
+            var wins = (double)(gameStats.Wins ?? 0);
+            var losses = (double)(gameStats.Losses ?? 0);
+            var wr = (wins + losses) > 0 ? wins / (double)(wins + losses) : 0;
+            var kdaDen = (double)(gameStats.Deaths ?? 0) <= 0 ? 1 : (double)(gameStats.Deaths ?? 0);
+            var kda = ((double)(gameStats.Kills ?? 0) + (double)(gameStats.Assists ?? 0)) / (double)kdaDen;
 
             var solo = rankedinfo["queueMap"]?["RANKED_SOLO_5x5"];
             if (solo == null)
@@ -164,13 +166,13 @@ public partial class ChampionSelect : Page
             }
 
             Gamestats gameStats = CalculateGameStats(games);
-            var wins = gameStats.Wins;
-            var losses = gameStats.Losses;
-            var kills = gameStats.Kills;
-            var deaths = gameStats.Deaths;
-            var assists = gameStats.Assists;
+            var wins = (double)(gameStats.Wins ?? 0);
+            var losses = (double)(gameStats.Losses ?? 0);
+            var kills = (double)(gameStats.Kills ?? 0);
+            var deaths = (double)(gameStats.Deaths ?? 0);
+            var assists = (double)(gameStats.Assists ?? 0);
 
-            var wr = wins + losses > 0 ? wins / (double)(wins + losses) : 0;
+            var wr = (wins + losses) > 0 ? wins / (double)(wins + losses) : 0;
             var kdaDen = deaths <= 0 ? 1 : deaths;
             var kda = (kills + assists) / (double)kdaDen;
 

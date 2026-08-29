@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -31,6 +32,7 @@ public partial class MainWindow : Window
     private TaskCompletionSource<MessageBoxResult>? _updateModalCompletion;
     private Action? _updateModalReleaseAction;
     private Action? _updateModalUpdateAction;
+    private DispatcherTimer? _updateCheckTimer;
 
     public MainWindow()
     {
@@ -100,10 +102,15 @@ public partial class MainWindow : Window
 
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)
+            {
                 await Updates.UpdateCheckAsync();
+                StartPeriodicUpdateCheck();
+            }
             else
+            {
                 DebugConsole.WriteLine("[Updates] Automatic update checks are disabled in settings.",
                     ConsoleColor.Yellow);
+            }
 
             DebugConsole.WriteLine($"[Startup] League client path: {Settings.settingsloaded.LeaguePath}");
             var releaseChannel = string.Equals(Settings.settingsloaded.ReleaseChannel, "Beta",
@@ -125,6 +132,36 @@ public partial class MainWindow : Window
             });
             Environment.Exit(1); // Exit the application on critical error
         }
+    }
+
+    private void StartPeriodicUpdateCheck()
+    {
+        _updateCheckTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromHours(1)
+        };
+        _updateCheckTimer.Tick += async (sender, args) =>
+        {
+            try
+            {
+                if (Settings.settingsloaded.updates)
+                {
+                    DebugConsole.WriteLine("[Updates] Running periodic update check");
+                    await Updates.UpdateCheckAsync();
+                }
+                else
+                {
+                    DebugConsole.WriteLine("[Updates] Periodic check skipped (disabled in settings)");
+                    _updateCheckTimer?.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Periodic update check failed");
+            }
+        };
+        _updateCheckTimer.Start();
+        DebugConsole.WriteLine("[Updates] Periodic update check started (every 1 hour)");
     }
 
     private void MainWindowOnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -195,7 +232,7 @@ public partial class MainWindow : Window
         _updateModalReleaseAction = releaseAction;
         UpdateModalTitle.Text = "Update available";
         UpdateModalVersion.Text = $"A new {channel.ToLowerInvariant()} release is available: {version}";
-        UpdateModalPatchNotes.Text = $"Patch notes{Environment.NewLine}{Environment.NewLine}{NormalizePatchNotes(patchNotes)}";
+        UpdateModalPatchNotes.Text = NormalizePatchNotes(patchNotes);
         UpdateModalLater.Content = "Later";
         UpdateModalLater.Visibility = Visibility.Visible;
         UpdateModalRelease.Visibility = Visibility.Visible;
@@ -221,11 +258,17 @@ public partial class MainWindow : Window
 
     private static string NormalizePatchNotes(string patchNotes)
     {
-        return patchNotes
+        var normalized = patchNotes
             .Replace("\\r\\n", Environment.NewLine, StringComparison.Ordinal)
             .Replace("\\n", Environment.NewLine, StringComparison.Ordinal)
             .Replace("\\r", Environment.NewLine, StringComparison.Ordinal)
             .Trim();
+
+        normalized = Regex.Replace(normalized, @"^#{1,6}\s*", string.Empty, RegexOptions.Multiline);
+        normalized = Regex.Replace(normalized, @"^\s*[-*+]\s+", "- ", RegexOptions.Multiline);
+        normalized = Regex.Replace(normalized, @"\*\*(.+?)\*\*", "$1");
+        normalized = Regex.Replace(normalized, @"__(.+?)__", "$1");
+        return normalized.Trim();
     }
 
     private void CloseUpdateModal(MessageBoxResult result, Action? action = null)
