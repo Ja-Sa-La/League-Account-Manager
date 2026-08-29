@@ -175,16 +175,6 @@ public partial class Accounts : Page
     {
         _accountOperationCancellation?.Cancel();
         StopAccountsScrollAnimation();
-        AccountFileStore.AccountsFileUpdated -= OnAccountsFileUpdated;
-        Misc.Settings.AccountPasswordSupplied -= OnAccountPasswordSupplied;
-        if (fileWatcher != null)
-        {
-            fileWatcher.EnableRaisingEvents = false;
-            fileWatcher.Changed -= OnChanged;
-            fileWatcher.Dispose();
-            fileWatcher = null;
-        }
-        _initialized = false;
     }
 
     private async void OnAccountsFileUpdated(object? sender, EventArgs e)

@@ -226,9 +226,9 @@
         <Grid x:Name="Progressgrid" Grid.RowSpan="2" Panel.ZIndex="20" Visibility="Collapsed"
               Background="Transparent">
                 <Border Background="{StaticResource OverlayBrush}" />
-                <Border Width="540" MaxHeight="590" Style="{StaticResource ModalPanelStyle}" Padding="26"
+                <Border Width="480" MaxHeight="520" Style="{StaticResource ModalPanelStyle}" Padding="28,24"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                    BorderBrush="{StaticResource SuccessBrush}" CornerRadius="8">
+                    BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1" CornerRadius="8">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -238,20 +238,20 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel>
-                        <TextBlock Text="ACCOUNT ACTIVITY" Foreground="{StaticResource SuccessBrush}" FontSize="11"
+                        <TextBlock Text="ACCOUNT ACTIVITY" Foreground="{StaticResource SuccessBrush}" FontSize="10"
                                    FontWeight="SemiBold" />
-                        <TextBlock x:Name="AccountOperationTitle" Margin="0,5,0,0"
-                                   Text="Pulling account data" Foreground="{StaticResource TextPrimaryBrush}" FontSize="24"
+                        <TextBlock x:Name="AccountOperationTitle" Margin="0,6,0,0"
+                                   Text="Pulling account data" Foreground="{StaticResource TextPrimaryBrush}" FontSize="20"
                                    FontWeight="SemiBold" />
-                        <TextBlock x:Name="AccountOperationStatus" Margin="0,7,0,0"
-                                   Text="Preparing..." Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
+                        <TextBlock x:Name="AccountOperationStatus" Margin="0,6,0,0"
+                                   Text="Preparing..." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"
                                    TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <Grid Grid.Row="1" Height="56" Margin="0,18,0,12">
-                        <Canvas Width="46" Height="46" HorizontalAlignment="Center">
-                            <Ellipse Width="42" Height="42" Stroke="{StaticResource SuccessBrush}" StrokeThickness="5"
-                                     StrokeDashArray="2 3" RenderTransformOrigin="0.5,0.5">
+                    <Grid Grid.Row="1" Height="48" Margin="0,20,0,16">
+                        <Canvas Width="40" Height="40" HorizontalAlignment="Center">
+                            <Ellipse Width="36" Height="36" Stroke="{StaticResource SuccessBrush}" StrokeThickness="3"
+                                     StrokeDashArray="3 2" RenderTransformOrigin="0.5,0.5">
                                 <Ellipse.RenderTransform>
                                     <RotateTransform x:Name="SpinnerRotate" Angle="0" />
                                 </Ellipse.RenderTransform>
@@ -261,7 +261,7 @@
                                             <Storyboard RepeatBehavior="Forever">
                                                 <DoubleAnimation Storyboard.TargetName="SpinnerRotate"
                                                                  Storyboard.TargetProperty="Angle"
-                                                                 From="0" To="360" Duration="0:0:1" />
+                                                                 From="0" To="360" Duration="0:0:1.2" />
                                             </Storyboard>
                                         </BeginStoryboard>
                                     </EventTrigger>
@@ -270,15 +270,15 @@
                         </Canvas>
                     </Grid>
 
-                    <Border Grid.Row="2" Padding="10" Background="{StaticResource SubtleOverlayBrush}" CornerRadius="5">
+                    <Border Grid.Row="2" Padding="12,10" Background="{StaticResource SubtleOverlayBrush}" CornerRadius="6">
                         <ListBox x:Name="TaskListBox" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 Padding="4" FontSize="13">
+                                 BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 Padding="2" FontSize="12.5">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
-                                    <Setter Property="Height" Value="22" />
-                                    <Setter Property="Padding" Value="1,0" />
-                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Padding" Value="2,0" />
+                                    <Setter Property="Margin" Value="0,1" />
                                     <Setter Property="HorizontalContentAlignment" Value="Left" />
                                 </Style>
                             </ListBox.ItemContainerStyle>
@@ -287,7 +287,7 @@
 
                     <ui:Button x:Name="CancelAccountOperationButton" Grid.Row="3" Content="Cancel"
                                Click="CancelAccountOperation_Click" HorizontalAlignment="Right"
-                               MinWidth="100" Margin="0,22,0,0" Padding="14,7" />
+                               MinWidth="100" Margin="0,20,0,0" Padding="12,8" />
                 </Grid>
             </Border>
         </Grid>
