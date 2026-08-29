@@ -277,6 +277,7 @@ internal class Lcu
 
         // Initialize HttpRequestMessage
         var request = new HttpRequestMessage(httpMethod, url);
+        LcuRequestRecord? requestRecord = null;
 
         // For methods other than GET, set the content
         if (method.ToLowerInvariant() != "get")
@@ -289,7 +290,7 @@ internal class Lcu
         try
         {
             var requestHeaders = FormatRequestHeaders(client, request);
-            LcuRequestLog.Add(
+            requestRecord = LcuRequestLog.Add(
                 target,
                 method,
                 request.RequestUri?.PathAndQuery ?? endpoint,
@@ -305,18 +306,13 @@ internal class Lcu
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var responseHeaders = FormatResponseHeaders(response);
             started.Stop();
-            LcuRequestLog.Add(
-                target,
-                method,
-                request.RequestUri?.PathAndQuery ?? endpoint,
-                data,
+            LcuRequestLog.Update(
+                requestRecord.Id,
                 (int)response.StatusCode,
                 response.ReasonPhrase ?? response.StatusCode.ToString(),
                 responseBody,
                 started.ElapsedMilliseconds,
-                requestHeaders: requestHeaders,
-                responseHeaders: responseHeaders,
-                direction: "Incoming");
+                responseHeaders: responseHeaders);
             return response;
         }
         catch (Exception ex)
@@ -324,11 +320,10 @@ internal class Lcu
             started.Stop();
             request.Dispose();
             client.Dispose();
-            LcuRequestLog.Add(target, method, request.RequestUri?.PathAndQuery ?? endpoint, data, null,
-                ex is OperationCanceledException ? "Cancelled" : "Failed", string.Empty,
-                started.ElapsedMilliseconds, ex.Message,
-                requestHeaders: string.Empty,
-                direction: "Incoming");
+            if (requestRecord is not null)
+                LcuRequestLog.Update(requestRecord.Id, null,
+                    ex is OperationCanceledException ? "Cancelled" : "Failed", string.Empty,
+                    started.ElapsedMilliseconds, ex.Message);
             throw;
         }
     }

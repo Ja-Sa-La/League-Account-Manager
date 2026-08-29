@@ -45,9 +45,21 @@ public partial class LcuRequestTracker : Page
     {
         Dispatcher.BeginInvoke(() =>
         {
-            _rows.Add(new TrafficRow(record));
-            if (_rows.Count > 1000)
-                _rows.RemoveAt(0);
+            var existing = _rows.FirstOrDefault(row => row.Record.Id == record.Id);
+            if (existing is not null)
+            {
+                var index = _rows.IndexOf(existing);
+                var replacement = new TrafficRow(record) { IsSelected = existing.IsSelected };
+                _rows[index] = replacement;
+                if (TrafficGrid.SelectedItem == existing)
+                    TrafficGrid.SelectedItem = replacement;
+            }
+            else
+            {
+                _rows.Add(new TrafficRow(record));
+                if (_rows.Count > 1000)
+                    _rows.RemoveAt(0);
+            }
             UpdateStatus();
         });
     }

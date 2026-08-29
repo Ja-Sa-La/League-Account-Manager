@@ -385,12 +385,13 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
             }
 
             var stopwatch = Stopwatch.StartNew();
+            LcuRequestRecord? requestRecord = null;
             try
             {
                 var headers = string.Join(Environment.NewLine,
                     request.Headers.AllKeys.Where(key => key is not null).Select(key => $"{key}: {request.Headers[key]}"));
                 var requestBody = TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers);
-                LcuRequestLog.Add("league", request.HttpMethod, endpoint, requestBody, null,
+                requestRecord = LcuRequestLog.Add("league", request.HttpMethod, endpoint, requestBody, null,
                     "Pending", string.Empty, 0, trafficType: "HTTP", requestHeaders: headers, direction: "Outgoing");
                 using var response = await _httpClient.SendAsync(outgoing, HttpCompletionOption.ResponseContentRead)
                     .ConfigureAwait(false);
@@ -398,10 +399,10 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 stopwatch.Stop();
                 var responseHeaders = FormatHeaders(response);
                 var decodedResponseBody = TrafficPayloadDecoder.Decode(responseBody, response.Content.Headers);
-                LcuRequestLog.Add("league", request.HttpMethod, endpoint, requestBody,
+                LcuRequestLog.Update(requestRecord.Id,
                     (int)response.StatusCode, response.ReasonPhrase ?? response.StatusCode.ToString(),
                     decodedResponseBody, stopwatch.ElapsedMilliseconds,
-                    trafficType: "HTTP", responseHeaders: responseHeaders, direction: "Incoming");
+                    responseHeaders: responseHeaders);
                 context.Response.StatusCode = (int)response.StatusCode;
                 context.Response.StatusDescription = response.ReasonPhrase ?? response.StatusCode.ToString();
                 CopyResponseHeaders(response, context.Response);
@@ -416,10 +417,9 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                LcuRequestLog.Add("league", request.HttpMethod, endpoint,
-                    TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers), null,
-                    "Failed", string.Empty, stopwatch.ElapsedMilliseconds, ex.Message,
-                    trafficType: "HTTP", direction: "Incoming");
+                if (requestRecord is not null)
+                    LcuRequestLog.Update(requestRecord.Id, null, "Failed", string.Empty,
+                        stopwatch.ElapsedMilliseconds, ex.Message);
                 context.Response.StatusCode = 502;
                 context.Response.Close();
             }

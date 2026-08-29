@@ -85,4 +85,42 @@ internal static partial class LcuRequestLog
         return entry;
     }
 
+    internal static LcuRequestRecord Update(long id, int? statusCode, string status, string responseBody,
+        long durationMilliseconds, string? error = null, string responseHeaders = "", string? direction = null)
+    {
+        LcuRequestRecord entry;
+        lock (Sync)
+        {
+            var index = Entries.FindIndex(record => record.Id == id);
+            if (index < 0)
+                throw new InvalidOperationException($"Request log entry {id} was not found.");
+
+            entry = Entries[index] with
+            {
+                StatusCode = statusCode,
+                Status = status,
+                ResponseBody = responseBody ?? string.Empty,
+                DurationMilliseconds = durationMilliseconds,
+                Error = error,
+                ResponseHeaders = responseHeaders ?? string.Empty,
+                Direction = direction ?? Entries[index].Direction
+            };
+            Entries[index] = entry;
+        }
+
+        var handlers = RequestCompleted;
+        if (handlers != null)
+            foreach (EventHandler<LcuRequestRecord> handler in handlers.GetInvocationList())
+                try
+                {
+                    handler(null, entry);
+                }
+                catch (Exception ex)
+                {
+                    DebugConsole.WriteLine($"[LCU Tracker] Listener failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+        return entry;
+    }
+
 }
