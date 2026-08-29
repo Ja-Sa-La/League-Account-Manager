@@ -33,6 +33,24 @@ public class LcuRequestLogTests
     }
 
     [TestMethod]
+    public void Update_MergesResponseIntoExistingOutgoingRecord()
+    {
+        var pending = LcuRequestLog.Add("league", "GET", "/resource", "", null, "Pending", "", 0,
+            requestHeaders: "Accept: application/json", direction: "Outgoing", trafficType: "HTTP");
+
+        var completed = LcuRequestLog.Update(pending.Id, 200, "OK", "{\"value\":1}", 42,
+            responseHeaders: "Content-Type: application/json");
+
+        var records = LcuRequestLog.Snapshot();
+        Assert.AreEqual(1, records.Count);
+        Assert.AreEqual(pending.Id, completed.Id);
+        Assert.AreEqual("Outgoing", records[0].Direction);
+        Assert.AreEqual(200, records[0].StatusCode);
+        Assert.AreEqual("Accept: application/json", records[0].RequestHeaders);
+        Assert.AreEqual("Content-Type: application/json", records[0].ResponseHeaders);
+    }
+
+    [TestMethod]
     public void ProcessMessage_AddsWebSocketEventRecord()
     {
         LcuWebSocketMonitor.ProcessMessage(
