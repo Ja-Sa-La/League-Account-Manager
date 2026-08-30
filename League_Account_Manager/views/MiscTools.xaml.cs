@@ -19,8 +19,6 @@ namespace League_Account_Manager.views;
 public partial class MiscTools : Page
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    public static int RemoveFriendsChoice = new();
-
     private readonly string[] list =
     {
         "C:\\ProgramData\\Riot Games\\",
@@ -107,83 +105,6 @@ public partial class MiscTools : Page
         {
             Logger.Error(exception, "Failed deleting items during log cleanup");
         }
-    }
-
-    private async void OnNukeFriendsClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            RemoveFriendsChoice = 0;
-            new RemoveFriendsConfirmation().ShowDialog();
-            if (RemoveFriendsChoice == 1)
-            {
-                var deletionLog = "Friends \n";
-                var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
-                if (resp.ToString() == "0")
-                {
-                    Notif.notificationManager.Show("Error", "League of legends client is not running!",
-                        NotificationType.Notification, "WindowArea", onClick: Notif.donothing);
-                    return;
-                }
-
-                var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var rankedinfo = JArray.Parse(responseBody2);
-                foreach (var friend in rankedinfo)
-                {
-                    resp = await Connector("league", "delete", "/lol-chat/v1/friends/" + friend["id"], "");
-                    deletionLog = deletionLog + "Deleted Friend: " + friend["gameName"] + "\n";
-                    success.Text = deletionLog;
-                    Thread.Sleep(400);
-                }
-            }
-        }
-        catch (Exception exception)
-        {
-            Logger.Error(exception, "Failed to load friend list for deletion");
-        }
-    }
-
-    private async void OnGetFriendsClick(object sender, RoutedEventArgs e)
-    {
-        var friendlist = "";
-        var resp = await Connector("league", "get", "/lol-chat/v1/friends", "");
-        if (resp.ToString() == "0")
-        {
-            Notif.notificationManager.Show("Error", "League of legends client is not running!",
-                NotificationType.Notification, "WindowArea", onClick: Notif.donothing);
-            return;
-        }
-
-        var responseBody2 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-        JArray rankedinfo = JArray.Parse(responseBody2);
-        foreach (var friend in rankedinfo)
-            try
-            {
-                var resp2 = await Connector("league", "get",
-                    "/lol-match-history/v1/products/lol/" + friend["puuid"] +
-                    "/matches?begIndex=0&endIndex=0", "");
-                var Game = await resp2.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var rankedinfo2 = JObject.Parse(Game);
-                if (rankedinfo2["games"]["gameCount"] == 0)
-                {
-                    friendlist = friendlist + "Friend name: " + friend["name"] + " ,RiotID: " +
-                                 friend["gameName"] + "#" + friend["gameTag"] + " ,LastPlayed: " +
-                                 "Inactive account" + "\n";
-                    success.Text = friendlist;
-                }
-                else
-                {
-                    var date = (long)rankedinfo2["games"]["games"][0]["gameCreation"] / 1000;
-                    friendlist = friendlist + "Friend name: " + friend["name"] + " ,RiotID: " +
-                                 friend["gameName"] + "#" + friend["gameTag"] + " ,LastPlayed: " +
-                                 DateTimeOffset.FromUnixTimeSeconds(date).ToString("dd/MM/yyyy") + "\n";
-                    success.Text = friendlist;
-                }
-            }
-            catch (Exception exception)
-            {
-                Logger.Error(exception, "Failed to fetch last played info for friend {FriendName}", friend?["name"]);
-            }
     }
 
     private void OnUninstallLeagueClick(object sender, RoutedEventArgs e)

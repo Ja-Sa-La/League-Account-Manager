@@ -391,7 +391,7 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 var headers = string.Join(Environment.NewLine,
                     request.Headers.AllKeys.Where(key => key is not null).Select(key => $"{key}: {request.Headers[key]}"));
                 var requestBody = TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers);
-                requestRecord = LcuRequestLog.Add("league", request.HttpMethod, endpoint, requestBody, null,
+                requestRecord = LcuRequestLog.Add("league", request.HttpMethod, url, requestBody, null,
                     "Pending", string.Empty, 0, trafficType: "HTTP", requestHeaders: headers, direction: "Outgoing");
                 using var response = await _httpClient.SendAsync(outgoing, HttpCompletionOption.ResponseContentRead)
                     .ConfigureAwait(false);

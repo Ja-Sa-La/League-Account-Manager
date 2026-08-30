@@ -22,8 +22,6 @@
         <Border Grid.Row="1" Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
             <WrapPanel>
                 <ui:Button Click="OnNukeLogsClick" ContentControl.Content="Clear logs" Margin="0,0,8,8" />
-                <ui:Button Click="OnNukeFriendsClick" Content="Remove all friends" Margin="0,0,8,8" />
-                <ui:Button Click="OnGetFriendsClick" Content="Get friends" Margin="0,0,8,8" />
                 <ui:Button Click="OnUninstallLeagueClick" Content="Uninstall League" Margin="0,0,8,8" />
                 <ui:Button Click="OnDisableAutolaunchClick" Content="Disable Riot autolaunch" Margin="0,0,8,8" />
                 <ui:Button Click="OnGetRiotHwidClick" Content="Get Riot HWID" Margin="0,0,8,8" />

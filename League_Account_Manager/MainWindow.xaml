@@ -109,6 +109,12 @@
                             <ui:SymbolIcon Symbol="Chat20" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
+                    <ui:NavigationViewItem Content="Friend manager" NavigationCacheMode="Required"
+                                           TargetPageType="{x:Type Page:FriendManager}">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:SymbolIcon Symbol="People20" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Loot"
                                            TargetPageType="{x:Type Page:DisEnchanter}">
                         <ui:NavigationViewItem.Icon>

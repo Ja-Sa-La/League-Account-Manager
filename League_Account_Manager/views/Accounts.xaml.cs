@@ -572,11 +572,12 @@ public partial class Accounts : Page
                 box.Items.Add(item);
             }
 
-            // Resize box height to fit all items so no scrolling is necessary.
             try
             {
-                const double approxItemHeight = 18.0; // matches ListBoxItem Height in XAML
-                var desired = box.Items.Count * approxItemHeight + box.Padding.Top + box.Padding.Bottom + 8;
+                const double itemHeight = 24.0;
+                const double itemVerticalMargin = 2.0;
+                var desired = box.Items.Count * (itemHeight + itemVerticalMargin) +
+                              box.Padding.Top + box.Padding.Bottom;
                 box.Height = desired;
             }
             catch
