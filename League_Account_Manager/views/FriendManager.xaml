@@ -1,0 +1,143 @@
+<Page x:Class="League_Account_Manager.views.FriendManager"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      mc:Ignorable="d"
+      d:DesignHeight="749" d:DesignWidth="1216"
+      Title="Friend Manager">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Friend manager" Style="{StaticResource PageTitleStyle}" />
+                <TextBlock Text="A joined-up view of your League friends, presence, and gifting details."
+                           Style="{StaticResource PageSubtitleStyle}" />
+            </StackPanel>
+            <ui:Button x:Name="RefreshButton" Content="Refresh friends" Click="OnRefreshClick"
+                       HorizontalAlignment="Right" MinWidth="132" />
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource SurfacePanelStyle}" Padding="12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBox x:Name="SearchBox" PlaceholderText="Search friends, Riot IDs, or status"
+                            TextChanged="OnSearchChanged" MinHeight="38" />
+                <TextBlock Grid.Column="1" x:Name="FriendCountText" Text="0 friends"
+                           Margin="18,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <TextBlock Grid.Column="2" x:Name="OnlineCountText" Text="0 online"
+                           Margin="0,0,18,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource SuccessBrush}" />
+                <TextBlock Grid.Column="3" x:Name="StatusText" Text="Ready"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.2*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource SurfacePanelStyle}" Padding="0" Margin="0,0,12,0">
+                <DataGrid x:Name="FriendsGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionChanged="OnFriendSelectionChanged" HeadersVisibility="Column"
+                          GridLinesVisibility="None" RowHeight="58" BorderThickness="0"
+                          Background="Transparent" CanUserResizeRows="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Friend" Width="2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="36" Height="36" CornerRadius="18" ClipToBounds="True"
+                                                Background="{StaticResource SurfaceRaisedBrush}" Margin="10,0,10,0">
+                                            <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                            <TextBlock Text="{Binding RiotId}" FontSize="11"
+                                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Presence" Binding="{Binding Presence}" Width="1.1*" />
+                        <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen}" Width="1.2*" />
+                        <DataGridTextColumn Header="Last played" Binding="{Binding LastPlayed}" Width="1.2*" />
+                        <DataGridTextColumn Header="Friends since" Binding="{Binding FriendsSince}" Width="1.2*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource SurfacePanelStyle}" Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Friend details" Style="{StaticResource SectionTitleStyle}" />
+                    <Border Grid.Row="1" Height="1" Background="{StaticResource StrokeBrush}" Margin="0,14,0,16" />
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                    <Border Width="72" Height="72" CornerRadius="36" ClipToBounds="True"
+                            HorizontalAlignment="Left" Background="{StaticResource SurfaceRaisedBrush}">
+                        <Image x:Name="SelectedIcon" Stretch="UniformToFill" />
+                    </Border>
+                    <TextBlock x:Name="SelectedName" Text="Select a friend" FontSize="20" FontWeight="SemiBold"
+                               Margin="0,14,0,2" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock x:Name="SelectedRiotId" Text="Choose a row to inspect details"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <StackPanel Margin="0,22,0,0">
+                        <TextBlock Text="Presence" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+                        <TextBlock x:Name="SelectedPresence" Text="-" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,3,0,12" />
+                        <TextBlock Text="Friends since" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+                        <TextBlock x:Name="SelectedFriendsSince" Text="-" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,3,0,12" />
+                        <TextBlock Text="Summoner ID" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+                        <TextBlock x:Name="SelectedSummonerId" Text="-" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,3,0,12" />
+                        <TextBlock Text="Status message" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+                        <TextBlock x:Name="SelectedStatusMessage" Text="-" TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,3,0,0" />
+                        <TextBlock Text="Last played" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,12,0,0" />
+                        <TextBlock x:Name="SelectedLastPlayed" Text="-" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
+                        <ui:Button Content="Remove selected" Click="OnRemoveSelectedClick" MinWidth="128" Margin="0,0,8,0" />
+                        <ui:Button Content="Remove all" Click="OnRemoveAllClick" MinWidth="96" />
+                    </StackPanel>
+                            <TextBlock Text="Messages" Style="{StaticResource SectionTitleStyle}" Margin="0,24,0,8" />
+                            <ListBox x:Name="MessagesList" Height="150" Background="{StaticResource SurfaceBrush}"
+                                     BorderBrush="{StaticResource StrokeBrush}" BorderThickness="1"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Grid Grid.Row="3" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBox x:Name="MessageBox" PlaceholderText="Write a message..." MinHeight="40"
+                                    AcceptsReturn="True" TextWrapping="Wrap" />
+                        <ui:Button Grid.Column="1" Content="Send" Click="OnSendMessageClick" MinWidth="70"
+                                   Margin="8,0,0,0" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>

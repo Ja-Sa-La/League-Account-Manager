@@ -256,9 +256,22 @@ internal sealed class AuthRouteLauncher
                                 req.Content.Headers.TryAddWithoutValidation("Content-Type", ctx.Request.ContentType);
                         }
 
+                        var requestHeaders = string.Join(Environment.NewLine,
+                            ctx.Request.Headers.AllKeys.Where(key => key is not null)
+                                .Select(key => $"{key}: {ctx.Request.Headers[key]}"));
+                        var requestBody = TrafficPayloadDecoder.Decode(bodyBytes, req.Content?.Headers);
+                        var requestRecord = LcuRequestLog.Add("riot-auth", ctx.Request.HttpMethod,
+                            upstreamUrl.ToString(), requestBody, null, "Pending", string.Empty, 0,
+                            trafficType: "HTTP", requestHeaders: requestHeaders, direction: "Outgoing");
+                        var stopwatch = Stopwatch.StartNew();
                         using var res = await _httpClient.SendAsync(req, token);
                         var responseBytes = await res.Content.ReadAsByteArrayAsync(token);
                         var responseText = GetDecodedResponseText(responseBytes, res);
+                        stopwatch.Stop();
+                        LcuRequestLog.Update(requestRecord.Id, (int)res.StatusCode,
+                            res.ReasonPhrase ?? res.StatusCode.ToString(),
+                            TrafficPayloadDecoder.Decode(responseBytes, res.Content.Headers),
+                            stopwatch.ElapsedMilliseconds, responseHeaders: FormatHeaders(res));
                         DebugConsole.WriteLine(
                             $"[AuthRouteLauncher] {_name} response: status={(int)res.StatusCode} bytes={responseBytes.Length}");
                         if (ctx.Request.HttpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase) &&
