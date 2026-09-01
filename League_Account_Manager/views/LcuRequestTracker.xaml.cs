@@ -19,9 +19,6 @@ public partial class LcuRequestTracker : Page
     public LcuRequestTracker()
     {
         InitializeComponent();
-        foreach (var record in LcuRequestLog.Snapshot())
-            _rows.Add(new TrafficRow(record));
-
         _view = CollectionViewSource.GetDefaultView(_rows);
         _view.Filter = FilterTraffic;
         TrafficGrid.ItemsSource = _view;
@@ -34,6 +31,9 @@ public partial class LcuRequestTracker : Page
     {
         LcuRequestLog.RequestCompleted += OnRequestCompleted;
         LcuWebSocketMonitor.Start();
+        foreach (var record in LcuRequestLog.Snapshot())
+            AddOrReplaceRow(record);
+        UpdateStatus();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -45,23 +45,27 @@ public partial class LcuRequestTracker : Page
     {
         Dispatcher.BeginInvoke(() =>
         {
-            var existing = _rows.FirstOrDefault(row => row.Record.Id == record.Id);
-            if (existing is not null)
-            {
-                var index = _rows.IndexOf(existing);
-                var replacement = new TrafficRow(record) { IsSelected = existing.IsSelected };
-                _rows[index] = replacement;
-                if (TrafficGrid.SelectedItem == existing)
-                    TrafficGrid.SelectedItem = replacement;
-            }
-            else
-            {
-                _rows.Add(new TrafficRow(record));
-                if (_rows.Count > 1000)
-                    _rows.RemoveAt(0);
-            }
+            AddOrReplaceRow(record);
             UpdateStatus();
         });
+    }
+
+    private void AddOrReplaceRow(LcuRequestRecord record)
+    {
+        var existing = _rows.FirstOrDefault(row => row.Record.Id == record.Id);
+        if (existing is not null)
+        {
+            var index = _rows.IndexOf(existing);
+            var replacement = new TrafficRow(record) { IsSelected = existing.IsSelected };
+            _rows[index] = replacement;
+            if (TrafficGrid.SelectedItem == existing)
+                TrafficGrid.SelectedItem = replacement;
+            return;
+        }
+
+        _rows.Add(new TrafficRow(record));
+        if (_rows.Count > 1000)
+            _rows.RemoveAt(0);
     }
 
     private bool FilterTraffic(object item)

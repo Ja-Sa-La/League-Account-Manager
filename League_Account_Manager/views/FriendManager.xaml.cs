@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -173,7 +174,7 @@ public partial class FriendManager : Page
 
         using (response)
         {
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"LCU request {endpoint} returned {(int)response.StatusCode}.");
             return JToken.Parse(body);
@@ -197,11 +198,37 @@ public partial class FriendManager : Page
         using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) };
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
         client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-        using var response = await client.GetAsync($"{storeUrl}/storefront/v3/gift/friends?language=en_US");
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Storefront request returned {(int)response.StatusCode}.");
-        return JToken.Parse(body);
+        var endpoint = $"{storeUrl}/storefront/v3/gift/friends?language=en_US";
+        var requestHeaders = string.Join(Environment.NewLine, client.DefaultRequestHeaders
+            .Select(header => $"{header.Key}: {string.Join(", ", header.Value)}"));
+        var stopwatch = Stopwatch.StartNew();
+        LcuRequestRecord? requestRecord = null;
+        var responseLogged = false;
+        try
+        {
+            requestRecord = LcuRequestLog.Add("league", "GET", endpoint, string.Empty, null, "Pending",
+                string.Empty, 0, trafficType: "HTTP", requestHeaders: requestHeaders, direction: "Outgoing");
+            using var response = await client.GetAsync(endpoint);
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            stopwatch.Stop();
+            var responseHeaders = string.Join(Environment.NewLine, response.Headers.Concat(response.Content.Headers)
+                .SelectMany(header => header.Value.Select(value => $"{header.Key}: {value}")));
+            LcuRequestLog.Update(requestRecord.Id, (int)response.StatusCode,
+                response.ReasonPhrase ?? response.StatusCode.ToString(), body, stopwatch.ElapsedMilliseconds,
+                responseHeaders: responseHeaders);
+            responseLogged = true;
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"Storefront request returned {(int)response.StatusCode}.");
+            return JToken.Parse(body);
+        }
+        catch (Exception exception)
+        {
+            stopwatch.Stop();
+            if (requestRecord is not null && !responseLogged)
+                LcuRequestLog.Update(requestRecord.Id, null, "Failed", string.Empty,
+                    stopwatch.ElapsedMilliseconds, exception.Message);
+            throw;
+        }
     }
 
     private static IEnumerable<FriendEntry> MergeFriends(JArray chatFriends, JArray giftFriends)
@@ -275,7 +302,7 @@ public partial class FriendManager : Page
     {
         var visible = _friendsView.Cast<FriendEntry>().ToList();
         FriendCountText.Text = $"{visible.Count} friend{(visible.Count == 1 ? "" : "s")}";
-        OnlineCountText.Text = $"{visible.Count(x => x.Presence is "Online" or "Away" or "Do not disturb")} online";
+        OnlineCountText.Text = $"{visible.Count(x => x.Presence is "Online" or "Mobile" or "Away" or "Do not disturb")} online";
     }
 
     private void OnFriendSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -298,11 +325,8 @@ public partial class FriendManager : Page
         MessagesList.Items.Add("Loading messages...");
         try
         {
-            var conversations = await GetJsonAsync("/lol-chat/v1/conversations") as JArray;
-            var conversation = conversations?.OfType<JObject>().FirstOrDefault(item =>
-                item["participants"]?.OfType<JObject>().Any(participant =>
-                    string.Equals(participant["id"]?.ToString(), friend.Id, StringComparison.OrdinalIgnoreCase)) == true);
-            var conversationId = conversation?["id"]?.ToString();
+            var conversations = await GetJsonAsync("/lol-chat/v1/conversations");
+            var conversationId = FindConversationId(conversations, friend);
             if (string.IsNullOrWhiteSpace(conversationId))
             {
                 MessagesList.Items.Clear();
@@ -310,11 +334,18 @@ public partial class FriendManager : Page
                 return;
             }
 
-            var messages = await GetJsonAsync(BuildMessagesEndpoint(conversationId)) as JArray;
+            var messages = ExtractArray(await GetJsonAsync(BuildMessagesEndpoint(conversationId)));
             MessagesList.Items.Clear();
             foreach (var message in messages?.OfType<JObject>().TakeLast(50) ?? Enumerable.Empty<JObject>())
             {
-                var sender = message["fromSummonerId"]?.ToString() ?? message["from"]?.ToString() ?? "Unknown";
+                if (!string.Equals(message["type"]?.ToString(), "chat", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var senderId = message["fromId"]?.ToString() ?? message["fromPuuid"]?.ToString();
+                var sender = string.Equals(senderId, friend.Id, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(senderId, friend.Puuid, StringComparison.OrdinalIgnoreCase)
+                    ? friend.DisplayName
+                    : "You";
                 var body = message["body"]?.ToString() ?? string.Empty;
                 var timestamp = message["timestamp"]?.ToString();
                 var time = DateTime.TryParse(timestamp, out var parsed) ? parsed.ToString("HH:mm") : "";
@@ -323,6 +354,8 @@ public partial class FriendManager : Page
 
             if (MessagesList.Items.Count == 0)
                 MessagesList.Items.Add("No messages yet.");
+            else
+                MessagesList.ScrollIntoView(MessagesList.Items[^1]);
         }
         catch (Exception exception)
         {
@@ -339,11 +372,8 @@ public partial class FriendManager : Page
 
         try
         {
-            var conversations = await GetJsonAsync("/lol-chat/v1/conversations") as JArray;
-            var conversation = conversations?.OfType<JObject>().FirstOrDefault(item =>
-                item["participants"]?.OfType<JObject>().Any(participant =>
-                    string.Equals(participant["id"]?.ToString(), friend.Id, StringComparison.OrdinalIgnoreCase)) == true);
-            var conversationId = conversation?["id"]?.ToString();
+            var conversations = await GetJsonAsync("/lol-chat/v1/conversations");
+            var conversationId = FindConversationId(conversations, friend);
             if (string.IsNullOrWhiteSpace(conversationId))
             {
                 StatusText.Text = "No conversation found";
@@ -378,9 +408,35 @@ public partial class FriendManager : Page
     private static string BuildMessagesEndpoint(string conversationId) =>
         $"/lol-chat/v1/conversations/{Uri.EscapeDataString(Uri.UnescapeDataString(conversationId))}/messages";
 
+    private static string? FindConversationId(JToken? conversations, FriendEntry friend)
+    {
+        return ExtractArray(conversations)?.OfType<JObject>()
+            .Where(item => string.Equals(item["type"]?.ToString(), "chat", StringComparison.OrdinalIgnoreCase) ||
+                           item["type"] is null)
+            .FirstOrDefault(item =>
+                string.Equals(item["id"]?.ToString(), friend.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item["pid"]?.ToString(), friend.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item["gameName"]?.ToString(), friend.DisplayName, StringComparison.OrdinalIgnoreCase))?["id"]?
+            .ToString();
+    }
+
+    private static JArray? ExtractArray(JToken? value)
+    {
+        if (value is JArray array)
+        {
+            if (array.Count > 2 && array[0]?.Type == JTokenType.Integer && array[0].Value<int>() == 8 &&
+                array[2]?["data"] is JArray eventData)
+                return eventData;
+            return array;
+        }
+
+        return value?["data"] as JArray ?? value?["messages"] as JArray;
+    }
+
     private static string FormatPresence(string value) => value.ToLowerInvariant() switch
     {
-        "online" => "Online",
+        "online" or "chat" => "Online",
+        "mobile" => "Mobile",
         "away" => "Away",
         "dnd" or "busy" => "Do not disturb",
         "offline" => "Offline",
