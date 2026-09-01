@@ -87,7 +87,10 @@ internal class Lcu
     {
         var ingame = Process.GetProcessesByName("League of Legends");
         if (ingame.Length != 0)
+        {
+            LogUnavailableRequest(target, mode, endpoint, data, "Unavailable: League is in game.");
             return "";
+        }
         if (target == "riot")
         {
             var riotProcess = Process.GetProcessesByName("Riot Client");
@@ -118,13 +121,18 @@ internal class Lcu
             }
             else
             {
+                LogUnavailableRequest(target, mode, endpoint, data, "Unavailable: Riot Client is not running.");
                 return 0;
             }
         }
         else
         {
             var leagueClientProcess = Process.GetProcessesByName("LeagueClientUx");
-            if (leagueClientProcess.Length == 0) return 0;
+            if (leagueClientProcess.Length == 0)
+            {
+                LogUnavailableRequest(target, mode, endpoint, data, "Unavailable: League Client is not running.");
+                return 0;
+            }
             foreach (var leagueprocess in leagueClientProcess)
                 try
                 {
@@ -140,7 +148,10 @@ internal class Lcu
 
         var values = target == "riot" ? Riot : League;
         if (!TryGetConnectionDetails(values, out var port, out var authToken, out var version))
+        {
+            LogUnavailableRequest(target, mode, endpoint, data, "Unavailable: client connection details were not found.");
             return 0;
+        }
 
         var clientHandler = new HttpClientHandler
         {
@@ -153,6 +164,13 @@ internal class Lcu
         var token = Encoding.UTF8.GetBytes("riot:" + authToken);
         SetClientHeaders(client, port, token, version);
         return await SendRequest(client, target, mode, endpoint, data, port, cancellationToken);
+    }
+
+    private static void LogUnavailableRequest(string target, string method, string endpoint, string data,
+        string status)
+    {
+        LcuRequestLog.Add(target, method, endpoint, data, null, status, string.Empty, 0,
+            direction: "Outgoing");
     }
 
     public static async Task<(HttpClient Client, string AccessToken, string EntitlementsToken, string Puuid, string
