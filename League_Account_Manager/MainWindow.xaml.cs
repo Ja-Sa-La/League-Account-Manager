@@ -32,7 +32,6 @@ public partial class MainWindow : Window
     private TaskCompletionSource<MessageBoxResult>? _updateModalCompletion;
     private Action? _updateModalReleaseAction;
     private Action? _updateModalUpdateAction;
-    private DispatcherTimer? _updateCheckTimer;
 
     public MainWindow()
     {
@@ -102,15 +101,10 @@ public partial class MainWindow : Window
 
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)
-            {
                 await Updates.UpdateCheckAsync();
-                StartPeriodicUpdateCheck();
-            }
             else
-            {
                 DebugConsole.WriteLine("[Updates] Automatic update checks are disabled in settings.",
                     ConsoleColor.Yellow);
-            }
 
             DebugConsole.WriteLine($"[Startup] League client path: {Settings.settingsloaded.LeaguePath}");
             var releaseChannel = string.Equals(Settings.settingsloaded.ReleaseChannel, "Beta",
@@ -132,36 +126,6 @@ public partial class MainWindow : Window
             });
             Environment.Exit(1); // Exit the application on critical error
         }
-    }
-
-    private void StartPeriodicUpdateCheck()
-    {
-        _updateCheckTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromHours(1)
-        };
-        _updateCheckTimer.Tick += async (sender, args) =>
-        {
-            try
-            {
-                if (Settings.settingsloaded.updates)
-                {
-                    DebugConsole.WriteLine("[Updates] Running periodic update check");
-                    await Updates.UpdateCheckAsync();
-                }
-                else
-                {
-                    DebugConsole.WriteLine("[Updates] Periodic check skipped (disabled in settings)");
-                    _updateCheckTimer?.Stop();
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Warn(ex, "Periodic update check failed");
-            }
-        };
-        _updateCheckTimer.Start();
-        DebugConsole.WriteLine("[Updates] Periodic update check started (every 1 hour)");
     }
 
     private void MainWindowOnPreviewKeyDown(object sender, KeyEventArgs e)

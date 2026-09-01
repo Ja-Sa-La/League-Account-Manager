@@ -135,7 +135,6 @@
                           HorizontalContentAlignment="Stretch" AutoGenerateColumns="False"
                           SelectionMode="Single" Margin="0" MinHeight="0"
                           HorizontalAlignment="Stretch" Width="Auto"
-                          PreviewMouseWheel="AccountsDataGrid_OnPreviewMouseWheel"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"
                           ScrollViewer.HorizontalScrollBarVisibility="Visible">
                     <DataGrid.ContextMenu>
@@ -213,58 +212,6 @@
 
                     <DataGrid.Resources>
                         <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource AppDataGridCellStyle}" />
-                        <Style TargetType="ScrollBar">
-                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-                            <Setter Property="Foreground" Value="{StaticResource StrokeBrush}" />
-                            <Setter Property="BorderBrush" Value="Transparent" />
-                            <Setter Property="BorderThickness" Value="0" />
-                            <Setter Property="Margin" Value="0" />
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ScrollBar">
-                                        <Grid Background="{TemplateBinding Background}">
-                                            <Track x:Name="PART_Track">
-                                                <Track.DecreaseRepeatButton>
-                                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
-                                                                  Background="Transparent" BorderThickness="0"
-                                                                  IsTabStop="False" />
-                                                </Track.DecreaseRepeatButton>
-                                                <Track.Thumb>
-                                                    <Thumb Background="{TemplateBinding Foreground}"
-                                                           BorderBrush="Transparent" BorderThickness="0" />
-                                                </Track.Thumb>
-                                                <Track.IncreaseRepeatButton>
-                                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
-                                                                  Background="Transparent" BorderThickness="0"
-                                                                  IsTabStop="False" />
-                                                </Track.IncreaseRepeatButton>
-                                            </Track>
-                                        </Grid>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="Orientation" Value="Horizontal">
-                                                <Setter TargetName="PART_Track" Property="Height" Value="6" />
-                                                <Setter TargetName="PART_Track" Property="VerticalAlignment" Value="Center" />
-                                            </Trigger>
-                                            <Trigger Property="Orientation" Value="Vertical">
-                                                <Setter TargetName="PART_Track" Property="Width" Value="6" />
-                                                <Setter TargetName="PART_Track" Property="HorizontalAlignment" Value="Center" />
-                                            </Trigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Style.Triggers>
-                                <Trigger Property="Orientation" Value="Horizontal">
-                                    <Setter Property="Height" Value="10" />
-                                </Trigger>
-                                <Trigger Property="Orientation" Value="Vertical">
-                                    <Setter Property="Width" Value="10" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center" />
                             <Setter Property="TextWrapping" Value="WrapWithOverflow" />
