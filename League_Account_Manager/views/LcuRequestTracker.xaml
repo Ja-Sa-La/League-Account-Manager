@@ -49,6 +49,10 @@
                 <ComboBoxItem Content="Outgoing" Tag="Outgoing" />
             </ComboBox>
             <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <CheckBox x:Name="DecodeJwtCheckBox" Content="Decode JWTs" IsChecked="True"
+                          VerticalAlignment="Center" Margin="4,0,10,0"
+                          ToolTip="Show decoded JWT payloads in captured details"
+                          Checked="DecodeJwtCheckBox_OnChanged" Unchecked="DecodeJwtCheckBox_OnChanged" />
                 <ui:Button Content="Select all" Click="SelectAll_OnClick" Margin="4,0" />
                 <ui:Button Content="Export selected" Click="ExportSelected_OnClick" Margin="4,0" />
                 <ui:Button Content="Clear" Click="Clear_OnClick" Margin="4,0" />

@@ -47,4 +47,16 @@ public class TrafficPayloadDecoderTests
         StringAssert.StartsWith(decoded, "[Binary: 3 bytes]");
         StringAssert.Contains(decoded, Convert.ToBase64String(source));
     }
+
+    [TestMethod]
+    public void DecodeJwtPayloads_ExpandsPayloadWithoutChangingToken()
+    {
+        const string token = "eyJhbGciOiJub25lIn0.eyJzdWIiOiIxMjMiLCJleHAiOjE3MDAwMDAwMDB9.signature";
+
+        var decoded = TrafficPayloadDecoder.DecodeJwtPayloads($"token={token}");
+
+        StringAssert.Contains(decoded, token);
+        StringAssert.Contains(decoded, "[JWT payload]");
+        StringAssert.Contains(decoded, "\"sub\": \"123\"");
+    }
 }

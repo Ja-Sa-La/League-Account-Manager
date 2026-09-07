@@ -320,8 +320,9 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         }
     }
 
-    private sealed class ForwardProxy : IDisposable
+    internal sealed class ForwardProxy : IDisposable
     {
+        private static readonly TimeSpan ForwardTimeout = TimeSpan.FromSeconds(70);
         private readonly string _origin;
         private readonly HttpClient _httpClient;
         private readonly HttpListener _listener = new();
@@ -373,6 +374,9 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         private async Task ForwardAsync(HttpListenerContext context)
         {
             var request = context.Request;
+            using var requestStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+            requestStop.CancelAfter(ForwardTimeout);
+            var cancellationToken = requestStop.Token;
             var body = await ReadBodyAsync(request).ConfigureAwait(false);
             var endpoint = request.RawUrl ?? "/";
             var url = _origin + (endpoint.StartsWith('/') ? endpoint : "/" + endpoint);
@@ -393,9 +397,9 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 var requestBody = TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers);
                 requestRecord = LcuRequestLog.Add("league", request.HttpMethod, url, requestBody, null,
                     "Pending", string.Empty, 0, trafficType: "HTTP", requestHeaders: headers, direction: "Outgoing");
-                using var response = await _httpClient.SendAsync(outgoing, HttpCompletionOption.ResponseContentRead)
-                    .ConfigureAwait(false);
-                var responseBody = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                using var response = await _httpClient.SendAsync(outgoing, HttpCompletionOption.ResponseContentRead,
+                        cancellationToken).ConfigureAwait(false);
+                var responseBody = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
                 stopwatch.Stop();
                 var responseHeaders = FormatHeaders(response);
                 var decodedResponseBody = TrafficPayloadDecoder.Decode(responseBody, response.Content.Headers);
@@ -411,8 +415,18 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 if (!suppressBody)
                     context.Response.ContentLength64 = responseBody.LongLength;
                 if (!suppressBody)
-                    await context.Response.OutputStream.WriteAsync(responseBody).ConfigureAwait(false);
-                context.Response.Close();
+                    await WriteResponseAsync(context.Response, responseBody, cancellationToken).ConfigureAwait(false);
+                TryCloseResponse(context.Response);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                if (requestRecord is not null)
+                    LcuRequestLog.Update(requestRecord.Id, null, "Canceled", string.Empty,
+                        stopwatch.ElapsedMilliseconds, _stop.IsCancellationRequested
+                            ? "Proxy disposed"
+                            : "Forwarding timed out or client disconnected");
+                TryCloseResponse(context.Response);
             }
             catch (Exception ex)
             {
@@ -420,9 +434,39 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 if (requestRecord is not null)
                     LcuRequestLog.Update(requestRecord.Id, null, "Failed", string.Empty,
                         stopwatch.ElapsedMilliseconds, ex.Message);
-                context.Response.StatusCode = 502;
-                context.Response.Close();
+                TrySetErrorResponse(context.Response);
             }
+        }
+
+        private static async Task WriteResponseAsync(HttpListenerResponse response, byte[] body,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await response.OutputStream.WriteAsync(body, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpListenerException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private static void TryCloseResponse(HttpListenerResponse response)
+        {
+            try { response.Close(); } catch (HttpListenerException) { } catch (ObjectDisposedException) { }
+        }
+
+        private static void TrySetErrorResponse(HttpListenerResponse response)
+        {
+            try
+            {
+                response.StatusCode = 502;
+                response.Close();
+            }
+            catch (HttpListenerException) { }
+            catch (ObjectDisposedException) { }
         }
 
         private static async Task<byte[]> ReadBodyAsync(HttpListenerRequest request)

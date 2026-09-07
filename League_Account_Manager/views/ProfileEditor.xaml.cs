@@ -27,6 +27,29 @@ public partial class ProfileEditor : Page
     public ProfileEditor()
     {
         InitializeComponent();
+        Loaded += (_, _) => LoadSavedProfileSettings();
+    }
+
+    private void LoadSavedProfileSettings()
+    {
+        var saved = Misc.Settings.settingsloaded;
+        StatusMessageContainer.Text = saved.ProfileStatusMessage ?? string.Empty;
+        Mode.SelectedItem = saved.ProfileQueue;
+        Rank.SelectedItem = saved.ProfileRank;
+        Division.SelectedItem = saved.ProfileDivision;
+    }
+
+    private void SaveProfileSettings()
+    {
+        var settings = Misc.Settings.settingsloaded;
+        settings.ProfileStatusMessage = StatusMessageContainer.Text;
+        settings.ProfileQueue = Mode.SelectedItem?.ToString() ?? string.Empty;
+        settings.ProfileRank = Rank.SelectedItem?.ToString() ?? string.Empty;
+        settings.ProfileDivision = Division.SelectedItem?.ToString() ?? string.Empty;
+        settings.ProfileIconId = SelectedIcon?.ID ?? settings.ProfileIconId;
+        settings.ProfileBackgroundId = SelectedSkin?.ID ?? settings.ProfileBackgroundId;
+        Misc.Settings.settingsloaded = settings;
+        Misc.Settings.Save();
     }
 
     public List<string>? QueueList { get; set; }
@@ -85,6 +108,70 @@ public partial class ProfileEditor : Page
         return resp == null ? string.Empty : await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
+    private async Task ApplySavedProfileSettingsAsync(CancellationToken cancellationToken)
+    {
+        var saved = Misc.Settings.settingsloaded;
+        if (!await CheckLeagueClientProcess() || cancellationToken.IsCancellationRequested)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(saved.ProfileStatusMessage))
+        {
+            var statusMessage = saved.ProfileStatusMessage.ReplaceLineEndings().Replace(Environment.NewLine, " ");
+            await ExecuteCommand("league", "put", "/lol-chat/v1/me",
+                JsonSerializer.Serialize(new { statusMessage }));
+            await ExecuteCommand("riot", "patch", "/chat/v1/settings",
+                JsonSerializer.Serialize(new Dictionary<string, string>
+                {
+                    ["chat-status-message"] = statusMessage
+                }));
+        }
+
+        if (!string.IsNullOrWhiteSpace(saved.ProfileQueue) &&
+            !string.IsNullOrWhiteSpace(saved.ProfileRank) &&
+            !string.IsNullOrWhiteSpace(saved.ProfileDivision))
+        {
+            await ExecuteCommand("league", "put", "/lol-chat/v1/me",
+                JsonSerializer.Serialize(new
+                {
+                    lol = new
+                    {
+                        rankedLeagueQueue = saved.ProfileQueue,
+                        rankedLeagueTier = saved.ProfileRank,
+                        rankedLeagueDivision = saved.ProfileDivision
+                    }
+                }));
+        }
+
+        if (!string.IsNullOrWhiteSpace(saved.ProfileIconId))
+        {
+            await ExecuteCommand("league", "put", "/lol-summoner/v1/current-summoner/icon/",
+                $"{{\"profileIconId\": {saved.ProfileIconId}}}");
+            await ExecuteCommand("league", "put", "/lol-chat/v1/me/",
+                $"{{\"icon\": {saved.ProfileIconId}}}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(saved.ProfileBackgroundId))
+            await ExecuteCommand("league", "post", "/lol-summoner/v1/current-summoner/summoner-profile/",
+                $"{{\"key\": \"backgroundSkinId\",\"value\": {saved.ProfileBackgroundId}}}");
+    }
+
+    private async Task ApplySavedProfileSettingsLoopAsync(CancellationToken cancellationToken)
+    {
+        while (loaded && !cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await ApplySavedProfileSettingsAsync(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                LogManager.GetCurrentClassLogger().Error(exception, "Error applying saved profile settings");
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken);
+        }
+    }
+
     private async void OnDisableChatClick(object sender, RoutedEventArgs e)
     {
         try
@@ -128,6 +215,7 @@ public partial class ProfileEditor : Page
     {
         try
         {
+            SaveProfileSettings();
             var statusMessage = StatusMessageContainer.Text.ReplaceLineEndings().Replace(Environment.NewLine, " ");
             var responseBody2 = await ExecuteCommand("league", "put", "/lol-chat/v1/me",
                 JsonSerializer.Serialize(new { statusMessage }));
@@ -190,6 +278,7 @@ public partial class ProfileEditor : Page
     {
         try
         {
+            SaveProfileSettings();
             var selectedQueue = Mode.SelectedItem.ToString();
             var selectedRank = Rank.SelectedItem.ToString();
             var selectedTier = Division.SelectedItem.ToString();
@@ -225,6 +314,8 @@ public partial class ProfileEditor : Page
             if (SelectedIcon == null)
                 return;
 
+            SaveProfileSettings();
+
             var responseBody2 = await ExecuteCommand("league", "put", "/lol-summoner/v1/current-summoner/icon/",
                 "{\"profileIconId\": " + SelectedIcon.ID + "}");
             DebugConsole.WriteLine(responseBody2);
@@ -244,6 +335,8 @@ public partial class ProfileEditor : Page
         {
             if (SelectedSkin == null)
                 return;
+
+            SaveProfileSettings();
 
             var responseBody2 = await ExecuteCommand("league", "post",
                 "/lol-summoner/v1/current-summoner/summoner-profile/",
