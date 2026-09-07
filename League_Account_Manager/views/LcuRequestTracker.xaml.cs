@@ -19,6 +19,8 @@ public partial class LcuRequestTracker : Page
     public LcuRequestTracker()
     {
         InitializeComponent();
+        DecodeJwtCheckBox.Checked += DecodeJwtCheckBox_OnChanged;
+        DecodeJwtCheckBox.Unchecked += DecodeJwtCheckBox_OnChanged;
         _view = CollectionViewSource.GetDefaultView(_rows);
         _view.Filter = FilterTraffic;
         TrafficGrid.ItemsSource = _view;
@@ -183,6 +185,9 @@ public partial class LcuRequestTracker : Page
 
     private void DecodeJwtCheckBox_OnChanged(object sender, RoutedEventArgs e)
     {
+        if (TrafficGrid is null || RequestDetails is null || ResponseDetails is null)
+            return;
+
         if (TrafficGrid.SelectedItem is not TrafficRow row)
             return;
 
