@@ -30,11 +30,11 @@
                                    <StackPanel>
                                           <TextBlock Text="Automation" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
                                           <UniformGrid Columns="2">
-                                                 <Button Content="Enable AutoAcceptQueue" Margin="0,0,8,8" Click="OnToggleAutoAcceptClick" />
-                                                 <Button Content="Enable AutoMuteAll" Margin="0,0,0,8" Click="OnToggleAutoMuteClick"
+                                                 <Button x:Name="AutoAcceptQueueButton" Content="Enable AutoAcceptQueue" Margin="0,0,8,8" Click="OnToggleAutoAcceptClick" />
+                                                 <Button x:Name="AutoMuteAllButton" Content="Enable AutoMuteAll" Margin="0,0,0,8" Click="OnToggleAutoMuteClick"
                                                                ToolTip="Mutes every teammate in champion select chat automatically" />
-                                                 <Button Content="Enable AutoAcceptPick" Margin="0,0,8,0" Click="OnToggleAutoPickClick" />
-                                                 <Button Content="Enable AutoAcceptBan" Click="OnToggleAutoBanClick" />
+                                                 <Button x:Name="AutoAcceptPickButton" Content="Enable AutoAcceptPick" Margin="0,0,8,0" Click="OnToggleAutoPickClick" />
+                                                 <Button x:Name="AutoAcceptBanButton" Content="Enable AutoAcceptBan" Click="OnToggleAutoBanClick" />
                                           </UniformGrid>
                                           <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                                  <CheckBox x:Name="InstantPick" Content="Instant pick" IsChecked="True" Margin="0,0,24,0"
@@ -50,7 +50,7 @@
                                                  <RowDefinition Height="Auto" />
                                                  <RowDefinition Height="*" />
                                           </Grid.RowDefinitions>
-                                          <Button Content="Enable AutoAcceptMessage" Click="OnToggleAutoMessageClick" Margin="0,0,0,10" />
+                                          <Button x:Name="AutoAcceptMessageButton" Content="Enable AutoAcceptMessage" Click="OnToggleAutoMessageClick" Margin="0,0,0,10" />
                                           <ui:TextBox Grid.Row="1" ClearButtonEnabled="False" PlaceholderText="Champion-select message"
                                                                AcceptsReturn="True" TextWrapping="Wrap" Name="MessageContainer" MinHeight="76" />
                                    </Grid>

@@ -125,8 +125,10 @@ public partial class LcuRequestTracker : Page
 
         RequestDetails.Text = string.IsNullOrWhiteSpace(row.Record.RequestBody)
             ? FormatRequestDetails(row.Record)
-            : $"{FormatRequestDetails(row.Record)}{Environment.NewLine}{Environment.NewLine}{FormatPayload(row.Record.RequestBody)}";
-        ResponseDetails.Text = FormatResponseDetails(row.Record);
+            : $"{FormatRequestDetails(row.Record)}{Environment.NewLine}{Environment.NewLine}{FormatCapturedPayload(row.Record.RequestBody)}";
+        ResponseDetails.Text = string.Join(Environment.NewLine + Environment.NewLine,
+            new[] { row.Record.ResponseHeaders, row.Record.Error, FormatCapturedPayload(row.Record.ResponseBody) }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     private static string FormatRequestDetails(LcuRequestRecord record)
@@ -169,6 +171,27 @@ public partial class LcuRequestTracker : Page
         {
             return payload;
         }
+    }
+
+    private string FormatCapturedPayload(string payload)
+    {
+        var formatted = FormatPayload(payload);
+        return DecodeJwtCheckBox.IsChecked == true
+            ? TrafficPayloadDecoder.DecodeJwtPayloads(formatted)
+            : formatted;
+    }
+
+    private void DecodeJwtCheckBox_OnChanged(object sender, RoutedEventArgs e)
+    {
+        if (TrafficGrid.SelectedItem is not TrafficRow row)
+            return;
+
+        RequestDetails.Text = string.IsNullOrWhiteSpace(row.Record.RequestBody)
+            ? FormatRequestDetails(row.Record)
+            : $"{FormatRequestDetails(row.Record)}{Environment.NewLine}{Environment.NewLine}{FormatCapturedPayload(row.Record.RequestBody)}";
+        ResponseDetails.Text = string.Join(Environment.NewLine + Environment.NewLine,
+            new[] { row.Record.ResponseHeaders, row.Record.Error, FormatCapturedPayload(row.Record.ResponseBody) }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     private void LoadSelectedRequest_OnClick(object sender, RoutedEventArgs e)

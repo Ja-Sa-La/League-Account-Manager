@@ -473,5 +473,16 @@ public class Settings
         public bool LeagueDefaultSortDescending { get; set; }
         public string ValorantDefaultSortColumn { get; set; }
         public bool ValorantDefaultSortDescending { get; set; }
+        public string ProfileStatusMessage { get; set; }
+        public string ProfileQueue { get; set; }
+        public string ProfileRank { get; set; }
+        public string ProfileDivision { get; set; }
+        public string ProfileIconId { get; set; }
+        public string ProfileBackgroundId { get; set; }
+        public bool AutoLobbyAcceptQueue { get; set; }
+        public bool AutoLobbyPick { get; set; }
+        public bool AutoLobbyBan { get; set; }
+        public bool AutoLobbyMessage { get; set; }
+        public bool AutoLobbyMute { get; set; }
     }
 }

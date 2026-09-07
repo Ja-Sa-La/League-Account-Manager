@@ -8,6 +8,7 @@ namespace League_Account_Manager;
 /// </summary>
 public partial class App : Application
 {
+    private CancellationTokenSource? profileSettingsCts;
     public static string[]? StartupArgs { get; private set; }
     internal static AuthRouteLauncher AuthLauncher { get; } = new();
     internal static OfflineLauncher OfflineLauncher { get; } = new();
@@ -26,9 +27,17 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        profileSettingsCts?.Cancel();
+        profileSettingsCts?.Dispose();
         LcuWebSocketMonitor.Stop();
         DebugClientTrafficLauncher.Dispose();
         DebugTrafficCapture.Dispose();
         base.OnExit(e);
+    }
+
+    internal void StartProfileSettingsLoop()
+    {
+        profileSettingsCts ??= new CancellationTokenSource();
+        _ = ProfileSettingsService.RunAsync(profileSettingsCts.Token);
     }
 }

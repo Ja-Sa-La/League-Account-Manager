@@ -98,6 +98,7 @@ public partial class MainWindow : Window
 
             // Load settings
             await Settings.loadsettings();
+            ((App)Application.Current).StartProfileSettingsLoop();
 
             // Perform update check if enabled in settings
             if (Settings.settingsloaded.updates)

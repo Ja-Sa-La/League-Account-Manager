@@ -46,11 +46,37 @@ public partial class Autolobby : Page
             return;
 
         _backgroundWorkersStarted = true;
+        RestoreSavedToggles();
         var token = _pageLifetimeCts.Token;
 
         Task.Run(() => BackgroundDataFunction1(token), token);
         Task.Run(() => BackgroundDataFunction2(token), token);
         Task.Run(() => LoadBuyableData(token), token);
+    }
+
+    private void RestoreSavedToggles()
+    {
+        var saved = Misc.Settings.settingsloaded;
+        if (saved.AutoLobbyAcceptQueue) ToggleTask("AutoAcceptQueue", StartAutoAcceptTask, AutoAcceptQueueButton);
+        if (saved.AutoLobbyMute) ToggleTask("AutoMuteAll", StartAutoMuteTask, AutoMuteAllButton);
+        if (saved.AutoLobbyPick) ToggleTask("AutoAcceptPick", StartAutoPickTask, AutoAcceptPickButton);
+        if (saved.AutoLobbyBan) ToggleTask("AutoAcceptBan", StartAutoBanTask, AutoAcceptBanButton);
+        if (saved.AutoLobbyMessage) ToggleTask("AutoAcceptMessage", StartAutoMessageTask, AutoAcceptMessageButton);
+    }
+
+    private void SaveToggle(string taskName, bool enabled)
+    {
+        var saved = Misc.Settings.settingsloaded;
+        switch (taskName)
+        {
+            case "AutoAcceptQueue": saved.AutoLobbyAcceptQueue = enabled; break;
+            case "AutoMuteAll": saved.AutoLobbyMute = enabled; break;
+            case "AutoAcceptPick": saved.AutoLobbyPick = enabled; break;
+            case "AutoAcceptBan": saved.AutoLobbyBan = enabled; break;
+            case "AutoAcceptMessage": saved.AutoLobbyMessage = enabled; break;
+        }
+        Misc.Settings.settingsloaded = saved;
+        Misc.Settings.Save();
     }
 
     private void Log(string message)
@@ -108,6 +134,7 @@ public partial class Autolobby : Page
             };
 
             button.Content = $"Disable {taskName}";
+            SaveToggle(taskName, true);
             Log($"Enabled {taskName}");
             return;
         }
@@ -119,6 +146,7 @@ public partial class Autolobby : Page
             info.Running = false;
             info.Cts.Cancel();
             button.Content = $"Enable {taskName}";
+            SaveToggle(taskName, false);
             Log($"Disabled {taskName}");
         }
         else
@@ -134,6 +162,7 @@ public partial class Autolobby : Page
             };
 
             button.Content = $"Disable {taskName}";
+            SaveToggle(taskName, true);
             Log($"Enabled {taskName}");
         }
     }
