@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -271,26 +272,9 @@ public partial class Accounts : Page
                 ? ListSortDirection.Descending
                 : ListSortDirection.Ascending;
 
-            if (sortMemberPath == "rank" || sortMemberPath == "rank2")
-            {
-                e.Handled = true;
-                var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList> ??
-                           ActualAccountlists ?? new List<Utils.AccountList>();
-                AccountsDataGrid.ItemsSource = SortLeagueRankList(list, sortMemberPath, newDirection).ToList();
-                SetLeagueSortDirectionIndicators(sortMemberPath, newDirection);
-                AccountsDataGrid.Items.Refresh();
-            }
-            else if (sortMemberPath == "lastPlayed")
-            {
-                e.Handled = true;
-                var list = AccountsDataGrid.ItemsSource as IEnumerable<Utils.AccountList> ??
-                           ActualAccountlists ?? new List<Utils.AccountList>();
-                AccountsDataGrid.ItemsSource = SortLeagueLastPlayedList(list, newDirection).ToList();
-                SetLeagueSortDirectionIndicators(sortMemberPath, newDirection);
-                AccountsDataGrid.Items.Refresh();
-            }
-
+            e.Handled = true;
             SaveLeagueSortPreference(sortMemberPath, newDirection);
+            ApplyLeagueSortToGrid();
         }
         catch
         {
@@ -317,10 +301,10 @@ public partial class Accounts : Page
             string.Equals(sortMemberPath, "rank2", StringComparison.OrdinalIgnoreCase) ? x.rank2 : x.rank;
 
         if (direction == ListSortDirection.Descending)
-            return list.OrderBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
+            return list.OrderByDescending(x => x.favorite).ThenBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
                 .ThenByDescending(x => ParseRankValue(getRank(x)));
 
-        return list.OrderBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
+        return list.OrderByDescending(x => x.favorite).ThenBy(x => string.IsNullOrWhiteSpace(getRank(x)) ? 1 : 0)
             .ThenBy(x => ParseRankValue(getRank(x)));
     }
 
@@ -342,10 +326,10 @@ public partial class Accounts : Page
         }
 
         if (direction == ListSortDirection.Descending)
-            return list.OrderBy(x => ParseLastPlayed(x.lastPlayed).HasValue ? 0 : 1)
+            return list.OrderByDescending(x => x.favorite).ThenBy(x => ParseLastPlayed(x.lastPlayed).HasValue ? 0 : 1)
                 .ThenByDescending(x => ParseLastPlayed(x.lastPlayed));
 
-        return list.OrderBy(x => ParseLastPlayed(x.lastPlayed).HasValue ? 0 : 1)
+        return list.OrderByDescending(x => x.favorite).ThenBy(x => ParseLastPlayed(x.lastPlayed).HasValue ? 0 : 1)
             .ThenBy(x => ParseLastPlayed(x.lastPlayed));
     }
 
@@ -394,6 +378,7 @@ public partial class Accounts : Page
         }
 
         AccountsDataGrid.Items.SortDescriptions.Clear();
+        AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("favorite", ListSortDirection.Descending));
         AccountsDataGrid.Items.SortDescriptions.Add(new SortDescription(sortMemberPath, direction));
         SetLeagueSortDirectionIndicators(sortMemberPath, direction);
     }
@@ -525,7 +510,7 @@ public partial class Accounts : Page
                 ApplyLeagueSortToGrid();
 
                 if (!Misc.Settings.settingsloaded.DisplayPasswords && AccountsDataGrid.Columns.Count > 1)
-                    AccountsDataGrid.Columns[1].Visibility = Visibility.Hidden;
+                    AccountsDataGrid.Columns[2].Visibility = Visibility.Hidden;
             });
         }
         catch (Exception exception)
@@ -614,6 +599,7 @@ public partial class Accounts : Page
         "Fetch skins",
         "Fetch ranked info",
         "Fetch loot",
+        "Fetch TFT cosmetics",
         "Fetch wallet",
         "Fetch region",
         "Fetch champions"
@@ -892,6 +878,7 @@ public partial class Accounts : Page
                 {
                     AccountsDataGrid.ItemsSource = null;
                     AccountsDataGrid.ItemsSource = ActualAccountlists;
+                    ApplyLeagueSortToGrid();
                     AccountsDataGrid.Items.Refresh();
                 });
 
@@ -956,6 +943,13 @@ public partial class Accounts : Page
                 return res;
             }, cancellationToken);
 
+            var tftTask = Task.Run(async () =>
+            {
+                var res = await GetTftInfoAsync(cancellationToken);
+                if (res != null) MarkTaskCompleted("Fetch TFT cosmetics");
+                return res;
+            }, cancellationToken);
+
             var walletTask = Task.Run(async () =>
             {
                 var res = await GetWalletAsync(cancellationToken);
@@ -970,7 +964,7 @@ public partial class Accounts : Page
                 return res;
             }, cancellationToken);
 
-            await Task.WhenAll(summonerTask, skinTask, rankedTask, lootTask, walletTask, regionTask);
+            await Task.WhenAll(summonerTask, skinTask, rankedTask, lootTask, tftTask, walletTask, regionTask);
 
             var summonerInfo = summonerTask.Result;
             if (summonerInfo == null)
@@ -1157,6 +1151,33 @@ public partial class Accounts : Page
             if (lootParseFailureCount > 0)
                 _logger.Warn("Loot parsing completed with {FailureCount} failures out of {LootCount} parsed items",
                     lootParseFailureCount, lootCount);
+
+            var tftList = new List<string>();
+            var tftStructured = new List<Utils.StructuredDataEntry>();
+            foreach (var item in tftTask.Result ?? new JArray())
+            {
+                if (item["owned"]?.ToObject<bool>() != true) continue;
+
+                var name = item["name"]?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
+                var category = item["_category"]?.ToString() ?? "TFT cosmetic";
+                var iconUrl = BuildTftIconUrl(item["loadoutsIcon"]?.ToString());
+                var level = item["level"]?.ToString();
+                var value = string.IsNullOrWhiteSpace(level) ? category : $"{category}, level {level}";
+                tftList.Add(string.Join("|", name, iconUrl ?? string.Empty, value));
+                tftStructured.Add(new Utils.StructuredDataEntry
+                {
+                    name = name,
+                    icon = iconUrl,
+                    value = value,
+                    extra = new Dictionary<string, string>
+                    {
+                        ["itemId"] = item["itemId"]?.ToString() ?? string.Empty,
+                        ["category"] = category
+                    }
+                });
+            }
 
             var rankedInfo = rankedTask.Result;
             var Rank = ApiResponseParser.BuildRankString(rankedInfo, "RANKED_SOLO_5x5");
@@ -1416,12 +1437,15 @@ public partial class Accounts : Page
                 Loot = string.Join(":", lootList),
                 lootData = lootStructured,
                 Loots = lootCount,
+                tft = string.Join(":", tftList),
+                tftData = tftStructured,
                 rank2 = Rank2,
                 lastPlayed = preservedLastPlayed,
                 leagueMatchHistory = !string.IsNullOrWhiteSpace(matchHistoryData.SerializedEntries)
                     ? matchHistoryData.SerializedEntries
                     : existingAccount?.leagueMatchHistory,
-                note = existingAccount?.note
+                note = existingAccount?.note,
+                favorite = existingAccount?.favorite ?? false
             });
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -1562,6 +1586,89 @@ public partial class Accounts : Page
                 return null;
             }
         }, cancellationToken);
+    }
+
+    private Task<JArray?> GetTftInfoAsync(CancellationToken cancellationToken)
+    {
+        var endpoints = new[]
+        {
+            (Path: "/lol-cosmetics/v1/inventories/tft/damage-skins", Category: "Damage skin"),
+            (Path: "/lol-cosmetics/v1/inventories/tft/companions", Category: "Companion"),
+            (Path: "/lol-cosmetics/v1/inventories/tft/map-skins", Category: "Arena"),
+            (Path: "/lol-cosmetics/v1/inventories/tft/zoom-skins", Category: "Finisher")
+        };
+
+        return RetryAsync<JArray>(async () =>
+        {
+            var result = new JArray();
+            foreach (var endpoint in endpoints)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var response = await Lcu.Connector("league", "get", endpoint.Path, "", cancellationToken);
+                if (response == null) continue;
+
+                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(body)) continue;
+
+                JToken payload;
+                try
+                {
+                    payload = JToken.Parse(body);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                // LCU may return this endpoint as an OnJsonApiEvent envelope:
+                // [8, "OnJsonApiEvent", { "data": { "groups": [...] } }]
+                if (payload is JArray eventPayload && eventPayload.Count > 2 &&
+                    eventPayload[2] is JObject eventData)
+                    payload = eventData;
+
+                var groups = payload["data"]?["groups"] as JArray ?? payload["groups"] as JArray;
+                var items = groups != null
+                    ? groups.Children<JToken>()
+                        .SelectMany(group => group["items"]?.Children<JToken>() ?? Enumerable.Empty<JToken>())
+                    : payload is JArray arrayPayload
+                        ? arrayPayload.Children<JToken>()
+                        : Enumerable.Empty<JToken>();
+                foreach (var item in items)
+                {
+                    if (item is not JObject itemObject) continue;
+                    var copy = (JObject)itemObject.DeepClone();
+                    copy["_category"] = endpoint.Category;
+                    result.Add(copy);
+                }
+            }
+
+            return result.Count == 0 ? null : result;
+        }, cancellationToken);
+    }
+
+    private static string? BuildTftIconUrl(string? loadoutsIcon)
+    {
+        if (string.IsNullOrWhiteSpace(loadoutsIcon)) return null;
+
+        var tail = loadoutsIcon.TrimStart('/');
+        var assetsIndex = tail.IndexOf("ASSETS/", StringComparison.OrdinalIgnoreCase);
+        if (assetsIndex >= 0)
+            tail = tail.Substring(assetsIndex + "ASSETS/".Length);
+        else
+        {
+            var gameDataIndex = tail.IndexOf("lol-game-data/", StringComparison.OrdinalIgnoreCase);
+            if (gameDataIndex >= 0)
+                tail = tail.Substring(gameDataIndex + "lol-game-data/".Length).TrimStart('/');
+        }
+
+        while (tail.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+            tail = tail.Substring("assets/".Length);
+
+        return string.IsNullOrWhiteSpace(tail)
+            ? null
+            : $"https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/{tail}"
+                .Replace('\\', '/')
+                .ToLowerInvariant();
     }
 
     private Task<Utils.Wallet?> GetWalletAsync(CancellationToken cancellationToken)
@@ -1971,6 +2078,7 @@ public partial class Accounts : Page
                                             {
                                                 AccountsDataGrid.ItemsSource = null;
                                                 AccountsDataGrid.ItemsSource = ActualAccountlists;
+                                                ApplyLeagueSortToGrid();
                                                 AccountsDataGrid.Items.Refresh();
                                             });
 
@@ -2641,6 +2749,7 @@ public partial class Accounts : Page
                         (word.champions ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
                         (word.skins ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
                         (word.Loot ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        (word.tft ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
                         (word.server ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
                         (word.riotID ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0
                     )
@@ -2654,6 +2763,7 @@ public partial class Accounts : Page
             }
 
             AccountsDataGrid.UpdateLayout();
+            ApplyLeagueSortToGrid();
             AccountsDataGrid.Items.Refresh();
         }
         catch (Exception ex)
@@ -2804,6 +2914,9 @@ public partial class Accounts : Page
         if (sender is not DataGrid dataGrid || !dataGrid.CurrentCell.IsValid)
             return;
 
+        if (FindVisualParent<Button>(e.OriginalSource as DependencyObject) != null)
+            return;
+
         if (!Executing)
         {
             Executing = true;
@@ -2835,6 +2948,9 @@ public partial class Accounts : Page
                                 break;
                             case "Loot":
                                 secondWindow = new DisplayDataWithSearch(selectedrow.Loot);
+                                break;
+                            case "TFT":
+                                secondWindow = new DisplayDataWithSearch(selectedrow.tft, true);
                                 break;
                             case "Last Played":
                                 if (e.ClickCount >= 2 && !string.IsNullOrWhiteSpace(selectedrow.leagueMatchHistory))
@@ -2932,6 +3048,68 @@ public partial class Accounts : Page
                 }
             }
         }
+    }
+
+    private void NotesOpenButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Button { Tag: Utils.AccountList account })
+            return;
+
+        OpenNoteWindow(account);
+        e.Handled = true;
+    }
+
+    private void NotesCell_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "Notes" ||
+            cell.DataContext is not Utils.AccountList account)
+            return;
+
+        OpenNoteWindow(account);
+        e.Handled = true;
+    }
+
+    private async void FavoriteCell_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "★" ||
+            cell.DataContext is not Utils.AccountList account)
+            return;
+
+        e.Handled = true;
+        account.favorite = !account.favorite;
+        try
+        {
+            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
+        }
+        catch (Exception exception)
+        {
+            account.favorite = !account.favorite;
+            DebugConsole.WriteLine($"[Accounts] Could not save favorite: {exception.Message}");
+        }
+        AccountsDataGrid.Items.Refresh();
+        ApplyLeagueSortToGrid();
+    }
+
+    private void OpenNoteWindow(Utils.AccountList account)
+    {
+        var noteWindow = new NoteDisplay(account)
+        {
+            Owner = System.Windows.Window.GetWindow(this)
+        };
+        noteWindow.Show();
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? element) where T : DependencyObject
+    {
+        while (element != null)
+        {
+            if (element is T match)
+                return match;
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return null;
     }
 
     private void OnRemoveDuplicatesClick(object sender, RoutedEventArgs e)
@@ -3152,5 +3330,42 @@ public partial class Accounts : Page
         {
             DebugConsole.WriteLine($"[Accounts] Failed to decode id token: {ex.Message}", ConsoleColor.Red);
         }
+    }
+}
+
+public sealed class RankIconConverter : IValueConverter
+{
+    private static readonly Dictionary<string, System.Windows.Media.DrawingImage> RankImages = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var rank = value?.ToString();
+        var tier = GetTier(rank);
+        if (RankImages.TryGetValue(tier, out var cachedImage))
+            return cachedImage;
+
+        var uri = new Uri($"pack://application:,,,/League_Account_Manager;component/Assests/Rank%20Icons/{tier}.svg");
+        using var stream = System.Windows.Application.GetResourceStream(uri)!.Stream;
+        using var reader = new SharpVectors.Converters.FileSvgReader(
+            new SharpVectors.Renderers.Wpf.WpfDrawingSettings { IncludeRuntime = false });
+        var image = new System.Windows.Media.DrawingImage(reader.Read(stream));
+        image.Freeze();
+        RankImages[tier] = image;
+        return image;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return Binding.DoNothing;
+    }
+
+    private static string GetTier(string? rank)
+    {
+        var normalized = rank?.Trim().ToLowerInvariant() ?? string.Empty;
+        foreach (var tier in new[] { "iron", "bronze", "silver", "gold", "platinum", "emerald", "diamond", "master", "grandmaster", "challenger" })
+            if (normalized.StartsWith(tier, StringComparison.Ordinal))
+                return tier;
+
+        return "unranked";
     }
 }

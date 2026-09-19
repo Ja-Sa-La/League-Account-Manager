@@ -149,6 +149,27 @@
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                     <DataGrid.Columns>
+                        <DataGridTemplateColumn MinWidth="48" Width="52" Header="★">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Padding="0" BorderThickness="0" Background="Transparent"
+                                            HorizontalAlignment="Center" IsHitTestVisible="False">
+                                        <TextBlock Text="★" FontSize="22" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding favorite}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
                         <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />
                         <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}" />
@@ -172,17 +193,24 @@
                                             Binding="{Binding ValorantSkinsCount}" />
                         <DataGridTextColumn Width="Auto" MinWidth="80" Header="Titles"
                                             Binding="{Binding ValorantTitlesCount}" />
-                        <DataGridTextColumn MinWidth="50" Header="Notes">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="Open" />
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
+                        <DataGridTemplateColumn MinWidth="76" Width="82" Header="Notes">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="Open" Padding="8,4"
+                                            HorizontalAlignment="Center"
+                                            Tag="{Binding}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
 
                     <DataGrid.Resources>
-                        <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource AppDataGridCellStyle}" />
+                        <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource AppDataGridCellStyle}">
+                            <EventSetter Event="PreviewMouseLeftButtonDown"
+                                         Handler="NotesCell_PreviewMouseLeftButtonDown" />
+                            <EventSetter Event="PreviewMouseLeftButtonDown"
+                                         Handler="FavoriteCell_PreviewMouseLeftButtonDown" />
+                        </Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center" />
                             <Setter Property="TextWrapping" Value="WrapWithOverflow" />

@@ -4,12 +4,16 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:League_Account_Manager.views"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" x:Class="League_Account_Manager.views.Accounts"
     mc:Ignorable="d"
     d:DesignHeight="749" d:DesignWidth="1216"
     Title="Accounts" KeyUp="Accounts_OnKeyDown" KeyDown="Accounts_OnKeyDown"
     PreviewKeyDown="Accounts_OnPreviewKeyDown" Loaded="Accounts_OnLoaded" SizeChanged="Accounts_OnSizeChanged"
     ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+    <Page.Resources>
+        <local:RankIconConverter x:Key="RankIconConverter" />
+    </Page.Resources>
 
     <Grid Margin="18" Background="Transparent">
         <Grid.RowDefinitions>
@@ -127,6 +131,7 @@
         <Grid Grid.Row="1">
             <Border Style="{StaticResource SurfacePanelStyle}" Padding="0">
             <DataGrid x:Name="AccountsDataGrid" SelectionUnit="FullRow"
+                          RowHeight="58"
                           KeyDown="Accounts_OnKeyDown"
                           MouseLeftButtonDown="OnAccountsMouseLeftButtonDown"
                           ContextMenuOpening="Accounts_ContextMenuOpening"
@@ -188,6 +193,27 @@
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                     <DataGrid.Columns>
+                        <DataGridTemplateColumn MinWidth="48" Width="52" Header="★">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Padding="0" BorderThickness="0" Background="Transparent"
+                                            HorizontalAlignment="Center" IsHitTestVisible="False">
+                                        <TextBlock Text="★" FontSize="22" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding favorite}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn MaxWidth="220" Header="Username" Width="*" Binding="{Binding username}" />
                         <DataGridTextColumn MaxWidth="250" Header="Password" Width="*" Binding="{Binding password}" />
                         <DataGridTextColumn MaxWidth="250" Header="RiotID" Width="*" Binding="{Binding riotID}" />
@@ -195,23 +221,50 @@
                         <DataGridTextColumn MinWidth="50" Header="Server" Binding="{Binding server}" />
                         <DataGridTextColumn MinWidth="50" Header="BE" Binding="{Binding be}" />
                         <DataGridTextColumn MinWidth="50" Header="RP" Binding="{Binding rp}" />
-                        <DataGridTextColumn MinWidth="50" Header="SoloQ" Binding="{Binding rank}" />
-                        <DataGridTextColumn MinWidth="50" Header="FlexQ" Binding="{Binding rank2}" />
+                        <DataGridTemplateColumn MinWidth="68" Width="72" Header="SoloQ" SortMemberPath="rank">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Image Width="48" Height="48" Stretch="Uniform"
+                                           HorizontalAlignment="Center"
+                                           ToolTip="{Binding rank}"
+                                           Source="{Binding rank, Converter={StaticResource RankIconConverter}}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn MinWidth="68" Width="72" Header="FlexQ" SortMemberPath="rank2">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Image Width="48" Height="48" Stretch="Uniform"
+                                           HorizontalAlignment="Center"
+                                           ToolTip="{Binding rank2}"
+                                           Source="{Binding rank2, Converter={StaticResource RankIconConverter}}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn MinWidth="140" Header="Last Played" Binding="{Binding lastPlayed}" />
                         <DataGridTextColumn MinWidth="50" Header="Champions" Binding="{Binding Champions}" />
                         <DataGridTextColumn MinWidth="50" Header="Skins" Binding="{Binding Skins}" />
                         <DataGridTextColumn MinWidth="50" Header="Loot" Binding="{Binding Loots}" />
-                        <DataGridTextColumn MinWidth="50" Header="Notes">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="Open" />
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
+                        <DataGridTextColumn MinWidth="50" Header="TFT" Binding="{Binding TftCount}" />
+                        <DataGridTemplateColumn MinWidth="76" Width="82" Header="Notes">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="Open" Padding="8,4"
+                                            HorizontalAlignment="Center"
+                                            Tag="{Binding}"
+                                            PreviewMouseLeftButtonDown="NotesOpenButton_PreviewMouseLeftButtonDown" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
 
                     <DataGrid.Resources>
-                        <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource AppDataGridCellStyle}" />
+                        <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource AppDataGridCellStyle}">
+                            <EventSetter Event="PreviewMouseLeftButtonDown"
+                                         Handler="NotesCell_PreviewMouseLeftButtonDown" />
+                            <EventSetter Event="PreviewMouseLeftButtonDown"
+                                         Handler="FavoriteCell_PreviewMouseLeftButtonDown" />
+                        </Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center" />
                             <Setter Property="TextWrapping" Value="WrapWithOverflow" />

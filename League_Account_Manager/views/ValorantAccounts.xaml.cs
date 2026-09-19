@@ -315,7 +315,9 @@ public partial class ValorantAccounts : Page
                 ? ListSortDirection.Descending
                 : ListSortDirection.Ascending;
 
+            e.Handled = true;
             SaveValorantSortPreference(sortMemberPath, newDirection);
+            ApplyValorantSortToGrid();
         }
         catch
         {
@@ -409,6 +411,7 @@ public partial class ValorantAccounts : Page
 
         ValorantAccountsDataGrid.ItemsSource = null;
         ValorantAccountsDataGrid.ItemsSource = ActualAccountlists;
+        ApplyValorantSortToGrid();
         ValorantAccountsDataGrid.Items.Refresh();
     }
 
@@ -972,6 +975,7 @@ public partial class ValorantAccounts : Page
     {
         var (sortMemberPath, direction) = GetValorantSortPreference();
         ValorantAccountsDataGrid.Items.SortDescriptions.Clear();
+        ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription("favorite", ListSortDirection.Descending));
         ValorantAccountsDataGrid.Items.SortDescriptions.Add(new SortDescription(sortMemberPath, direction));
 
         foreach (var col in ValorantAccountsDataGrid.Columns)
@@ -1012,7 +1016,7 @@ public partial class ValorantAccounts : Page
                 ApplyValorantSortToGrid();
 
                 if (!Misc.Settings.settingsloaded.DisplayPasswords && ValorantAccountsDataGrid.Columns.Count > 1)
-                    ValorantAccountsDataGrid.Columns[1].Visibility = Visibility.Hidden;
+                    ValorantAccountsDataGrid.Columns[2].Visibility = Visibility.Hidden;
             });
         }
         catch (Exception exception)
@@ -1052,6 +1056,7 @@ public partial class ValorantAccounts : Page
             }
 
             ValorantAccountsDataGrid.UpdateLayout();
+            ApplyValorantSortToGrid();
             ValorantAccountsDataGrid.Items.Refresh();
         }
         catch (Exception ex)
@@ -1161,6 +1166,41 @@ public partial class ValorantAccounts : Page
             dataGrid.UnselectAllCells();
             dataGrid.SelectedItem = null;
         }
+    }
+
+    private void NotesCell_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "Notes" ||
+            cell.DataContext is not Utils.AccountList account)
+            return;
+
+        var noteWindow = new NoteDisplay(account)
+        {
+            Owner = System.Windows.Window.GetWindow(this)
+        };
+        noteWindow.Show();
+        e.Handled = true;
+    }
+
+    private async void FavoriteCell_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "★" ||
+            cell.DataContext is not Utils.AccountList account)
+            return;
+
+        e.Handled = true;
+        account.favorite = !account.favorite;
+        try
+        {
+            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
+        }
+        catch (Exception exception)
+        {
+            account.favorite = !account.favorite;
+            DebugConsole.WriteLine($"[ValorantAccounts] Could not save favorite: {exception.Message}");
+        }
+        ValorantAccountsDataGrid.Items.Refresh();
+        ApplyValorantSortToGrid();
     }
 
     private static string? CombineSkins(Utils.AccountList account)

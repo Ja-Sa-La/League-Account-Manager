@@ -6,6 +6,34 @@
         MouseDown="Window_MouseDownDatadisplay" Deactivated="Window_Deactivated" ResizeMode="NoResize"
         LocationChanged="Window_LocationOrSizeChanged" SizeChanged="Window_LocationOrSizeChanged"
         Closed="Window_Closed">
+    <Window.Resources>
+        <DataTemplate x:Key="DataItemTemplate">
+            <Border Background="{StaticResource SurfaceRaisedBrush}" BorderBrush="{StaticResource StrokeBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4,0,8"
+                    MouseEnter="OnItemHoverEnter">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="65" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Height="60" MinWidth="60" Background="{StaticResource SurfaceHoverBrush}" CornerRadius="4"
+                            HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Image Height="60" HorizontalAlignment="Left" VerticalAlignment="Center"
+                               Stretch="Uniform" Source="{Binding IconSource}" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"
+                                   FontSize="16" />
+                        <TextBlock Text="{Binding Price}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
     <Grid Background="{StaticResource AppBackgroundBrush}" Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -30,41 +58,19 @@
         </Border>
 
         <Border Grid.Row="2" Style="{StaticResource SurfacePanelStyle}" Padding="8">
+            <Grid>
             <ScrollViewer MouseDown="Window_MouseDownDatadisplay"
                           VerticalScrollBarVisibility="Auto" MouseLeave="OnItemsListMouseLeave">
                 <ItemsControl Name="ItemsList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                                <Border Background="{StaticResource SurfaceRaisedBrush}" BorderBrush="{StaticResource StrokeBrush}"
-                                    BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4,0,8"
-                                    MouseEnter="OnItemHoverEnter">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="65" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Grid>
-                                        <Border Height="60" MinWidth="60" Background="{StaticResource SurfaceHoverBrush}" CornerRadius="4"
-                                                HorizontalAlignment="Left" VerticalAlignment="Center">
-                                            <Image Height="60" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                   Stretch="Uniform" Source="{Binding IconSource}" />
-                                        </Border>
-                                    </Grid>
-
-                                    <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"
-                                                   FontSize="16" />
-                                        <TextBlock Text="{Binding Price}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
-                                                   TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource DataItemTemplate}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+            <TabControl Name="CategoryTabs" Visibility="Collapsed" SelectionChanged="CategoryTabs_SelectionChanged" />
+            </Grid>
         </Border>
     </Grid>
 </Window>

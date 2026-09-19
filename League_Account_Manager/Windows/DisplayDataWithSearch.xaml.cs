@@ -13,10 +13,13 @@ public partial class DisplayDataWithSearch : Window
 {
     private readonly string dataholder = "";
     private readonly List<DisplayItem> items = new();
+    private readonly bool isTftViewer;
+    private readonly Dictionary<string, List<DisplayItem>> tftCategories = new(StringComparer.OrdinalIgnoreCase);
     private HoverPreviewWindow? _previewWindow;
 
-    public DisplayDataWithSearch(string? Data)
+    public DisplayDataWithSearch(string? Data, bool isTft = false)
     {
+        isTftViewer = isTft;
         InitializeComponent();
 
         if (string.IsNullOrWhiteSpace(Data))
@@ -85,10 +88,18 @@ public partial class DisplayDataWithSearch : Window
             }
 
             items.Add(new DisplayItem
-                { Name = name, IconUrl = string.IsNullOrWhiteSpace(url) ? null : url, Price = price });
+                {
+                    Name = name,
+                    IconUrl = string.IsNullOrWhiteSpace(url) ? null : url,
+                    Price = price,
+                    Category = isTftViewer ? GetTftCategory(price) : null
+                });
         }
 
-        ItemsList.ItemsSource = items;
+        if (isTftViewer)
+            ConfigureTftTabs();
+        else
+            ItemsList.ItemsSource = items;
     }
 
 
@@ -100,9 +111,6 @@ public partial class DisplayDataWithSearch : Window
 
     private void Window_Deactivated(object sender, EventArgs e)
     {
-        if (_previewWindow is { IsVisible: true })
-            return;
-
         Close();
     }
 
@@ -110,8 +118,76 @@ public partial class DisplayDataWithSearch : Window
     private void TextBox_TextChangeddatafilt(object sender, TextChangedEventArgs e)
     {
         var searchTerm = datafiltersearch.Text ?? string.Empty;
-        var filtered = items.Where(it => it.Name.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-        ItemsList.ItemsSource = filtered;
+        if (!isTftViewer)
+        {
+            ItemsList.ItemsSource = FilterItems(items, searchTerm);
+            return;
+        }
+
+        if (CategoryTabs.SelectedItem is TabItem tab && tab.Tag is List<DisplayItem> tabItems &&
+            tab.Content is ScrollViewer scrollViewer && scrollViewer.Content is ItemsControl tabList)
+            tabList.ItemsSource = FilterItems(tabItems, searchTerm);
+    }
+
+    private void ConfigureTftTabs()
+    {
+        ItemsList.Visibility = Visibility.Collapsed;
+        CategoryTabs.Visibility = Visibility.Visible;
+
+        foreach (var item in items)
+        {
+            var category = item.Category ?? "Other";
+            if (!tftCategories.TryGetValue(category, out var categoryItems))
+            {
+                categoryItems = new List<DisplayItem>();
+                tftCategories[category] = categoryItems;
+            }
+
+            categoryItems.Add(item);
+        }
+
+        AddTftTab("All", items);
+        foreach (var category in tftCategories.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+            AddTftTab(category.Key, category.Value);
+    }
+
+    private void AddTftTab(string header, List<DisplayItem> tabItems)
+    {
+        var tabList = new ItemsControl
+        {
+            ItemTemplate = (DataTemplate)FindResource("DataItemTemplate"),
+            ItemsSource = tabItems
+        };
+        var scrollViewer = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = tabList
+        };
+        CategoryTabs.Items.Add(new TabItem { Header = header, Tag = tabItems, Content = scrollViewer });
+    }
+
+    private static List<DisplayItem> FilterItems(IEnumerable<DisplayItem> source, string searchTerm)
+    {
+        return source.Where(item => item.Name.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+    }
+
+    private void CategoryTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.Source != CategoryTabs || CategoryTabs.SelectedItem is not TabItem tab ||
+            tab.Tag is not List<DisplayItem> tabItems || tab.Content is not ScrollViewer scrollViewer ||
+            scrollViewer.Content is not ItemsControl tabList)
+            return;
+
+        tabList.ItemsSource = FilterItems(tabItems, datafiltersearch.Text ?? string.Empty);
+    }
+
+    private static string GetTftCategory(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Other";
+
+        var separator = value.IndexOf(',', StringComparison.Ordinal);
+        return (separator >= 0 ? value[..separator] : value).Trim();
     }
 
     private void OnItemHoverEnter(object sender, MouseEventArgs e)
@@ -200,6 +276,7 @@ public partial class DisplayDataWithSearch : Window
         public string Name { get; set; } = string.Empty;
         public string? IconUrl { get; set; }
         public string? Price { get; set; }
+        public string? Category { get; set; }
 
         public object? IconSource
         {

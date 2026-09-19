@@ -692,6 +692,7 @@ internal static class AccountFileStore
                     lastPlayed = GetField("lastPlayed", -1) ?? "",
                     leagueMatchHistory = GetField("leagueMatchHistory", -1) ?? "",
                     note = GetField("note", 15) ?? "",
+                    favorite = bool.TryParse(GetField("favorite", -1), out var favorite) && favorite,
                     valorantAgents = GetField("valorantAgents", 16) ?? "",
                     valorantContracts = GetField("valorantContracts", 17) ?? "",
                     valorantSprays = GetField("valorantSprays", 18) ?? "",
@@ -737,7 +738,7 @@ internal static class AccountFileStore
         var headers = new[]
         {
             "username", "password", "riotID", "level", "server", "be", "rp", "rank",
-            "champions", "skins", "Champions", "Skins", "Loot", "Loots", "rank2", "lastPlayed", "leagueMatchHistory", "note",
+            "champions", "skins", "Champions", "Skins", "Loot", "Loots", "rank2", "lastPlayed", "leagueMatchHistory", "note", "favorite",
             "valorantAgents", "valorantContracts", "valorantSprays", "valorantGunBuddies",
             "valorantCards", "valorantSkins", "valorantSkinVariants", "valorantTitles",
             "valorantVp", "valorantRp", "valorantKc", "valorantLevel", "valorantRank", "valorantServer", "valorantXp"
@@ -781,6 +782,7 @@ internal static class AccountFileStore
             csv.WriteField(r.lastPlayed ?? "");
             csv.WriteField(r.leagueMatchHistory ?? "");
             csv.WriteField(r.note ?? "");
+            csv.WriteField(r.favorite);
             csv.WriteField(r.valorantAgents ?? "");
             csv.WriteField(r.valorantContracts ?? "");
             csv.WriteField(r.valorantSprays ?? "");
@@ -843,6 +845,7 @@ internal static class AccountFileStore
             record.championsData = NormalizeStructuredEntries(record.championsData, record.champions);
             record.skinsData = NormalizeStructuredEntries(record.skinsData, record.skins);
             record.lootData = NormalizeStructuredEntries(record.lootData, record.Loot);
+            record.tftData = NormalizeStructuredEntries(record.tftData, record.tft);
 
             if (string.IsNullOrWhiteSpace(record.champions))
                 record.champions = SerializeDelimitedEntries(record.championsData);
@@ -850,6 +853,8 @@ internal static class AccountFileStore
                 record.skins = SerializeDelimitedEntries(record.skinsData);
             if (string.IsNullOrWhiteSpace(record.Loot))
                 record.Loot = SerializeDelimitedEntries(record.lootData);
+            if (string.IsNullOrWhiteSpace(record.tft))
+                record.tft = SerializeDelimitedEntries(record.tftData);
 
             record.valorantAgentsData = NormalizeStructuredEntries(record.valorantAgentsData, record.valorantAgents);
             record.valorantContractsData = NormalizeStructuredEntries(record.valorantContractsData, record.valorantContracts);
