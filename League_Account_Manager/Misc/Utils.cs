@@ -73,6 +73,7 @@ public class Utils
             account.champions = RemoveDoubleQuotes(account.champions);
             account.skins = RemoveDoubleQuotes(account.skins);
             account.Loot = RemoveDoubleQuotes(account.Loot);
+            account.tft = RemoveDoubleQuotes(account.tft);
             account.rank2 = RemoveDoubleQuotes(account.rank2);
             account.lastPlayed = RemoveDoubleQuotes(account.lastPlayed);
             account.leagueMatchHistory = RemoveDoubleQuotes(account.leagueMatchHistory);
@@ -80,6 +81,7 @@ public class Utils
             SanitizeStructuredEntries(account.championsData);
             SanitizeStructuredEntries(account.skinsData);
             SanitizeStructuredEntries(account.lootData);
+            SanitizeStructuredEntries(account.tftData);
             SanitizeStructuredEntries(account.valorantAgentsData);
             SanitizeStructuredEntries(account.valorantContractsData);
             SanitizeStructuredEntries(account.valorantSpraysData);
@@ -225,12 +227,18 @@ public class Utils
         public string? Loot { get; set; }
         public List<StructuredDataEntry>? lootData { get; set; }
 
+        public string? tft { get; set; }
+        public List<StructuredDataEntry>? tftData { get; set; }
+
         [Ignore] public int Loots { get; set; }
+
+        [Ignore] public int TftCount => CountTokens(tft);
 
         public string? rank2 { get; set; }
         public string? lastPlayed { get; set; }
         public string? leagueMatchHistory { get; set; }
         public string? note { get; set; }
+        public bool favorite { get; set; }
         public string? valorantAgents { get; set; }
         public List<StructuredDataEntry>? valorantAgentsData { get; set; }
         public string? valorantContracts { get; set; }

@@ -34,7 +34,17 @@ public partial class NoteDisplay : Window
     {
         if (_isClosing) return;
         _isClosing = true;
-        Close();
+        var owner = Owner;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+        {
+            var restoreOwner = owner?.IsActive == true;
+            Close();
+            if (restoreOwner && owner is { IsVisible: true })
+            {
+                owner.Activate();
+                owner.Focus();
+            }
+        }));
     }
 
     private async void Window_Closing(object? sender, CancelEventArgs e)

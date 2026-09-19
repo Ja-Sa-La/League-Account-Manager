@@ -39,6 +39,7 @@ public class AccountFileStoreTests
                 username = "player",
                 password = "secret",
                 riotID = "Player#EUW",
+                favorite = true,
                 championsData = [new Utils.StructuredDataEntry { name = "Ahri", value = "Mage" }]
             }
         };
@@ -49,6 +50,7 @@ public class AccountFileStoreTests
         Assert.HasCount(1, loaded);
         Assert.AreEqual("player", loaded[0].username);
         Assert.AreEqual("Player#EUW", loaded[0].riotID);
+        Assert.IsTrue(loaded[0].favorite);
         Assert.AreEqual("Ahri", loaded[0].championsData?[0].name);
     }
 
