@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.IO;
 using League_Account_Manager.Misc;
 
 namespace League_Account_Manager;
@@ -14,6 +15,7 @@ public partial class App : Application
     internal static OfflineLauncher OfflineLauncher { get; } = new();
     internal static DebugTrafficCaptureSession DebugTrafficCapture { get; } = new();
     internal static DebugClientTrafficLauncher DebugClientTrafficLauncher { get; } = new();
+    internal static PluginManager Plugins { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -23,6 +25,7 @@ public partial class App : Application
         ProxyLoginTokenManager.RegisterLoginUriScheme();
         DebugTrafficCapture.Start();
         LcuWebSocketMonitor.Start();
+        Plugins.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "Plugins"));
     }
 
     protected override void OnExit(ExitEventArgs e)
