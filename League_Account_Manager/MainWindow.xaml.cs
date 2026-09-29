@@ -6,8 +6,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Navigation;
 using System.Windows.Threading;
 using League_Account_Manager.Misc;
+using League_Account_Manager.PluginContract;
 using NLog;
 using NLog.Config;
 using NLog.Targets;
@@ -36,6 +38,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RegisterPluginPages();
         ContentRendered += (_, __) => DebugConsole.Initialize(this);
         PreviewKeyDown += MainWindowOnPreviewKeyDown;
         InitializeLogging();
@@ -61,6 +64,44 @@ public partial class MainWindow : Window
                 Thread.Sleep(30000);
             }
         });
+    }
+
+    private void RegisterPluginPages()
+    {
+        foreach (var loadedPlugin in App.Plugins.LoadedPlugins)
+        foreach (var page in loadedPlugin.Pages)
+        {
+            if (!typeof(Page).IsAssignableFrom(page.PageType) ||
+                page.PageType.GetConstructor(Type.EmptyTypes) == null)
+            {
+                DebugConsole.WriteLine(
+                    $"[Plugins] Skipping page '{page.Id}' from '{loadedPlugin.Plugin.Id}': " +
+                    "page must derive from Page and have a public parameterless constructor.",
+                    ConsoleColor.Yellow);
+                continue;
+            }
+
+            var navigationItem = new Wpf.Ui.Controls.NavigationViewItem
+            {
+                Content = page.Title,
+                TargetPageTag = $"plugin:{loadedPlugin.Plugin.Id}:{page.Id}",
+                TargetPageType = page.PageType
+            };
+
+            if (!string.IsNullOrWhiteSpace(page.IconGlyph))
+            {
+                navigationItem.Icon = new Wpf.Ui.Controls.FontIcon
+                {
+                    Glyph = page.IconGlyph,
+                    FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 18,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+            }
+
+            RootNavigation.MenuItems.Add(navigationItem);
+        }
     }
 
     private void InitializeLogging()

@@ -56,6 +56,7 @@ This site documents the app, its features, and the WPF pages in the UI.
 
 ## Pages
 
+- [Plugin Development](pages/plugins.md)
 - [Main Window](pages/main-window.md)
 - [Accounts](pages/accounts.md)
 - [Add Accounts](pages/add-accounts.md)

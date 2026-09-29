@@ -17,6 +17,7 @@
 		<Resource Include="Assests\Rank Icons\*.svg" />
 	</ItemGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\League_Account_Manager.PluginContract\League_Account_Manager.PluginContract.csproj" />
 		<PackageReference Include="CsvHelper" Version="33.1.0" />
 		<PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
