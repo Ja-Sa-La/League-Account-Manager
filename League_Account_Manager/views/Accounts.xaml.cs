@@ -1977,6 +1977,12 @@ public partial class Accounts : Page
 
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
+                        if (Misc.Settings.settingsloaded.PersistentLogin && checkbox.AsCheckBox() is { } rememberBox &&
+                            rememberBox.IsChecked != true)
+                        {
+                            rememberBox.Patterns.Toggle.Pattern.Toggle();
+                            DebugConsole.WriteLine("[Accounts] Enabled remember-me checkbox");
+                        }
                         if (signInElement != null)
                         {
                             SetAccountOperationStatus("Submitting credentials...");

@@ -80,7 +80,17 @@ public sealed class DashboardPlugin : ILamPlugin
 
 `Id` must remain stable across releases. It is used to identify the plugin and
 namespace its navigation pages. `ApiVersion` currently supports major version
-`1`; a plugin with another major version is rejected during startup.
+`1`. The current host API is `1.1`; a plugin that requests a newer API or
+unsupported capability is rejected during startup.
+
+Plugin IDs and page IDs may contain only letters, numbers, `.`, `-`, and `_`.
+IDs must be unique. Pages must be public, concrete WPF `Page` types with public
+parameterless constructors. Invalid pages are skipped without preventing the
+rest of the plugin from loading.
+
+For optional compatibility checks, implement `IPluginRequirements` with a
+minimum host API version and required capabilities such as `lcu`, `storefront`,
+`logging`, `notifications`, or `lifecycle`.
 
 ## XAML pages
 
@@ -221,6 +231,16 @@ The contract does not expose account storage, settings, process management,
 or file-system APIs. This is an API boundary, not a security sandbox: code in a
 trusted in-process assembly can still call regular .NET APIs.
 
+The context also implements `IPluginHostInfo`, which exposes the host API
+version and supported capabilities for feature detection.
+
+### Lifecycle
+
+Plugins may implement `IPluginLifecycle` to release timers, subscriptions, and
+background work during application shutdown. The host gives lifecycle cleanup
+a bounded five-second cancellation window and also honors `IDisposable` and
+`IAsyncDisposable` when implemented by the plugin.
+
 ## Build and deploy
 
 Build the plugin in the configuration used by the host:
@@ -238,7 +258,13 @@ to:
 
 The host creates `Plugins` automatically if it does not exist. Restart the
 application after changing a plugin. Assemblies remain loaded for the life of
-the process, so hot reload is not supported.
+the process, so hot reload is not supported. Each plugin can keep private
+dependencies beside its DLL; the host resolves those dependencies in a
+plugin-specific load context while sharing the host contract and WPF assemblies.
+
+The Settings page lists loaded, disabled, and failed plugins. Clear a plugin's
+checkbox to disable it on the next restart. The list also reports dependency
+and page validation failures.
 
 ### Deployment checklist
 
@@ -271,6 +297,13 @@ The plugin and host are using incompatible contract binaries. Rebuild the
 plugin against the contract from the current source or application release,
 remove stale copies from `Plugins`, and ensure an old contract DLL was not
 deployed beside the plugin.
+
+### `The storefront endpoint must be relative`
+
+Storefront requests must use a path such as
+`/storefront/v3/view/champions?language=en_US`. Absolute URLs, alternate hosts,
+redirects, and endpoints containing backslashes are rejected so the League
+access token cannot be sent outside the storefront origin.
 
 ### Build says a DLL is locked
 

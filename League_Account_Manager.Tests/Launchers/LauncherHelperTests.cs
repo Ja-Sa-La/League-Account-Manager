@@ -23,9 +23,9 @@ public class LauncherHelperTests
         Assert.AreEqual("abc+/=", ProxyLoginTokenManager.ExtractTokenFromText(
             "leagueaccountmanager://login?token=abc%2B%2F%3D"));
         Assert.AreEqual("https-token", ProxyLoginTokenManager.ExtractTokenFromText(
-            "https://redirect.leagueaccountmanager.xyz/?token=https-token"));
+            "https://lam.monster/?token=https-token"));
         Assert.AreEqual("markdown-token", ProxyLoginTokenManager.ExtractTokenFromText(
-            "[Click to login](https://redirect.leagueaccountmanager.xyz/?token=markdown-token)"));
+            "[Click to login](https://lam.monster/?token=markdown-token)"));
     }
 
     [TestMethod]
@@ -42,7 +42,7 @@ public class LauncherHelperTests
     {
         var uri = ProxyLoginTokenManager.BuildLoginUri("abc+/=");
 
-        Assert.AreEqual("https://redirect.leagueaccountmanager.xyz/login?token=abc%2B%2F%3D", uri);
+        Assert.AreEqual("https://lam.monster/login?token=abc%2B%2F%3D", uri);
         Assert.AreEqual($"[Click to login to account]({uri})",
             ProxyLoginTokenManager.FormatDiscordLoginLink(uri!));
         Assert.IsNull(ProxyLoginTokenManager.BuildLoginUri(" "));

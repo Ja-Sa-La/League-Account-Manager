@@ -48,6 +48,38 @@ public class Settings
         }
     }
 
+    public static string CreateSyncDocument()
+    {
+        var copy = settingsloaded;
+        copy.AccountFileEncryptionPassword = null;
+        var node = JsonSerializer.SerializeToNode(copy) as JsonObject ?? new JsonObject();
+        foreach (var property in new[]
+                 {
+                     "LeaguePath", "riotPath", "settingsLocation", "AccountFileEncryptionEnabled",
+                     "AccountFileEncryptionPassword", "CloudSyncPromptShown", "DisabledPluginPaths"
+                 })
+            node.Remove(property);
+        return node.ToJsonString();
+    }
+
+    public static void ApplySyncDocument(string document)
+    {
+        var incoming = JsonSerializer.Deserialize<settings1>(document);
+        if (incoming.Equals(default(settings1)))
+            throw new InvalidDataException("The cloud settings document is invalid.");
+
+        settingsloaded.updates = incoming.updates;
+        settingsloaded.ReleaseChannel = incoming.ReleaseChannel;
+        settingsloaded.DisplayPasswords = incoming.DisplayPasswords;
+        settingsloaded.UpdateRanks = incoming.UpdateRanks;
+        settingsloaded.PersistentLogin = incoming.PersistentLogin;
+        settingsloaded.LeagueDefaultSortColumn = incoming.LeagueDefaultSortColumn;
+        settingsloaded.LeagueDefaultSortDescending = incoming.LeagueDefaultSortDescending;
+        settingsloaded.ValorantDefaultSortColumn = incoming.ValorantDefaultSortColumn;
+        settingsloaded.ValorantDefaultSortDescending = incoming.ValorantDefaultSortDescending;
+        Save();
+    }
+
     public static async
         Task
         loadsettings()
@@ -287,6 +319,9 @@ public class Settings
             UpdateRanks = true,
             AccountFileEncryptionEnabled = false,
             AccountFileEncryptionPassword = null,
+            PersistentLogin = false,
+            CloudSyncPromptShown = false,
+            DisabledPluginPaths = Array.Empty<string>(),
             LeagueDefaultSortColumn = "level",
             LeagueDefaultSortDescending = true,
             ValorantDefaultSortColumn = "valorantLevel",
@@ -459,6 +494,7 @@ public class Settings
 
     public struct settings1
     {
+        public string[]? DisabledPluginPaths { get; set; }
         public string LeaguePath { get; set; }
         public string riotPath { get; set; }
         public string filename { get; set; }
@@ -469,6 +505,8 @@ public class Settings
         public bool UpdateRanks { get; set; }
         public bool AccountFileEncryptionEnabled { get; set; }
         public string? AccountFileEncryptionPassword { get; set; }
+        public bool PersistentLogin { get; set; }
+        public bool CloudSyncPromptShown { get; set; }
         public string LeagueDefaultSortColumn { get; set; }
         public bool LeagueDefaultSortDescending { get; set; }
         public string ValorantDefaultSortColumn { get; set; }

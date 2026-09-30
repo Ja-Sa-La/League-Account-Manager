@@ -20,7 +20,7 @@ internal class OfflineLauncher
 {
     private const string RiotClientConfigBaseUrl = "https://clientconfig.rpg.riotgames.com";
     private const string GeoPasUrl = "https://riot-geo.pas.si.riotgames.com/pas/v1/service/chat";
-    private const string LocalhostDomain = "localhost.leagueaccountmanager.xyz";
+    private const string LocalhostDomain = "localhost.lam.monster";
     private const string HostsEntryIp = "127.0.0.1";
     private const string HostsEntryComment = "# Localhost mapping used by League Account Manager offline launcher";
     private static readonly string CachedCertificatePath = Path.Combine(
@@ -258,7 +258,8 @@ internal class OfflineLauncher
         {
             DebugConsole.WriteLine("[OfflineLauncher] Downloading updated localhost certificate.");
             using var httpClient = new HttpClient();
-            var certBytes = await httpClient.GetByteArrayAsync("https://redirect.leagueaccountmanager.xyz/cert.pfx", cancellationToken);
+            AddLamServerIdentityHeaders(httpClient);
+            var certBytes = await httpClient.GetByteArrayAsync("https://lam.monster/cert.pfx", cancellationToken);
             var certificate = X509CertificateLoader.LoadPkcs12(certBytes, null,
                 X509KeyStorageFlags.DefaultKeySet);
 
@@ -279,6 +280,16 @@ internal class OfflineLauncher
             DebugConsole.WriteLine($"[OfflineLauncher] Failed to obtain localhost certificate: {ex}");
             return null;
         }
+    }
+
+    private static void AddLamServerIdentityHeaders(HttpClient httpClient)
+    {
+        var version = typeof(OfflineLauncher).Assembly.GetName().Version?.ToString() ?? "unknown";
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"League-Account-Manager/{version}");
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Client", "League-Account-Manager");
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Version", version);
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Platform", "windows");
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Protocol", "1");
     }
 
     private X509Certificate2? GetCachedCertificate()
@@ -380,7 +391,7 @@ internal class OfflineLauncher
             var process = Process.Start(new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"$hostsPath = '{EscapePowerShellSingleQuotedString(HostsFilePath)}'; $entry = '{EscapePowerShellSingleQuotedString(HostsEntryIp)} {EscapePowerShellSingleQuotedString(LocalhostDomain)}'; $comment = '{EscapePowerShellSingleQuotedString(HostsEntryComment)}'; if (-not (Test-Path -LiteralPath $hostsPath)) {{ throw 'Hosts file not found.' }}; $content = Get-Content -LiteralPath $hostsPath -Raw; if ($content -notmatch '(?im)^\\s*127\\.0\\.0\\.1\\s+localhost\\.leagueaccountmanager\\.xyz(?:\\s|$)') {{ Add-Content -LiteralPath $hostsPath -Value \"`r`n$comment`r`n$entry\" }}\"",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"$hostsPath = '{EscapePowerShellSingleQuotedString(HostsFilePath)}'; $entry = '{EscapePowerShellSingleQuotedString(HostsEntryIp)} {EscapePowerShellSingleQuotedString(LocalhostDomain)}'; $comment = '{EscapePowerShellSingleQuotedString(HostsEntryComment)}'; if (-not (Test-Path -LiteralPath $hostsPath)) {{ throw 'Hosts file not found.' }}; $content = Get-Content -LiteralPath $hostsPath -Raw; if ($content -notmatch '(?im)^\\s*127\\.0\\.0\\.1\\s+localhost\\.lam\\.monster(?:\\s|$)') {{ Add-Content -LiteralPath $hostsPath -Value \"`r`n$comment`r`n$entry\" }}\"",
                 UseShellExecute = true,
                 Verb = "runas"
             });

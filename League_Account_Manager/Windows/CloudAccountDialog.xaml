@@ -1,0 +1,35 @@
+<Window x:Class="League_Account_Manager.Windows.CloudAccountDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cloud Account" Height="480" Width="440" WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize" Background="{StaticResource AppBackgroundBrush}">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Account sync" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,14">
+            <RadioButton x:Name="LoginMode" Content="Sign in" IsChecked="True" GroupName="Mode" Margin="0,0,20,0" Checked="OnModeChanged" />
+            <RadioButton x:Name="RegisterMode" Content="Create account" GroupName="Mode" Checked="OnModeChanged" />
+        </StackPanel>
+        <TextBlock Grid.Row="2" Text="Username (lowercase letters, numbers, underscores)" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+        <TextBox x:Name="UsernameBox" Grid.Row="3" Padding="9" MaxLength="64" />
+        <TextBlock Grid.Row="4" Text="Password" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,12,0,5" />
+        <StackPanel Grid.Row="5">
+            <PasswordBox x:Name="PasswordBox" Padding="9" />
+            <TextBlock x:Name="ConfirmLabel" Text="Confirm password" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,10,0,5" Visibility="Collapsed" />
+            <PasswordBox x:Name="ConfirmPasswordBox" Padding="9" Visibility="Collapsed" />
+            <TextBlock x:Name="StatusText" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" IsCancel="True" Width="90" Margin="0,0,8,0" />
+            <Button x:Name="SubmitButton" Content="Sign in" IsDefault="True" Width="110" Click="OnSubmitClick" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -17,7 +17,7 @@ internal static class ProxyLoginTokenManager
 {
     private const string LoginUriScheme = "leagueaccountmanager";
     private const string LoginUriHost = "login";
-    private const string LoginRedirectBaseUrl = "https://redirect.leagueaccountmanager.xyz/login";
+    private const string LoginRedirectBaseUrl = "https://lam.monster/login";
     private const string ProductLeague = "league";
     private const string ProductValorant = "valorant";
     private static readonly TimeSpan LoginReadinessTimeout = TimeSpan.FromMinutes(2);
@@ -114,7 +114,7 @@ internal static class ProxyLoginTokenManager
 
         var uriArg = args.FirstOrDefault(arg =>
             arg.StartsWith($"{LoginUriScheme}://", StringComparison.OrdinalIgnoreCase) ||
-            arg.StartsWith("https://redirect.leagueaccountmanager.xyz/", StringComparison.OrdinalIgnoreCase));
+            arg.StartsWith("https://lam.monster/", StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrWhiteSpace(uriArg))
         {
             LogFlow("URI", "No supported login URI found in startup args.", ConsoleColor.Yellow);
@@ -777,7 +777,7 @@ internal static class ProxyLoginTokenManager
         }
         else if (uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
         {
-            if (!uri.Host.Equals("redirect.leagueaccountmanager.xyz", StringComparison.OrdinalIgnoreCase))
+            if (!uri.Host.Equals("lam.monster", StringComparison.OrdinalIgnoreCase))
             {
                 LogFlow("URI", $"Unsupported HTTPS host '{uri.Host}'.", ConsoleColor.Yellow);
                 return null;

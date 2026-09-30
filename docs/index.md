@@ -18,6 +18,8 @@ This site documents the app, its features, and the WPF pages in the UI.
 - Stealth login (launch/login without showing yourself online)
 - Debug mode login and LCU traffic inspection
 - Automatic update checks and optional beta releases
+- Optional cloud account and settings synchronization with encrypted payloads
+- OPAQUE-based cloud authentication with sessions protected for the current Windows user
 
 ## Screenshots
 
@@ -103,9 +105,14 @@ dotnet build League_Account_Manager/League_Account_Manager.csproj -c Release
 dotnet run --project League_Account_Manager/League_Account_Manager.csproj
 ```
 
-## Privacy & Safety
+## Cloud Sync & Privacy
 
 - All account data stays on your machine (local CSV)
+- Cloud synchronization is opt-in and requires signing in from the Settings page.
+- Account and settings sync payloads are encrypted in the app with AES-256-GCM before upload.
+- Account and settings data use separate derived encryption keys; the sync service does not receive the plaintext data.
+- The OPAQUE authentication flow is designed so the cloud service does not receive the account password in plaintext.
+- A saved cloud session is protected with Windows DPAPI for the current Windows user and is discarded when it is no longer usable.
 - Uses only LCU endpoints; no automation via autoclickers
 - Account credentials and captured traffic may contain sensitive data; protect exported files and debug logs.
 

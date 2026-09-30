@@ -31,9 +31,130 @@ public partial class Settings : Page
             StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         DisplayPasswords.IsChecked = Misc.Settings.settingsloaded.DisplayPasswords;
         AutoUpdateRanks.IsChecked = Misc.Settings.settingsloaded.UpdateRanks;
+        PersistentLogin.IsChecked = Misc.Settings.settingsloaded.PersistentLogin;
         AccountFileEncryption.IsChecked = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
         CurrentInstallLocation.Text = Path.GetFullPath(AppContext.BaseDirectory);
         _initializing = false;
+        UpdateCloudStatus();
+        UpdatePluginStatus();
+    }
+
+    private void UpdatePluginStatus()
+    {
+        var statuses = App.Plugins.Statuses;
+        PluginStatusList.ItemsSource = statuses;
+        var loaded = statuses.Count(status => status.State == "Loaded");
+        var disabled = statuses.Count(status => status.State == "Disabled");
+        var failed = statuses.Count(status => status.State is "Failed" or "Dependency error" or "Page skipped");
+        PluginStatusSummary.Text = $"{loaded} loaded, {disabled} disabled, {failed} with issues.";
+    }
+
+    private void OnPluginEnabledChanged(object sender, RoutedEventArgs e)
+    {
+        if (_initializing || sender is not CheckBox { Tag: PluginStatus })
+            return;
+
+        Misc.Settings.settingsloaded.DisabledPluginPaths = App.Plugins.Statuses
+            .Where(item => item.CanToggle && !item.Enabled)
+            .Select(item => item.Path)
+            .ToArray();
+        Misc.Settings.Save();
+    }
+
+    private void UpdateCloudStatus(string? message = null)
+    {
+        var service = AccountSyncService.Instance;
+        CloudStatus.Text = message ?? (service.IsAuthenticated ? $"Signed in as {service.Username}" : "Not signed in");
+        CloudSignIn.Visibility = service.IsAuthenticated ? Visibility.Collapsed : Visibility.Visible;
+        CloudUpload.IsEnabled = CloudDownload.IsEnabled = CloudLogout.IsEnabled =
+            CloudUploadSettings.IsEnabled = CloudDownloadSettings.IsEnabled = service.IsAuthenticated;
+    }
+
+    private void OnCloudSignInClick(object sender, RoutedEventArgs e)
+    {
+        if (AccountSyncService.Instance.IsAuthenticated)
+        {
+            UpdateCloudStatus("Sign out before switching cloud accounts.");
+            return;
+        }
+        new CloudAccountDialog().ShowDialog();
+        UpdateCloudStatus();
+    }
+
+    private async void OnCloudUploadClick(object sender, RoutedEventArgs e)
+    {
+        if (AppMessageBox.Show(
+                $"Replace the cloud accounts for {AccountSyncService.Instance.Username} with this computer's accounts, including saved credentials? The server encrypts them at rest but can decrypt them. This is not end-to-end encryption.",
+                "Upload accounts", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        await RunCloudActionAsync(async () =>
+        {
+            var config = new CsvConfiguration(CultureInfo.CurrentCulture) { Delimiter = ";" };
+            var document = await AccountFileStore.CreateSyncDocumentAsync(config);
+            await AccountSyncService.Instance.TransferAsync(true, document);
+        }, "Accounts uploaded successfully.");
+    }
+
+    private async void OnCloudDownloadClick(object sender, RoutedEventArgs e)
+    {
+        if (AppMessageBox.Show(
+                $"Replace this computer's account list with the cloud copy for {AccountSyncService.Instance.Username}? A backup of the current file will be kept beside it.",
+                "Download accounts", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        await RunCloudActionAsync(async () =>
+        {
+            var document = await AccountSyncService.Instance.TransferAsync(false);
+            var config = new CsvConfiguration(CultureInfo.CurrentCulture) { Delimiter = ";" };
+            await AccountFileStore.ReplaceFromSyncDocumentAsync(document, config);
+        }, "Accounts downloaded successfully.");
+    }
+
+    private async void OnCloudLogoutClick(object sender, RoutedEventArgs e)
+    {
+        await RunCloudActionAsync(() => AccountSyncService.Instance.LogoutAsync(), "Signed out.");
+    }
+
+    private async void OnCloudUploadSettingsClick(object sender, RoutedEventArgs e)
+    {
+        if (AppMessageBox.Show(
+                $"Replace the cloud settings for {AccountSyncService.Instance.Username}? Machine-specific paths and local encryption passwords are not uploaded.",
+                "Upload settings", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        await RunCloudActionAsync(async () =>
+        {
+            await AccountSyncService.Instance.TransferSettingsAsync(true, Misc.Settings.CreateSyncDocument());
+        }, "Settings uploaded successfully.");
+    }
+
+    private async void OnCloudDownloadSettingsClick(object sender, RoutedEventArgs e)
+    {
+        if (AppMessageBox.Show(
+                "Replace this computer's synced preferences with the cloud copy? Machine-specific paths and local encryption settings will be preserved.",
+                "Download settings", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        await RunCloudActionAsync(async () =>
+        {
+            var document = await AccountSyncService.Instance.TransferSettingsAsync(false);
+            Misc.Settings.ApplySyncDocument(document);
+        }, "Settings downloaded successfully.");
+    }
+
+    private async Task RunCloudActionAsync(Func<Task> action, string successMessage)
+    {
+        CloudActions.IsEnabled = false;
+        CloudStatus.Text = "Connecting to lam.monster...";
+        try
+        {
+            await action();
+            UpdateCloudStatus(successMessage);
+        }
+        catch (Exception exception)
+        {
+            UpdateCloudStatus(exception is System.Net.Http.HttpRequestException or TaskCanceledException
+                ? "Cloud service could not be reached. Check your connection and try again."
+                : exception.Message);
+        }
+        finally { CloudActions.IsEnabled = true; }
     }
 
     private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)
@@ -74,6 +195,7 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.UpdateRanks = true;
         else
             Misc.Settings.settingsloaded.UpdateRanks = false;
+        Misc.Settings.settingsloaded.PersistentLogin = PersistentLogin.IsChecked == true;
 
         // Persist update preferences before account-file migration can fail.
         Misc.Settings.Save();

@@ -701,6 +701,12 @@ public partial class ValorantAccounts : Page
 
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
+                        if (Misc.Settings.settingsloaded.PersistentLogin && checkbox.AsCheckBox() is { } rememberBox &&
+                            rememberBox.IsChecked != true)
+                        {
+                            rememberBox.Patterns.Toggle.Pattern.Toggle();
+                            DebugConsole.WriteLine("[ValorantAccounts] Enabled remember-me checkbox");
+                        }
                         if (signInElement != null)
                         {
                             for (var waitAttempt = 0; !signInElement.IsEnabled && waitAttempt < 150; waitAttempt++)
