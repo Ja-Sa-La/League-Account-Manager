@@ -44,6 +44,13 @@ public partial class AppMessageBox : Window
         return ShowCore(messageBoxText, caption, button, icon);
     }
 
+    public static MessageBoxResult ShowChoices(string messageBoxText, string caption,
+        IReadOnlyDictionary<MessageBoxResult, string> labels, MessageBoxImage icon)
+    {
+        return ShowCore(messageBoxText, caption, MessageBoxButton.YesNoCancel, icon,
+            customLabels: labels);
+    }
+
     public static MessageBoxResult ShowUpdateAvailable(string version, string channel, string patchNotes,
         Action updateAction, Action releaseAction)
     {

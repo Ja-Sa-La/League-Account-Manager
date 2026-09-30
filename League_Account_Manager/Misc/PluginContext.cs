@@ -44,13 +44,13 @@ internal sealed class PluginLcuClient : ILcuClient
     }
 }
 
-internal sealed class PluginContext : IPluginContext
+internal sealed class PluginContext : IPluginContext, IPluginHostInfo
 {
-    public PluginContext()
+    public PluginContext(string pluginId)
     {
         Lcu = new PluginLcuClient();
         Storefront = new PluginStorefrontClient(Lcu);
-        Logger = new PluginLogger();
+        Logger = new PluginLogger(pluginId);
         Notifications = new PluginNotifications();
     }
 
@@ -58,10 +58,13 @@ internal sealed class PluginContext : IPluginContext
     public IStorefrontClient Storefront { get; }
     public IPluginLogger Logger { get; }
     public IPluginNotifications Notifications { get; }
+    public Version ApiVersion => PluginManager.ApiVersion;
+    public IReadOnlyCollection<string> Capabilities => PluginManager.Capabilities;
 }
 
 internal sealed class PluginStorefrontClient : IStorefrontClient
 {
+    private static readonly HttpClient Client = CreateClient();
     private readonly ILcuClient lcu;
 
     public PluginStorefrontClient(ILcuClient lcu)
@@ -101,33 +104,21 @@ internal sealed class PluginStorefrontClient : IStorefrontClient
                 Body = string.Empty
             };
 
-        if (!Uri.TryCreate(new Uri(storeUrl.TrimEnd('/') + "/"), endpoint.TrimStart('/'), out var requestUri))
+        if (!TryResolveEndpoint(storeUrl, endpoint, out var requestUri))
             return new LcuResponse
             {
                 StatusCode = HttpStatusCode.BadRequest,
-                ReasonPhrase = "The storefront endpoint is invalid.",
+                ReasonPhrase = "The storefront endpoint must be relative.",
                 Body = string.Empty
             };
 
-        using var handler = new SocketsHttpHandler
-        {
-            AutomaticDecompression = System.Net.DecompressionMethods.GZip |
-                                     System.Net.DecompressionMethods.Deflate |
-                                     System.Net.DecompressionMethods.Brotli
-        };
-        using var client = new HttpClient(handler)
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate, br");
-        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-
         using var request = new HttpRequestMessage(method, requestUri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Accept.ParseAdd("application/json");
         if (body != null)
             request.Content = new StringContent(body, Encoding.UTF8, "application/json");
 
-        using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await Client.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return new LcuResponse
         {
             StatusCode = response.StatusCode,
@@ -135,14 +126,42 @@ internal sealed class PluginStorefrontClient : IStorefrontClient
             Body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)
         };
     }
+
+    private static HttpClient CreateClient() => new(new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = System.Net.DecompressionMethods.GZip |
+                                 System.Net.DecompressionMethods.Deflate |
+                                 System.Net.DecompressionMethods.Brotli,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    })
+    {
+        Timeout = TimeSpan.FromSeconds(15)
+    };
+
+    internal static bool TryResolveEndpoint(string storeUrl, string endpoint, out Uri? requestUri)
+    {
+        requestUri = null;
+        if (string.IsNullOrWhiteSpace(endpoint) || endpoint.Contains('\\') || endpoint.StartsWith("//", StringComparison.Ordinal) ||
+            !Uri.TryCreate(storeUrl, UriKind.Absolute, out var origin) || origin.Scheme != Uri.UriSchemeHttps ||
+            !string.IsNullOrEmpty(origin.UserInfo) || Uri.TryCreate(endpoint, UriKind.Absolute, out _) && !endpoint.StartsWith('/'))
+            return false;
+        return Uri.TryCreate(new Uri(origin.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/"), endpoint, out requestUri) &&
+            requestUri.Scheme == origin.Scheme && requestUri.Host == origin.Host && requestUri.Port == origin.Port &&
+            string.IsNullOrEmpty(requestUri.UserInfo);
+    }
 }
 
 internal sealed class PluginLogger : IPluginLogger
 {
-    public void Debug(string message) => DebugConsole.WriteLine($"[Plugin] {message}");
+    private readonly string pluginId;
+
+    public PluginLogger(string pluginId) => this.pluginId = pluginId;
+
+    public void Debug(string message) => DebugConsole.WriteLine($"[Plugin:{pluginId}] {message}");
 
     public void Error(string message, Exception? exception = null) =>
-        DebugConsole.WriteLine($"[Plugin] {message}{(exception == null ? string.Empty : $": {exception}")}",
+        DebugConsole.WriteLine($"[Plugin:{pluginId}] {message}{(exception == null ? string.Empty : $": {exception}")}",
             ConsoleColor.Red);
 }
 
@@ -150,6 +169,7 @@ internal sealed class PluginNotifications : IPluginNotifications
 {
     public void Show(string title, string message)
     {
-        Notif.notificationManager.Show(title, message, Notification.Wpf.NotificationType.Notification);
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            Notif.notificationManager.Show(title, message, Notification.Wpf.NotificationType.Notification));
     }
 }

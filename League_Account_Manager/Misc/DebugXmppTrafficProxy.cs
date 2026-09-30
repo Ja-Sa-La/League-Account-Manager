@@ -13,8 +13,8 @@ namespace League_Account_Manager.Misc;
 
 internal sealed class DebugXmppTrafficProxy : IDisposable
 {
-    internal const string LocalhostDomain = "localhost.leagueaccountmanager.xyz";
-    private const string CertificateUrl = "https://redirect.leagueaccountmanager.xyz/cert.pfx";
+    internal const string LocalhostDomain = "localhost.lam.monster";
+    private const string CertificateUrl = "https://lam.monster/cert.pfx";
     private static readonly string CertificatePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "League Account Manager", "OfflineLauncher", "localhostCert.pfx");
@@ -155,6 +155,7 @@ internal sealed class DebugXmppTrafficProxy : IDisposable
             }
 
             using var client = new HttpClient();
+            AddLamServerIdentityHeaders(client);
             var bytes = await client.GetByteArrayAsync(CertificateUrl, cancellationToken).ConfigureAwait(false);
             var certificate = X509CertificateLoader.LoadPkcs12(bytes, null, X509KeyStorageFlags.DefaultKeySet);
             if (!CertificateMatchesDomain(certificate))
@@ -172,6 +173,16 @@ internal sealed class DebugXmppTrafficProxy : IDisposable
             DebugConsole.WriteLine($"[Debug Capture] Failed to load XMPP certificate: {ex.Message}", ConsoleColor.Yellow);
             return null;
         }
+    }
+
+    private static void AddLamServerIdentityHeaders(HttpClient httpClient)
+    {
+        var version = typeof(DebugXmppTrafficProxy).Assembly.GetName().Version?.ToString() ?? "unknown";
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"League-Account-Manager/{version}");
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Client", "League-Account-Manager");
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Version", version);
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Platform", "windows");
+        httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-LAM-Protocol", "1");
     }
 
     private static bool CertificateMatchesDomain(X509Certificate2 certificate)

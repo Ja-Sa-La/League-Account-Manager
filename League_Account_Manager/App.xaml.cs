@@ -25,11 +25,11 @@ public partial class App : Application
         ProxyLoginTokenManager.RegisterLoginUriScheme();
         DebugTrafficCapture.Start();
         LcuWebSocketMonitor.Start();
-        Plugins.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "Plugins"));
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Task.Run(async () => await Plugins.DisposeAsync()).GetAwaiter().GetResult();
         profileSettingsCts?.Cancel();
         profileSettingsCts?.Dispose();
         LcuWebSocketMonitor.Stop();

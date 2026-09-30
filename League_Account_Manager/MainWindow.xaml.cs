@@ -38,7 +38,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        RegisterPluginPages();
         ContentRendered += (_, __) => DebugConsole.Initialize(this);
         PreviewKeyDown += MainWindowOnPreviewKeyDown;
         InitializeLogging();
@@ -71,6 +70,8 @@ public partial class MainWindow : Window
         foreach (var loadedPlugin in App.Plugins.LoadedPlugins)
         foreach (var page in loadedPlugin.Pages)
         {
+            try
+            {
             if (!typeof(Page).IsAssignableFrom(page.PageType) ||
                 page.PageType.GetConstructor(Type.EmptyTypes) == null)
             {
@@ -101,6 +102,11 @@ public partial class MainWindow : Window
             }
 
             RootNavigation.MenuItems.Add(navigationItem);
+            }
+            catch (Exception exception)
+            {
+                DebugConsole.WriteLine($"[Plugins] Page registration failed: {exception}", ConsoleColor.Yellow);
+            }
         }
     }
 
@@ -139,6 +145,8 @@ public partial class MainWindow : Window
 
             // Load settings
             await Settings.loadsettings();
+            App.Plugins.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "Plugins"), Settings.settingsloaded.DisabledPluginPaths);
+            RegisterPluginPages();
             ((App)Application.Current).StartProfileSettingsLoop();
 
             // Perform update check if enabled in settings
@@ -156,6 +164,7 @@ public partial class MainWindow : Window
             installloclea.Content = Settings.settingsloaded.LeaguePath;
 
             await ProxyLoginTokenManager.TryHandleLoginUriAsync(App.StartupArgs);
+            await Dispatcher.InvokeAsync(OfferCloudSync, DispatcherPriority.ContextIdle);
         }
         catch (Exception e)
         {
@@ -167,6 +176,25 @@ public partial class MainWindow : Window
                 Type = NotificationType.Error
             });
             Environment.Exit(1); // Exit the application on critical error
+        }
+    }
+
+    private void OfferCloudSync()
+    {
+        try
+        {
+            if (Settings.settingsloaded.CloudSyncPromptShown || AccountSyncService.Instance.IsAuthenticated)
+                return;
+            Settings.settingsloaded.CloudSyncPromptShown = true;
+            Settings.Save();
+            if (Windows.AppMessageBox.Show(
+                    "Sign in or create a lam.monster account to transfer accounts between computers? You can also do this later in Settings. The desktop client may automatically upload account-file changes while a valid session is available. The server only receives uploads explicitly made by the client.",
+                    "Cloud account sync", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                new Windows.CloudAccountDialog().ShowDialog();
+        }
+        catch (Exception)
+        {
+            DebugConsole.WriteLine("[Cloud Sync] Startup offer could not be displayed. Cloud sync remains available in Settings.");
         }
     }
 

@@ -19,7 +19,8 @@
                      <TextBlock Text="Manage updates, account storage, privacy, and installation options."
                                       Style="{StaticResource PageSubtitleStyle}" />
               </StackPanel>
-              <Grid Grid.Row="1">
+              <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+              <Grid>
                             <Grid.ColumnDefinitions>
                                    <ColumnDefinition Width="*" />
                                    <ColumnDefinition Width="14" />
@@ -44,6 +45,7 @@
                                                  <ui:TextBox Name="settingssaveinfobox" TextWrapping="Wrap" Margin="0,0,0,12" />
                                                  <CheckBox x:Name="DisplayPasswords" Content="Display passwords in the accounts view" Margin="0,0,0,7" />
                                                  <CheckBox x:Name="AutoUpdateRanks" Content="Update ranks automatically on startup" Margin="0,0,0,7" />
+                                                 <CheckBox x:Name="PersistentLogin" Content="Enable persistent login (Remember Me)" Margin="0,0,0,7" />
                                                  <CheckBox x:Name="AccountFileEncryption" Content="Encrypt the account file with a password"
                                                                  Checked="OnAccountFileEncryptionChecked" Unchecked="OnAccountFileEncryptionChecked" />
                                                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
@@ -62,9 +64,47 @@
                                                          BorderBrush="{StaticResource StrokeBrush}" Foreground="{StaticResource TextPrimaryBrush}" />
                                           <ui:Button Content="Move installation" Margin="0,14,0,0" HorizontalAlignment="Left"
                                                            Click="OnMoveInstallationClick" />
+                                          <Separator Margin="0,20,0,16" />
+                                          <TextBlock Text="Cloud account sync" Style="{StaticResource SectionTitleStyle}" />
+                                          <TextBlock x:Name="CloudStatus" Text="Not signed in" TextWrapping="Wrap" Margin="0,10,0,10" Foreground="{StaticResource TextSecondaryBrush}" />
+                                          <StackPanel x:Name="CloudActions">
+                                                 <ui:Button x:Name="CloudSignIn" Content="Sign in / Create account" Click="OnCloudSignInClick" HorizontalAlignment="Left" Margin="0,0,0,8" />
+                                                 <TextBlock Text="Accounts" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,6" />
+                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                        <ui:Button x:Name="CloudUpload" Content="Upload accounts" Click="OnCloudUploadClick" Margin="0,0,8,0" />
+                                                        <ui:Button x:Name="CloudDownload" Content="Download accounts" Click="OnCloudDownloadClick" />
+                                                 </StackPanel>
+                                                 <TextBlock Text="Settings" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" />
+                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                        <ui:Button x:Name="CloudUploadSettings" Content="Upload settings" Click="OnCloudUploadSettingsClick" Margin="0,0,8,0" />
+                                                        <ui:Button x:Name="CloudDownloadSettings" Content="Download settings" Click="OnCloudDownloadSettingsClick" />
+                                                 </StackPanel>
+                                                 <ui:Button x:Name="CloudLogout" Content="Sign out" Click="OnCloudLogoutClick" HorizontalAlignment="Left" />
+                                                 <Separator Margin="0,20,0,16" />
+                                                 <TextBlock Text="Plugins" Style="{StaticResource SectionTitleStyle}" />
+                                                 <TextBlock x:Name="PluginStatusSummary" TextWrapping="Wrap" Margin="0,10,0,8"
+                                                            Foreground="{StaticResource TextSecondaryBrush}" />
+                                                 <ItemsControl x:Name="PluginStatusList">
+                                                        <ItemsControl.ItemTemplate>
+                                                               <DataTemplate>
+                                                                      <StackPanel>
+                                                                      <CheckBox Content="{Binding Name}" IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                                                                IsEnabled="{Binding CanToggle}" Tag="{Binding}" Checked="OnPluginEnabledChanged"
+                                                                                Unchecked="OnPluginEnabledChanged" Margin="0,2,0,2" />
+                                                                      <TextBlock Text="{Binding State}" Margin="20,0,0,2" Foreground="{StaticResource TextSecondaryBrush}" />
+                                                                      <TextBlock Text="{Binding Details}" Margin="20,0,0,4" TextWrapping="Wrap"
+                                                                                 Foreground="{StaticResource TextSecondaryBrush}" />
+                                                                      </StackPanel>
+                                                               </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                 </ItemsControl>
+                                                 <TextBlock Text="Plugin changes apply after restarting the application. Plugins are trusted in-process code."
+                                                            TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}" />
+                                          </StackPanel>
                                    </StackPanel>
                             </Border>
               </Grid>
+              </ScrollViewer>
               <ui:Button Grid.Row="2" Content="Save settings" Margin="0,16,0,0" HorizontalAlignment="Right"
                                MinWidth="140" Click="OnSaveSettingsClick" />
        </Grid>

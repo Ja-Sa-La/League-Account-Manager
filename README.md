@@ -1,25 +1,60 @@
 # League Account Manager
 
-For support join [Discord](https://discord.gg/tjQVcc9SGP)
+[![Latest Stable Release](https://img.shields.io/github/v/release/Ja-Sa-La/League-Account-Manager?label=stable)](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest)
+[![Latest Beta Release](https://img.shields.io/github/v/release/Ja-Sa-La/League-Account-Manager?include_prereleases&label=beta)](https://github.com/Ja-Sa-La/League-Account-Manager/releases)
 
-A WPF utility for managing League of Legends accounts from one place. It uses the League Client API (LCU) only and does not perform exploits. Now with support for Valorant too!
+A Windows WPF utility for managing League of Legends accounts, client data,
+loot, profiles, friends, and in-client workflows from one place. The
+application uses the League Client API (LCU) and does not use autoclickers or
+game exploits.
+
+For support, join the [Discord server](https://discord.gg/tjQVcc9SGP).
+
+## Download
+
+| Channel | Version | Download |
+| --- | --- | --- |
+| Stable | [2.7.0.14](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.14) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
+| Beta | [2.7.0.16-beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.16-beta) | [Download latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.16-beta) |
+
+Beta builds contain the newest features and may be less stable. The current
+beta adds the plugin platform described below.
 
 ## Features
 
-- Store accounts locally (CSV) (optionally you can encrypt the data with AES-GCM) and log in with a click
-- Share accounts without ever having to give your password to anyone
-- Save rank, level, champions, skins, loot, and notes per account
-- Search accounts by region, loot value, champions, and skins
-- Champion buyer (quick purchase flow)
-- Loot manager and disenchanter
-- Queue auto-accept (configurable)
-- Player stats in champ select (queues allowed by Riot only)
-- Profile editor (icon, banner, status, background)
-- Riot ID changer
-- Friend management (bulk remove) and log cleanup
-- Report tool with improved post-game UI
-- Misc tools: log remover, loot value checker, queue helpers, etc.
-- Stealth login (launch/login without showing yourself online)
+- **Account management:** Store accounts locally in CSV format, optionally encrypt
+  data with AES-GCM, share account files, and log in with a click.
+- **Account data:** Save and search rank, level, champions, skins, loot, notes,
+  regions, and calculated loot value.
+- **Client tools:** Champion buyer, loot manager, disenchanter, queue helpers,
+  configurable auto-accept, and stealth login.
+- **Profile and social tools:** Profile editor, Riot ID changer, friend manager,
+  bulk friend removal, and log cleanup.
+- **Game workflow tools:** Champion select assistance, player stats where Riot
+  permits them, and an improved report tool.
+- **Diagnostics:** LCU traffic viewer, request logging, debug mode, and utility
+  tools for inspecting client data.
+- **Extensibility:** Trusted plugins can add navigation pages, XAML-based WPF
+  views, page icons, LCU requests, and authenticated storefront requests.
+
+See the [full feature documentation](docs/index.md) for screenshots and
+individual tool guides.
+
+## Plugin platform
+
+The beta release introduces a plugin system for developers who want to extend
+the application with native WPF pages. Plugins are regular .NET class
+libraries, can use normal XAML and code-behind, and receive host-mediated LCU
+and storefront clients through `IPluginContext`.
+
+- [Plugin development guide](docs/pages/plugins.md)
+- [Example plugin source](Examples/ExamplePlugin)
+- [Plugin contract](League_Account_Manager.PluginContract)
+- [Beta release notes](docs/releases/2.7.0.16-beta.md)
+
+Plugins are trusted, in-process assemblies and are **not sandboxed**. Only
+install plugins from sources you trust. The host creates the `Plugins` folder
+automatically; restart the application after adding or updating a plugin.
 
 ## Screenshots
 
@@ -72,16 +107,17 @@ A WPF utility for managing League of Legends accounts from one place. It uses th
 
 ## Requirements
 
-- Windows
-- .NET 8 Desktop Runtime for the packaged app
+- Windows x64
+- .NET 10 Desktop Runtime for the packaged app
 - .NET 10 SDK for building and testing from source
 
 ## Install & Run (binary)
 
-1) [Download](https://github.com/Ja-Sa-La/League-Account-Manager/releases) the latest release build
-2) Ensure .NET 8 Desktop Runtime is installed
-3) Run `League Account Manager.exe`
-4) If League permissions block some operations, start the app as Administrator
+1. [Download the latest stable release](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest)
+	or [latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases).
+2. Install the .NET 10 Desktop Runtime.
+3. Run `League_Account_Manager.exe`.
+4. If League permissions block an operation, start the app as Administrator.
 
 ## Build from Source
 
@@ -111,16 +147,36 @@ dotnet test League_Account_Manager.Tests/League_Account_Manager.Tests.csproj
 
 See [Testing](docs/testing.md) for coverage commands and integration-test boundaries.
 
+## Documentation
+
+- [Documentation home](docs/index.md)
+- [Plugin development](docs/pages/plugins.md)
+- [Testing and coverage](docs/testing.md)
+- [Main window](docs/pages/main-window.md)
+- [Accounts](docs/pages/accounts.md)
+- [Champion buyer](docs/pages/champion-buyer.md)
+- [Champion select](docs/pages/champion-select.md)
+- [LCU traffic](docs/pages/lcu-traffic.md)
+- [Profile editor](docs/pages/profile-editor.md)
+- [Settings](docs/pages/settings.md)
+- [Release notes](docs/releases)
+
 ## Privacy & Safety
 
 - All account data stays on your machine (local CSV)
-- Uses only LCU endpoints; no automation via autoclickers
+- Uses LCU endpoints and host-mediated storefront requests; no automation via autoclickers
+- Account credentials, exported files, and debug logs may contain sensitive data
 
 ## Troubleshooting
 
-- Run as Administrator if file access or League permissions fail
-- Ensure the League Client is running when using LCU-dependent features
+- Run as Administrator if file access or League permissions fail.
+- Ensure the League Client is running when using LCU-dependent features.
+- Close the application before rebuilding or replacing plugin DLLs.
+- See the [plugin troubleshooting guide](docs/pages/plugins.md#troubleshooting)
+	for plugin loading, XAML page, contract, and locked-DLL issues.
 
 ## Contributing
 
-PRs and issues are welcome. Please keep changes within Riot’s ToS and LCU guidelines.
+PRs and issues are welcome. Please read the relevant [developer
+documentation](docs/index.md), run the test suite, and keep changes within
+Riot's ToS and LCU guidelines.

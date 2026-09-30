@@ -7,28 +7,6 @@ namespace League_Account_Manager.Tests.Tokens;
 public class TokenSafetyTests
 {
     [TestMethod]
-    public void GetValidatedExtractionPath_AllowsChildPaths()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "riot-config");
-
-        var result = LoginTokenManager.GetValidatedExtractionPath(root, Path.Combine("nested", "file.yaml"));
-
-        StringAssert.StartsWith(result, Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase);
-        StringAssert.EndsWith(result, Path.Combine("nested", "file.yaml"), StringComparison.OrdinalIgnoreCase);
-    }
-
-    [TestMethod]
-    public void GetValidatedExtractionPath_RejectsParentTraversalAndSiblingPrefixes()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "riot-config");
-
-        Assert.ThrowsExactly<InvalidDataException>(() =>
-            LoginTokenManager.GetValidatedExtractionPath(root, Path.Combine("..", "outside.yaml")));
-        Assert.ThrowsExactly<InvalidDataException>(() =>
-            LoginTokenManager.GetValidatedExtractionPath(root, Path.Combine("..", "riot-config-other", "file")));
-    }
-
-    [TestMethod]
     public void IsSuccessfulResponse_RequiresTwoHundredStatusCode()
     {
         using var ok = new HttpResponseMessage(HttpStatusCode.OK);

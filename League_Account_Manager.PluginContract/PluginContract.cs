@@ -14,6 +14,23 @@ public interface ILamPlugin
     IEnumerable<PluginPage> GetPages();
 }
 
+public interface IPluginLifecycle
+{
+    Task StopAsync(CancellationToken cancellationToken);
+}
+
+public interface IPluginRequirements
+{
+    Version MinimumHostApiVersion { get; }
+    IReadOnlyCollection<string> RequiredCapabilities { get; }
+}
+
+public interface IPluginHostInfo
+{
+    Version ApiVersion { get; }
+    IReadOnlyCollection<string> Capabilities { get; }
+}
+
 public interface IPluginContext
 {
     ILcuClient Lcu { get; }

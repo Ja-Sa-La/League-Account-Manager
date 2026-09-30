@@ -17,6 +17,7 @@ public class Updates
 {
     private const string VersionManifestUrl =
         "https://raw.githubusercontent.com/Ja-Sa-La/League-Account-Manager/master/Version";
+    private const string ApiVersionUrl = "https://lam.monster/api/version";
     private const string StableDownloadUrl =
         "https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest/download/League_Account_Manager.exe";
     private const string StableReleaseUrl =
@@ -56,10 +57,21 @@ public class Updates
                 NoCache = true
             };
 
-            var manifestUrl = $"{VersionManifestUrl}?cacheBust={DateTimeOffset.UtcNow.Ticks}";
-            using var response = await updateClient.GetAsync(manifestUrl);
-            response.EnsureSuccessStatusCode();
-            var responseBody = JObject.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+            JObject responseBody;
+            try
+            {
+                using var response = await updateClient.GetAsync(ApiVersionUrl);
+                response.EnsureSuccessStatusCode();
+                responseBody = JObject.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+            }
+            catch (Exception apiException)
+            {
+                DebugConsole.WriteLine($"[Updates] API version check failed; using GitHub manifest: {apiException.Message}");
+                var manifestUrl = $"{VersionManifestUrl}?cacheBust={DateTimeOffset.UtcNow.Ticks}";
+                using var response = await updateClient.GetAsync(manifestUrl);
+                response.EnsureSuccessStatusCode();
+                responseBody = JObject.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+            }
             var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString();
             var configuredChannel = Settings.settingsloaded.ReleaseChannel?.Trim();
             DebugConsole.WriteLine($"[Updates] Checking {configuredChannel ?? "Stable"} channel from version {currentVersion ?? "unknown"}");

@@ -6,6 +6,7 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 		<ApplicationIcon>Assests\LAM Icon.ico</ApplicationIcon>
 		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
@@ -19,6 +20,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\League_Account_Manager.PluginContract\League_Account_Manager.PluginContract.csproj" />
 		<PackageReference Include="CsvHelper" Version="33.1.0" />
+		<PackageReference Include="Bitwarden.Opaque" Version="0.1.0-beta.3" />
 		<PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />

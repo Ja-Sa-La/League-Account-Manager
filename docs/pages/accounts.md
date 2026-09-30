@@ -43,7 +43,7 @@ The accounts page focuses on viewing and working with account entries, including
 #### Notes
 
 - The generated token is copied to your clipboard.
-- The app formats the token as a clickable link (for example, `https://redirect.leagueaccountmanager.xyz/login?token=...`).
+- The app formats the token as a clickable link (for example, `https://lam.monster/login?token=...`).
 - Share the link (for example, in Discord) so another user can click it and sign in with League Account Manager.
 - Tokens are valid for about one minute.
 

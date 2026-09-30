@@ -176,6 +176,42 @@ internal static class AccountFileStore
         }
     }
 
+    public static async Task<string> CreateSyncDocumentAsync(CsvConfiguration config)
+    {
+        await StoreGate.WaitAsync();
+        try
+        {
+            var records = await LoadCoreAsync(GetAccountsFilePath(), config);
+            return WriteStorageToString(records);
+        }
+        finally { StoreGate.Release(); }
+    }
+
+    public static async Task ReplaceFromSyncDocumentAsync(string document, CsvConfiguration config)
+    {
+        if (Encoding.UTF8.GetByteCount(document) > AccountSyncService.MaxDocumentBytes)
+            throw new InvalidDataException("The downloaded account document exceeds the 10 MB limit.");
+
+        await StoreGate.WaitAsync();
+        try
+        {
+            using var parsed = JsonDocument.Parse(document);
+            if (parsed.RootElement.ValueKind != JsonValueKind.Object ||
+                !parsed.RootElement.TryGetProperty("Accounts", out var accounts) ||
+                accounts.ValueKind != JsonValueKind.Array ||
+                accounts.EnumerateArray().Any(account => account.ValueKind != JsonValueKind.Object) ||
+                !TryReadStructuredStorage(document, out var imported))
+                throw new InvalidDataException("The cloud response is not a supported account document.");
+            var records = NormalizeStructuredCollections(imported);
+            var filePath = GetAccountsFilePath();
+            if (File.Exists(filePath))
+                File.Copy(filePath, filePath + $".before-cloud-{Guid.NewGuid():N}.bak");
+            await SaveCoreAsync(GetAccountsFilePath(), records, config);
+            AccountsFileUpdated?.Invoke(null, EventArgs.Empty);
+        }
+        finally { StoreGate.Release(); }
+    }
+
     public static void Save(string filePath, IEnumerable<Utils.AccountList> records, CsvConfiguration config)
     {
         SaveAsync(filePath, records, config).GetAwaiter().GetResult();
@@ -206,6 +242,25 @@ internal static class AccountFileStore
         finally
         {
             StoreGate.Release();
+        }
+    }
+
+    public static int CountCredentialsInSyncDocument(string document)
+    {
+        try
+        {
+            using var parsed = JsonDocument.Parse(document);
+            if (!parsed.RootElement.TryGetProperty("Accounts", out var accounts) ||
+                accounts.ValueKind != JsonValueKind.Array)
+                return 0;
+            return accounts.EnumerateArray().Count(account =>
+                account.ValueKind == JsonValueKind.Object &&
+                account.TryGetProperty("username", out var username) &&
+                !string.IsNullOrWhiteSpace(username.GetString()));
+        }
+        catch (JsonException)
+        {
+            return 0;
         }
     }
 
