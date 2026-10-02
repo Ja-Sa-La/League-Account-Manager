@@ -45,7 +45,15 @@
                                                  <ui:TextBox Name="settingssaveinfobox" TextWrapping="Wrap" Margin="0,0,0,12" />
                                                  <CheckBox x:Name="DisplayPasswords" Content="Display passwords in the accounts view" Margin="0,0,0,7" />
                                                  <CheckBox x:Name="AutoUpdateRanks" Content="Update ranks automatically on startup" Margin="0,0,0,7" />
-                                                 <CheckBox x:Name="PersistentLogin" Content="Enable persistent login (Remember Me)" Margin="0,0,0,7" />
+                                                 <TextBlock Text="Persist login (Remember Me)" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                                                 <ComboBox x:Name="PersistentLoginMode" SelectedIndex="0" Margin="0,0,0,7">
+                                                        <ComboBoxItem Content="Ask every time" />
+                                                        <ComboBoxItem Content="Always — allow staying logged in" />
+                                                        <ComboBoxItem Content="Never — do not stay logged in" />
+                                                 </ComboBox>
+                                                 <CheckBox x:Name="UseLegacyLogin" Content="Use legacy login" Margin="0,0,0,7"
+                                                           ToolTip="Log in by typing the credentials into the Riot Client window (browser automation) instead of the RSO API. Enable this only if the standard login has issues with your accounts."
+                                                           IsChecked="False" />
                                                  <CheckBox x:Name="AccountFileEncryption" Content="Encrypt the account file with a password"
                                                                  Checked="OnAccountFileEncryptionChecked" Unchecked="OnAccountFileEncryptionChecked" />
                                                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">

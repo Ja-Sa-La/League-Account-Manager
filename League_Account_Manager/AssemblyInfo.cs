@@ -1,4 +1,4 @@
-﻿
+
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -15,7 +15,7 @@ using System.Runtime.Versioning;
 [assembly: SupportedOSPlatform("windows")]
 
 // Version information
-[assembly: AssemblyVersion("2.7.0.16")]
-[assembly: AssemblyFileVersion("2.7.0.16")]
+[assembly: AssemblyVersion("2.7.0.17")]
+[assembly: AssemblyFileVersion("2.7.0.17")]
 [assembly: NeutralResourcesLanguageAttribute( "en-US" )]
 

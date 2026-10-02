@@ -1,10 +1,10 @@
 {
   "Version": "2.7.0.14",
   "Beta": {
-    "Version": "2.7.0.16",
-    "DownloadUrl": "https://github.com/Ja-Sa-La/League-Account-Manager/releases/download/v2.7.0.16-beta/League_Account_Manager.exe",
-    "ReleaseUrl": "https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.16-beta",
-    "Sha256": "DFDA640CD74F85D75B29401E7A14D3E2C6C22A99AF229E2B499C7B6AD0CA7CB1"
+    "Version": "2.7.0.17",
+    "DownloadUrl": "https://github.com/Ja-Sa-La/League-Account-Manager/releases/download/v2.7.0.17-beta/League_Account_Manager.exe",
+    "ReleaseUrl": "https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.17-beta",
+    "Sha256": "074BC8DDD065AE2CFF347F2B402CFA7522736E05E915D51F5ABE07D20A6B9C53"
   },
   "Stable": {
     "Version": "2.7.0.14",

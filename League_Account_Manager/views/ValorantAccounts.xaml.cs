@@ -15,6 +15,7 @@ using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
 using League_Account_Manager.Misc;
 using League_Account_Manager.Windows;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
 using Notification.Wpf;
@@ -701,7 +702,8 @@ public partial class ValorantAccounts : Page
 
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-                        if (Misc.Settings.settingsloaded.PersistentLogin && checkbox.AsCheckBox() is { } rememberBox &&
+                        var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+                        if (persist == true && checkbox.AsCheckBox() is { } rememberBox &&
                             rememberBox.IsChecked != true)
                         {
                             rememberBox.Patterns.Toggle.Pattern.Toggle();
@@ -1820,8 +1822,6 @@ public partial class ValorantAccounts : Page
     {
         try
         {
-            if (!await CheckValorant()) throw new Exception("League not installed");
-
             if (ValorantAccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
             var selectedColumn = ValorantAccountsDataGrid.SelectedCells[0].Column;
 
@@ -1835,129 +1835,107 @@ public partial class ValorantAccounts : Page
             }
 
             DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
-            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+            // The generated token is shared with other users, so always ask about persist login
+            // instead of silently applying the personal Always/Never preference.
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync(alwaysPrompt: true);
             ProxyLoginTokenManager.ResetCaptureSignal();
-
-            Utils.KillLeagueFunc();
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
-            await _launcher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
-                persistLogin: persist,
-                launchLeague: false,
-                extraRiotClientArgs: "--launch-product=valorant --launch-patchline=live",
-                tokenProduct: "valorant");
+            // Clientless flow: LAM talks directly to the public RSO authenticator, no Riot Client
+            // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
+            // which is copied to the clipboard in the same format as before.
+            DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync();
+            var challengeToken = string.Empty;
 
-            var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
-            var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
-
-            var automationTask = Task.Run(async () =>
+            if (challenge.RequiresChallenge)
             {
-                var riotval = string.Empty;
-                var attempts = 0;
-
-                while (string.IsNullOrEmpty(riotval))
+                DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
+                var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    if (Process.GetProcessesByName("Riot Client").Length != 0)
-                        riotval = "Riot Client";
-                    else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
-                        riotval = "RiotClientUx";
+                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                        RsoLoginService.ClientlessHost);
+                    win.ShowDialog();
+                    return win.Token;
+                });
 
-                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 80)
-                        break;
+                if (string.IsNullOrWhiteSpace(challengeResult))
+                {
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
+                        ConsoleColor.Yellow);
+                    return;
+                }
+                challengeToken = challengeResult;
+            }
+            else
+            {
+                DebugConsole.WriteLine("[Accounts][GenerateToken] No challenge required.");
+            }
 
-                    await Task.Delay(200);
+            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
+
+            if (result.Type == "multifactor")
+            {
+                DebugConsole.WriteLine("[Accounts][GenerateToken] MFA required, prompting for code.");
+                var otp = await Dispatcher.InvokeAsync(() =>
+                {
+                    var win = new PasswordPrompt("Enter the 2FA code (email/authenticator):");
+                    win.ShowDialog();
+                    return win.Password;
+                });
+
+                if (string.IsNullOrWhiteSpace(otp))
+                {
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] MFA cancelled by user.",
+                        ConsoleColor.Yellow);
+                    return;
                 }
 
-                if (string.IsNullOrEmpty(riotval))
-                    return;
+                result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: false);
+            }
 
-                while (!tokenDetectedTask.IsCompleted)
-                    try
-                    {
-                        var app = Application.Attach(riotval);
-
-                        using (var automation = new UIA3Automation())
+            switch (result.Type)
+            {
+                case "success" when !string.IsNullOrWhiteSpace(result.LoginToken):
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] Login token acquired, copying to clipboard.");
+                    await ProxyLoginTokenManager.CaptureLoginTokenAsync(
+                        new JObject
                         {
-                            var window = app.GetMainWindow(automation);
-                            if (window == null)
+                            ["success"] = new JObject
                             {
-                                await Task.Delay(200);
-                                continue;
+                                ["login_token"] = result.LoginToken
                             }
+                        }.ToString(Formatting.None),
+                        persistLogin: persist,
+                        product: "valorant");
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] Token capture completed.");
+                    break;
 
-                            var riotcontent =
-                                window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
-                            if (riotcontent == null)
-                            {
-                                await Task.Delay(200);
-                                continue;
-                            }
+                case "success":
+                    Notif.notificationManager.Show("Generate token",
+                        "Login succeeded but no login token was returned.",
+                        NotificationType.Error);
+                    break;
 
-                            var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
-                                .AsTextBox();
-                            var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
-                                .AsTextBox();
-                            var checkbox =
-                                riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
+                case "error":
+                case "auth_failure":
+                    Notif.notificationManager.Show("Generate token",
+                        $"Login failed: {result.Error ?? result.Type}",
+                        NotificationType.Error);
+                    break;
 
-                            if (usernameField == null || passwordField == null || checkbox == null)
-                            {
-                                await Task.Delay(200);
-                                continue;
-                            }
-
-                            var siblings = riotcontent.FindAllChildren();
-                            var count = Array.IndexOf(siblings, checkbox) + 1;
-                            FlaUI.Core.AutomationElements.Button? signInElement = null;
-                            while (count < siblings.Length)
-                            {
-                                var candidate = siblings[count++].AsButton();
-                                if (candidate != null && candidate.ControlType == ControlType.Button)
-                                {
-                                    signInElement = candidate;
-                                    break;
-                                }
-                            }
-
-                            usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
-                            passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-
-                            if (signInElement != null)
-                            {
-                                while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
-                                    await Task.Delay(200);
-
-                                if (!tokenDetectedTask.IsCompleted)
-                                    signInElement.Invoke();
-                            }
-
-                            await Task.Delay(500);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn(ex, "Transient error during login automation");
-                        DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                        await Task.Delay(200);
-                    }
-            });
-
-
-            try
-            {
-                await captureTask;
-                DebugConsole.WriteLine("[Accounts] Token capture completed.");
+                default:
+                    Notif.notificationManager.Show("Generate token",
+                        $"Unhandled response type: {result.Type} {(result.Error ?? "")}",
+                        NotificationType.Error);
+                    break;
             }
-            catch (Exception ex)
-            {
-                DebugConsole.WriteLine($"[Accounts] Token capture failed or canceled: {ex.Message}");
-            }
-
-            await automationTask;
         }
         catch (Exception ex)
         {
+            DebugConsole.WriteLine($"[Accounts][GenerateToken] Failed: {ex.Message}", ConsoleColor.Red);
             LogManager.GetCurrentClassLogger().Error(ex, "Error generating login token");
             Notif.notificationManager.Show("Error", "An error occurred while generating the login token",
                 NotificationType.Notification,
@@ -1969,6 +1947,23 @@ public partial class ValorantAccounts : Page
     private async void UseLoginToken_OnClick(object sender, RoutedEventArgs e)
     {
         _ = ProxyLoginTokenManager.UseLoginTokenValorantAsync();
+    }
+
+    /// <summary>
+    ///     Exports a login token from the currently logged-in Riot Client session so it can be
+    ///     redeemed on another PC that has never been authenticated ("Login with token" there).
+    /// </summary>
+    private async void SessionExportToken_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ProxyLoginTokenManager.GenerateTokenFromCurrentSessionAsync("valorant");
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[Accounts][SessionExport] Failed: {ex.Message}", ConsoleColor.Red);
+            LogManager.GetCurrentClassLogger().Error(ex, "Error exporting session login token");
+        }
     }
 
     private sealed class ValorantAccountData

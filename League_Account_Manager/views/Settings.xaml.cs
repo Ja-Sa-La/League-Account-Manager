@@ -31,7 +31,8 @@ public partial class Settings : Page
             StringComparison.OrdinalIgnoreCase) ? 1 : 0;
         DisplayPasswords.IsChecked = Misc.Settings.settingsloaded.DisplayPasswords;
         AutoUpdateRanks.IsChecked = Misc.Settings.settingsloaded.UpdateRanks;
-        PersistentLogin.IsChecked = Misc.Settings.settingsloaded.PersistentLogin;
+        PersistentLoginMode.SelectedIndex = (int)Misc.Settings.settingsloaded.PersistentLoginMode;
+        UseLegacyLogin.IsChecked = Misc.Settings.settingsloaded.UseLegacyLogin;
         AccountFileEncryption.IsChecked = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
         CurrentInstallLocation.Text = Path.GetFullPath(AppContext.BaseDirectory);
         _initializing = false;
@@ -195,7 +196,9 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.UpdateRanks = true;
         else
             Misc.Settings.settingsloaded.UpdateRanks = false;
-        Misc.Settings.settingsloaded.PersistentLogin = PersistentLogin.IsChecked == true;
+        Misc.Settings.settingsloaded.PersistentLoginMode =
+            (PersistentLoginMode)System.Math.Max(0, System.Math.Min(2, PersistentLoginMode.SelectedIndex));
+        Misc.Settings.settingsloaded.UseLegacyLogin = UseLegacyLogin.IsChecked == true;
 
         // Persist update preferences before account-file migration can fail.
         Misc.Settings.Save();

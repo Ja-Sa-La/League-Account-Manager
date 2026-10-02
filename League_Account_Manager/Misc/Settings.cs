@@ -12,6 +12,13 @@ using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace League_Account_Manager.Misc;
 
+public enum PersistentLoginMode
+{
+    Ask = 0,
+    Always = 1,
+    Never = 2
+}
+
 public class Settings
 {
     public static settings1 settingsloaded;
@@ -72,7 +79,7 @@ public class Settings
         settingsloaded.ReleaseChannel = incoming.ReleaseChannel;
         settingsloaded.DisplayPasswords = incoming.DisplayPasswords;
         settingsloaded.UpdateRanks = incoming.UpdateRanks;
-        settingsloaded.PersistentLogin = incoming.PersistentLogin;
+        settingsloaded.PersistentLoginMode = incoming.PersistentLoginMode;
         settingsloaded.LeagueDefaultSortColumn = incoming.LeagueDefaultSortColumn;
         settingsloaded.LeagueDefaultSortDescending = incoming.LeagueDefaultSortDescending;
         settingsloaded.ValorantDefaultSortColumn = incoming.ValorantDefaultSortColumn;
@@ -319,13 +326,14 @@ public class Settings
             UpdateRanks = true,
             AccountFileEncryptionEnabled = false,
             AccountFileEncryptionPassword = null,
-            PersistentLogin = false,
+            PersistentLoginMode = PersistentLoginMode.Ask,
             CloudSyncPromptShown = false,
             DisabledPluginPaths = Array.Empty<string>(),
             LeagueDefaultSortColumn = "level",
             LeagueDefaultSortDescending = true,
             ValorantDefaultSortColumn = "valorantLevel",
-            ValorantDefaultSortDescending = true
+            ValorantDefaultSortDescending = true,
+            UseLegacyLogin = false
         };
     }
 
@@ -337,7 +345,16 @@ public class Settings
             MergeArrayHandling = MergeArrayHandling.Replace,
             MergeNullValueHandling = MergeNullValueHandling.Merge
         });
-        return mergedSettings.ToObject<settings1>();
+        var result = mergedSettings.ToObject<settings1>();
+
+        // Migrate the old boolean PersistentLogin setting to the 3-state mode.
+        var parsed = JObject.Parse(json);
+        if (parsed.ContainsKey("PersistentLogin") && !parsed.ContainsKey("PersistentLoginMode"))
+            result.PersistentLoginMode = parsed["PersistentLogin"]?.Value<bool>() == true
+                ? PersistentLoginMode.Always
+                : PersistentLoginMode.Never;
+
+        return result;
     }
 
     private static async Task<string> findSettings()
@@ -505,7 +522,7 @@ public class Settings
         public bool UpdateRanks { get; set; }
         public bool AccountFileEncryptionEnabled { get; set; }
         public string? AccountFileEncryptionPassword { get; set; }
-        public bool PersistentLogin { get; set; }
+        public PersistentLoginMode PersistentLoginMode { get; set; }
         public bool CloudSyncPromptShown { get; set; }
         public string LeagueDefaultSortColumn { get; set; }
         public bool LeagueDefaultSortDescending { get; set; }
@@ -522,5 +539,6 @@ public class Settings
         public bool AutoLobbyBan { get; set; }
         public bool AutoLobbyMessage { get; set; }
         public bool AutoLobbyMute { get; set; }
+        public bool UseLegacyLogin { get; set; }
     }
 }

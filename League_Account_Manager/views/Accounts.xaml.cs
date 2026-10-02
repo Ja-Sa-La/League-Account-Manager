@@ -1838,6 +1838,27 @@ public partial class Accounts : Page
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
+            // The default login runs through the RSO authenticator API. The legacy
+            // UI-automation flow is only used when "Use legacy login" is enabled in
+            // settings, or for the debug/stealth launch modes.
+            if (clickedButton.Name == "Login" && !Misc.Settings.settingsloaded.UseLegacyLogin)
+            {
+                DebugConsole.WriteLine("[Accounts][RsoLogin] Starting RSO login.");
+                StartAccountOperation("Logging in",
+                    new[]
+                    {
+                        "Start Riot client",
+                        "Find login window",
+                        "Submit credentials",
+                        "Wait for authentication",
+                        "Open League client",
+                        "Waiting for summoner readiness",
+                        "Fetch account data"
+                    },
+                    cancellationToken => LoginRsoAsync(cancellationToken));
+                return;
+            }
+
             var operationTitle = clickedButton.Name switch
             {
                 "Stealthlogin" => "Stealth login",
@@ -1977,7 +1998,8 @@ public partial class Accounts : Page
 
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-                        if (Misc.Settings.settingsloaded.PersistentLogin && checkbox.AsCheckBox() is { } rememberBox &&
+                        var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+                        if (persist == true && checkbox.AsCheckBox() is { } rememberBox &&
                             rememberBox.IsChecked != true)
                         {
                             rememberBox.Patterns.Toggle.Pattern.Toggle();
@@ -2050,44 +2072,8 @@ public partial class Accounts : Page
 
                                         if (invalidCreds)
                                         {
-                                            // Mark account as invalid login
-                                            var existingNote = ActualAccountlists.FindLast(x =>
-                                                x.username == SelectedUsername && x.password == SelectedPassword)?.note;
-                                            ActualAccountlists.RemoveAll(x =>
-                                                x.username == SelectedUsername && x.password == SelectedPassword);
-                                            ActualAccountlists.Add(new Utils.AccountList
-                                            {
-                                                username = SelectedUsername,
-                                                password = SelectedPassword,
-                                                riotID = "Invalid Login",
-                                                level = 0,
-                                                server = "INVALID",
-                                                be = 0,
-                                                rp = 0,
-                                                rank = "Invalid Login",
-                                                champions = "",
-                                                Champions = 0,
-                                                skins = "",
-                                                Skins = 0,
-                                                Loot = "",
-                                                Loots = 0,
-                                                rank2 = "Invalid Login",
-                                                note = existingNote
-                                            });
-
-                                            // persist immediately
-                                            await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(),
-                                                ActualAccountlists, config);
-
-                                            // update UI and stop login flow
-                                            Dispatcher.Invoke(() =>
-                                            {
-                                                AccountsDataGrid.ItemsSource = null;
-                                                AccountsDataGrid.ItemsSource = ActualAccountlists;
-                                                ApplyLeagueSortToGrid();
-                                                AccountsDataGrid.Items.Refresh();
-                                            });
-
+                                            // Mark account as invalid login and stop the flow.
+                                            await MarkSelectedAccountInvalidAsync();
                                             return false; // pause/stop login processing
                                         }
 
@@ -3133,8 +3119,6 @@ public partial class Accounts : Page
     {
         try
         {
-            if (!await CheckLeague()) throw new Exception("League not installed");
-
             if (AccountsDataGrid.SelectedCells.Count == 0) throw new Exception("Account not selected");
             var selectedColumn = AccountsDataGrid.SelectedCells[0].Column;
 
@@ -3148,127 +3132,107 @@ public partial class Accounts : Page
             }
 
             DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
-            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+            // The generated token is shared with other users, so always ask about persist login
+            // instead of silently applying the personal Always/Never preference.
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync(alwaysPrompt: true);
             ProxyLoginTokenManager.ResetCaptureSignal();
-
-            Utils.KillLeagueFunc();
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
-            await App.AuthLauncher.LaunchRiotClientWithTokenCapture(Misc.Settings.settingsloaded.riotPath,
-                persistLogin: persist,
-                tokenProduct: "league");
+            // Clientless flow: LAM talks directly to the public RSO authenticator, no Riot Client
+            // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
+            // which is copied to the clipboard in the same format as before.
+            DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync();
+            var challengeToken = string.Empty;
 
-            var captureTask = ProxyLoginTokenManager.WaitForCaptureAsync();
-            var tokenDetectedTask = ProxyLoginTokenManager.WaitForTokenDetectedAsync();
-
-            var automationTask = Task.Run(async () =>
+            if (challenge.RequiresChallenge)
             {
-                var riotval = string.Empty;
-                var attempts = 0;
-
-                while (string.IsNullOrEmpty(riotval))
+                DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
+                var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    if (Process.GetProcessesByName("Riot Client").Length != 0)
-                        riotval = "Riot Client";
-                    else if (Process.GetProcessesByName("RiotClientUx").Length != 0)
-                        riotval = "RiotClientUx";
+                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                        RsoLoginService.ClientlessHost);
+                    win.ShowDialog();
+                    return win.Token;
+                });
 
-                    if (!string.IsNullOrEmpty(riotval) || attempts++ >= 80)
-                        break;
+                if (string.IsNullOrWhiteSpace(challengeResult))
+                {
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
+                        ConsoleColor.Yellow);
+                    return;
+                }
+                challengeToken = challengeResult;
+            }
+            else
+            {
+                DebugConsole.WriteLine("[Accounts][GenerateToken] No challenge required.");
+            }
 
-                    await Task.Delay(200);
+            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
+
+            if (result.Type == "multifactor")
+            {
+                DebugConsole.WriteLine("[Accounts][GenerateToken] MFA required, prompting for code.");
+                var otp = await Dispatcher.InvokeAsync(() =>
+                {
+                    var win = new PasswordPrompt("Enter the 2FA code (email/authenticator):");
+                    win.ShowDialog();
+                    return win.Password;
+                });
+
+                if (string.IsNullOrWhiteSpace(otp))
+                {
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] MFA cancelled by user.",
+                        ConsoleColor.Yellow);
+                    return;
                 }
 
-                if (string.IsNullOrEmpty(riotval))
-                    return;
+                result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: false);
+            }
 
-                while (!tokenDetectedTask.IsCompleted)
-                    try
-                    {
-                        var app = Application.Attach(riotval);
-
-                        using (var automation = new UIA3Automation())
+            switch (result.Type)
+            {
+                case "success" when !string.IsNullOrWhiteSpace(result.LoginToken):
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] Login token acquired, copying to clipboard.");
+                    await ProxyLoginTokenManager.CaptureLoginTokenAsync(
+                        new JObject
                         {
-                            var window = app.GetMainWindow(automation);
-                            if (window == null)
+                            ["success"] = new JObject
                             {
-                                await Task.Delay(200);
-                                continue;
+                                ["login_token"] = result.LoginToken
                             }
+                        }.ToString(Formatting.None),
+                        persistLogin: persist,
+                        product: "league");
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] Token capture completed.");
+                    break;
 
-                            var riotcontent =
-                                window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
-                            if (riotcontent == null)
-                            {
-                                await Task.Delay(200);
-                                continue;
-                            }
+                case "success":
+                    Notif.notificationManager.Show("Generate token",
+                        "Login succeeded but no login token was returned.",
+                        NotificationType.Error);
+                    break;
 
-                            var usernameField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("username"))
-                                .AsTextBox();
-                            var passwordField = riotcontent.FindFirstDescendant(cf => cf.ByAutomationId("password"))
-                                .AsTextBox();
-                            var checkbox =
-                                riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
+                case "error":
+                case "auth_failure":
+                    Notif.notificationManager.Show("Generate token",
+                        $"Login failed: {result.Error ?? result.Type}",
+                        NotificationType.Error);
+                    break;
 
-                            if (usernameField == null || passwordField == null || checkbox == null)
-                            {
-                                await Task.Delay(200);
-                                continue;
-                            }
-
-                            var siblings = riotcontent.FindAllChildren();
-                            var count = Array.IndexOf(siblings, checkbox) + 1;
-                            FlaUI.Core.AutomationElements.Button? signInElement = null;
-                            while (count < siblings.Length)
-                            {
-                                var candidate = siblings[count++].AsButton();
-                                if (candidate != null && candidate.ControlType == ControlType.Button)
-                                {
-                                    signInElement = candidate;
-                                    break;
-                                }
-                            }
-
-                            usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
-                            passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-
-                            if (signInElement != null)
-                            {
-                                while (!signInElement.IsEnabled && !tokenDetectedTask.IsCompleted)
-                                    await Task.Delay(200);
-
-                                if (!tokenDetectedTask.IsCompleted)
-                                    signInElement.Invoke();
-                            }
-
-                            await Task.Delay(500);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn(ex, "Transient error during login automation");
-                        DebugConsole.WriteLine($"[Accounts] Login automation retry: {ex.Message}", ConsoleColor.Yellow);
-                        await Task.Delay(200);
-                    }
-            });
-
-
-            try
-            {
-                await captureTask;
-                DebugConsole.WriteLine("[Accounts] Token capture completed.");
+                default:
+                    Notif.notificationManager.Show("Generate token",
+                        $"Unhandled response type: {result.Type} {(result.Error ?? "")}",
+                        NotificationType.Error);
+                    break;
             }
-            catch (Exception ex)
-            {
-                DebugConsole.WriteLine($"[Accounts] Token capture failed or canceled: {ex.Message}");
-            }
-
-            await automationTask;
         }
         catch (Exception ex)
         {
+            DebugConsole.WriteLine($"[Accounts][GenerateToken] Failed: {ex.Message}", ConsoleColor.Red);
             LogManager.GetCurrentClassLogger().Error(ex, "Error generating login token");
             Notif.notificationManager.Show("Error", "An error occurred while generating the login token",
                 NotificationType.Notification,
@@ -3280,6 +3244,284 @@ public partial class Accounts : Page
     private async void UseLoginToken_OnClick(object sender, RoutedEventArgs e)
     {
         _ = ProxyLoginTokenManager.UseLoginTokenAsync();
+    }
+
+    /// <summary>
+    ///     Exports a login token from the currently logged-in Riot Client session so it can be
+    ///     redeemed on another PC that has never been authenticated ("Login with token" there).
+    /// </summary>
+    private async void SessionExportToken_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ProxyLoginTokenManager.GenerateTokenFromCurrentSessionAsync("league");
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[Accounts][SessionExport] Failed: {ex.Message}", ConsoleColor.Red);
+            LogManager.GetCurrentClassLogger().Error(ex, "Error exporting session login token");
+        }
+    }
+
+    /// <summary>
+    ///     Default login: identical to the legacy login (kill client → start client → progress UI →
+    ///     EULA → launch League → summoner readiness → pull account data). Only the credential
+    ///     entry differs: instead of typing into the login window via UI automation, the RSO
+    ///     authenticator flow runs through the running client's local API (Tabasco in an
+    ///     embedded WebView2 and 2FA supported) and the resulting login token is redeemed by
+    ///     the client. Enable "Use legacy login" in settings to use the old UI automation
+    ///     flow instead.
+    /// </summary>
+    private async Task<bool> LoginRsoAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Utils.KillLeagueFunc();
+            var num = 0;
+
+            SetAccountOperationStatus("Starting Riot client...");
+            StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
+
+            while (true)
+            {
+                if (Process.GetProcessesByName("Riot Client").Length != 0 ||
+                    Process.GetProcessesByName("RiotClientUx").Length != 0)
+                    break;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                SetAccountOperationStatus("Waiting for Riot client...");
+                DebugConsole.WriteLine("[Accounts][RsoLogin] Waiting for riot process");
+
+                await Task.Delay(200, cancellationToken);
+                num++;
+                if (num == 80) return false;
+            }
+            MarkTaskCompleted("Start Riot client");
+
+            // Wait for the client's local API to accept requests (the normal login implicitly
+            // waits for the login window; V2 talks to the API instead).
+            SetAccountOperationStatus("Waiting for Riot client API...");
+            var readyDeadline = DateTimeOffset.UtcNow.AddMinutes(2);
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (DateTimeOffset.UtcNow >= readyDeadline)
+                {
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] Timed out waiting for Riot ready state.",
+                        ConsoleColor.Red);
+                    return false;
+                }
+
+                try
+                {
+                    var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "",
+                        cancellationToken);
+                    if (readyResp is HttpResponseMessage { IsSuccessStatusCode: true } readyHttp)
+                    {
+                        var readyBody = await readyHttp.Content.ReadAsStringAsync(cancellationToken)
+                            .ConfigureAwait(false);
+                        var node = Newtonsoft.Json.Linq.JToken.Parse(readyBody);
+                        if (node["ready"]?.Value<bool>() == true)
+                            break;
+                    }
+                }
+                catch
+                {
+                    // API not up yet, keep polling
+                }
+
+                await Task.Delay(200, cancellationToken);
+            }
+
+            // Ask about persisting the session up-front (same as the normal login's remember-me
+            // question) so no dialog interrupts after challenge/2FA have already succeeded.
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+
+            // --- The login part that differs from the normal login: -------------------------
+            // instead of finding the login window and typing credentials via UI automation,
+            // run the RSO authenticator flow through the client's local API.
+            SetAccountOperationStatus("Starting authentication...");
+            var challenge = await RsoLoginService.StartAuthAsync();
+            var challengeToken = string.Empty;
+
+            if (challenge.RequiresChallenge)
+            {
+                SetAccountOperationStatus("Solving challenge...");
+                DebugConsole.WriteLine($"[Accounts][RsoLogin] Challenge required: {challenge.Type}");
+                // The real client binds the widget to the authenticator service_url hostname.
+                var host = await RsoLoginService.GetServiceUrlHostAsync();
+                var challengeResult = await Dispatcher.InvokeAsync(() =>
+                {
+                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData, host);
+                    win.ShowDialog();
+                    return win.Token;
+                });
+
+                if (string.IsNullOrWhiteSpace(challengeResult))
+                {
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] Challenge cancelled by user.", ConsoleColor.Yellow);
+                    return false;
+                }
+                challengeToken = challengeResult;
+            }
+            else
+            {
+                DebugConsole.WriteLine("[Accounts][RsoLogin] No challenge required.");
+            }
+            MarkTaskCompleted("Find login window");
+
+            SetAccountOperationStatus("Submitting credentials...");
+            var result = await RsoLoginService.CompleteAuthAsync(
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
+            MarkTaskCompleted("Submit credentials");
+
+            if (result.Type == "multifactor")
+            {
+                SetAccountOperationStatus("Waiting for 2FA code...");
+                DebugConsole.WriteLine("[Accounts][RsoLogin] MFA required, prompting for code.");
+                var otp = await Dispatcher.InvokeAsync(() =>
+                {
+                    var win = new PasswordPrompt("Enter the 2FA code (email/authenticator):");
+                    win.ShowDialog();
+                    return win.Password;
+                });
+
+                if (string.IsNullOrWhiteSpace(otp))
+                {
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] MFA cancelled by user.", ConsoleColor.Yellow);
+                    return false;
+                }
+
+                // Same as the real client's "Remember this app for 30 days" checkbox on the
+                // 2FA screen — honour the persist decision so the trusted-device cookie is
+                // written when the user chose to stay signed in.
+                result = await RsoLoginService.SubmitMfaAsync(otp, rememberDevice: persist ?? false);
+            }
+
+            switch (result.Type)
+            {
+                case "success" when !string.IsNullOrWhiteSpace(result.LoginToken):
+                    SetAccountOperationStatus("Waiting for Riot authentication...");
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] Login token acquired, submitting to Riot Client.");
+                    var ok = await ProxyLoginTokenManager.RedeemRawLoginTokenOnRunningClientAsync(
+                        result.LoginToken, product: "league");
+                    DebugConsole.WriteLine($"[Accounts][RsoLogin] Token submission finished. Success={ok}");
+                    if (!ok) return false;
+
+                    // Make sure EULA is accepted (mirrors the normal login's post-auth step).
+                    while (true)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "",
+                            cancellationToken);
+                        string status = await resp.Content.ReadAsStringAsync(cancellationToken)
+                            .ConfigureAwait(false);
+                        if (status == "\"Accepted\"") break;
+                        if (status == "\"AcceptanceRequired\"")
+                        {
+                            await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "",
+                                cancellationToken);
+                            await Task.Delay(200, cancellationToken);
+                        }
+                        else
+                        {
+                            await Task.Delay(500, cancellationToken);
+                        }
+                    }
+                    MarkTaskCompleted("Wait for authentication");
+
+                    SetAccountOperationStatus("Opening League client...");
+                    await Lcu.Connector("riot", "post",
+                        "/product-launcher/v1/products/league_of_legends/patchlines/live", "",
+                        cancellationToken);
+                    MarkTaskCompleted("Open League client");
+                    return await WaitForSummonerReadyAsync(cancellationToken);
+
+                case "success":
+                    Notif.notificationManager.Show("Login",
+                        "Login succeeded but no login token was returned.",
+                        NotificationType.Error);
+                    return false;
+
+                case "error" when string.Equals(result.Error, "auth_failure", StringComparison.OrdinalIgnoreCase):
+                    // Same handling as the normal login's "credentials don't match" tooltip:
+                    // mark the account invalid and stop.
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] Credentials rejected, marking account invalid.",
+                        ConsoleColor.Red);
+                    await MarkSelectedAccountInvalidAsync();
+                    return false;
+
+                case "error":
+                case "auth_failure":
+                    Notif.notificationManager.Show("Login",
+                        $"Login failed: {result.Error ?? result.Type}",
+                        NotificationType.Error);
+                    return false;
+
+                default:
+                    Notif.notificationManager.Show("Login",
+                        $"Unhandled response type: {result.Type} {(result.Error ?? "")}",
+                        NotificationType.Error);
+                    return false;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            Utils.KillLeagueFunc();
+            throw;
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error logging in");
+            DebugConsole.WriteLine($"[Accounts][RsoLogin] Failed: {exception.Message}", ConsoleColor.Red);
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     Marks the currently selected account as an invalid login (keeping its note), saves the
+    ///     account list and refreshes the grid. Shared by the legacy and default (RSO) logins.
+    /// </summary>
+    private async Task MarkSelectedAccountInvalidAsync()
+    {
+        var existingNote = ActualAccountlists.FindLast(x =>
+            x.username == SelectedUsername && x.password == SelectedPassword)?.note;
+        ActualAccountlists.RemoveAll(x =>
+            x.username == SelectedUsername && x.password == SelectedPassword);
+        ActualAccountlists.Add(new Utils.AccountList
+        {
+            username = SelectedUsername,
+            password = SelectedPassword,
+            riotID = "Invalid Login",
+            level = 0,
+            server = "INVALID",
+            be = 0,
+            rp = 0,
+            rank = "Invalid Login",
+            champions = "",
+            Champions = 0,
+            skins = "",
+            Skins = 0,
+            Loot = "",
+            Loots = 0,
+            rank2 = "Invalid Login",
+            note = existingNote
+        });
+
+        // persist immediately
+        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(),
+            ActualAccountlists, config);
+
+        // update UI and stop login flow
+        Dispatcher.Invoke(() =>
+        {
+            AccountsDataGrid.ItemsSource = null;
+            AccountsDataGrid.ItemsSource = ActualAccountlists;
+            ApplyLeagueSortToGrid();
+            AccountsDataGrid.Items.Refresh();
+        });
     }
 
     private static JObject? DecodeJwtPayload(string token)

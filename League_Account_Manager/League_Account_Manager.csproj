@@ -27,6 +27,7 @@
 		<PackageReference Include="NLog" Version="5.4.0" />
 		<PackageReference Include="SharpVectors.Wpf" Version="1.8.5" />
 		<PackageReference Include="WPF-UI" Version="4.2.0" />
+		<PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Update="AssemblyInfo.tt">
