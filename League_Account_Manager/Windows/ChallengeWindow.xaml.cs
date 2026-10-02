@@ -55,7 +55,7 @@ public partial class ChallengeWindow : Window
             // client runs the widget on the authenticator service_url origin, so we navigate to
             // https://<host>/challenge.html and intercept ONLY that document with our local HTML
             // (WebResourceRequested). Every other request to that origin — the widget's
-            // checksiteconfig/getchallenge calls to Riot's Tabasco proxy — passes through to the
+            // checksiteconfig/challenge-fetch calls to Riot's Tabasco proxy — passes through to the
             // real server, keeping us identical to the Riot Client.
             if (string.IsNullOrWhiteSpace(_host))
                 throw new Exception("Authenticator host not resolved; cannot bind challenge to correct origin.");
@@ -195,9 +195,8 @@ public partial class ChallengeWindow : Window
         const string hl = "en-US";
 
         // Script URL identical to the client's loader i0(): base params render=explicit + onload,
-        // then remaining props become query params (hl, host, recaptchacompat=off — the client
-        // passes reChallengeCompat:false). Client loads the script synchronously (loadAsync:false),
-        // so no async/defer attributes.
+        // then remaining props become query params (hl, host, recaptchacompat=off — the
+        // script loads synchronously (loadAsync:false), so no async/defer attributes.
         var scriptUrl = $"https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad&hl={hl}&recaptchacompat=off";
         if (!string.IsNullOrWhiteSpace(_host))
             scriptUrl += $"&host={Uri.EscapeDataString(_host)}";
@@ -224,7 +223,7 @@ public partial class ChallengeWindow : Window
         sb.AppendLine("  if (!(window.__tabascoReady && typeof hcaptcha !== 'undefined')) { setTimeout(waitForReady, 100); return; }");
         sb.AppendLine("  document.getElementById('status').textContent='Solving challenge…';");
         sb.AppendLine("  try{");
-        // Render opts mirror the client's renderChallenge(): sitekey, size invisible, host
+        // Render opts mirror the client's widget render call: sitekey, size invisible, host
         // (authenticator service_url hostname), hl, plus the standard callbacks.
         sb.AppendLine($"    var opts = {{sitekey:{siteKeyJson}, size:'invisible', hl:'{hl}',");
         sb.AppendLine("      'open-callback':function(){}, 'close-callback':function(){},");
