@@ -3340,21 +3340,21 @@ public partial class Accounts : Page
             var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
 
             // --- The login part that differs from the normal login: -------------------------
-            // instead of finding the login window and typing credentials via UI automation,
-            // run the RSO authenticator flow through the client's local API.
+            // run the RSO authenticator flow directly against the public web authenticator
+            // (clientless — the same proven path as the Generate Token flow). The minted
+            // login_token is then redeemed on the running client below.
             SetAccountOperationStatus("Starting authentication...");
-            var challenge = await RsoLoginService.StartAuthAsync();
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync();
             var challengeToken = string.Empty;
 
             if (challenge.RequiresChallenge)
             {
                 SetAccountOperationStatus("Solving challenge...");
                 DebugConsole.WriteLine($"[Accounts][RsoLogin] Challenge required: {challenge.Type}");
-                // The real client binds the widget to the authenticator service_url hostname.
-                var host = await RsoLoginService.GetServiceUrlHostAsync();
                 var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData, host);
+                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                        RsoLoginService.ClientlessHost);
                     win.ShowDialog();
                     return win.Token;
                 });
@@ -3373,7 +3373,7 @@ public partial class Accounts : Page
             MarkTaskCompleted("Find login window");
 
             SetAccountOperationStatus("Submitting credentials...");
-            var result = await RsoLoginService.CompleteAuthAsync(
+            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
                 SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
             MarkTaskCompleted("Submit credentials");
 
@@ -3397,7 +3397,7 @@ public partial class Accounts : Page
                 // Same as the real client's "Remember this app for 30 days" checkbox on the
                 // 2FA screen — honour the persist decision so the trusted-device cookie is
                 // written when the user chose to stay signed in.
-                result = await RsoLoginService.SubmitMfaAsync(otp, rememberDevice: persist ?? false);
+                result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: persist ?? false);
             }
 
             switch (result.Type)
