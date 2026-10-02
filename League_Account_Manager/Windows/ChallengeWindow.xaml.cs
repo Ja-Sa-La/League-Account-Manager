@@ -21,28 +21,6 @@ public partial class ChallengeWindow : Window
     private readonly string? _rqData;
     private readonly string? _host;
 
-    // The Riot Client renders the widget inside CEF, whose UA is plain Chromium — no "Edg"
-    // token (WebView2's default) and no "HeadlessChrome". Matching it keeps the UA consistent
-    // with the client's own challenge submissions on the same sitekey.
-    private const string RiotClientCefUserAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-
-    // Injected into every document before any page script runs. Normalizes the JS environment
-    // so it does not advertise an embedded WebView2: stash the host bridge under a private
-    // name and try to strip the detectable window.chrome.webview property (messaging falls
-    // back to the stashed handle, and ultimately to window.external.notify).
-    private const string HardeningJs = @"
-(function(){
-  try {
-    window.__hostBridge = (window.chrome && window.chrome.webview) ? window.chrome.webview : null;
-    if (window.chrome && window.chrome.webview) { try { delete window.chrome.webview; } catch (e) {} }
-  } catch (e) {}
-  try {
-    Object.defineProperty(navigator, 'language',  { get: function(){ return 'en-US'; }, configurable: true });
-    Object.defineProperty(navigator, 'languages', { get: function(){ return ['en-US','en']; }, configurable: true });
-  } catch (e) {}
-})();";
-
     public ChallengeWindow(string siteKey, string? rqData, string? host)
     {
         InitializeComponent();
@@ -70,18 +48,6 @@ public partial class ChallengeWindow : Window
             };
             WebViewHost.Child = _webView;
             await _webView.EnsureCoreWebView2Async();
-
-            var settings = _webView.CoreWebView2.Settings;
-            settings.UserAgent = RiotClientCefUserAgent;
-            settings.AreDevToolsEnabled = false;
-            settings.AreDefaultContextMenusEnabled = false;
-            settings.IsStatusBarEnabled = false;
-            settings.AreBrowserAcceleratorKeysEnabled = false;
-            settings.IsBuiltInErrorPageEnabled = false;
-            settings.IsPasswordAutosaveEnabled = false;
-            settings.IsGeneralAutofillEnabled = false;
-            // Applied before any document script (including the widget's) can probe the env.
-            await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(HardeningJs);
 
             // Tabasco tokens are validated against the page origin the widget runs on. The real
             // client runs the widget on the authenticator service_url origin, so we navigate to
@@ -116,7 +82,7 @@ public partial class ChallengeWindow : Window
             var stream = new MemoryStream(html);
             var response = _webView!.CoreWebView2.Environment.CreateWebResourceResponse(
                 stream, 200, "OK",
-                "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer");
+                "Content-Type: text/html; charset=utf-8");
             e.Response = response;
         }
         catch (Exception ex)
@@ -129,8 +95,8 @@ public partial class ChallengeWindow : Window
     {
         try
         {
-            // Messages may arrive as a raw string (postToHost stringifies via the stashed
-            // bridge / window.external.notify) or as JSON (native webview postMessage).
+            // Messages may arrive as a raw string (postToHost stringifies the payload) or as
+            // JSON (native webview postMessage with an object).
             var text = e.TryGetWebMessageAsString();
             var json = string.IsNullOrWhiteSpace(text) ? e.WebMessageAsJson : text;
             // {"type":"tabasco_result","token":"..."} or {"type":"tabasco_error","error":"..."}
@@ -153,32 +119,6 @@ public partial class ChallengeWindow : Window
         }
     }
 
-    /// <summary>
-    ///     Emits per-request, non-deterministic filler markup (offscreen canvases + a random
-    ///     comment nonce) so the served document never serializes to the same bytes twice —
-    ///     any host-page HTML hashing sees a fresh fingerprint on every attempt instead of
-    ///     one stable value that could be allow/deny-listed. The canvases are positioned
-    ///     offscreen and pointer-inert, so the widget layout and the visible UI are untouched.
-    /// </summary>
-    private static string BuildHtmlDecorations()
-    {
-        var rng = Random.Shared;
-        var sb = new StringBuilder();
-        sb.Append($"<!--{Guid.NewGuid():N}-->");
-        var canvasCount = rng.Next(1, 5);
-        for (var i = 0; i < canvasCount; i++)
-        {
-            var width = rng.Next(16, 257);
-            var height = rng.Next(16, 257);
-            var id = "c" + Guid.NewGuid().ToString("N")[..8];
-            sb.Append(
-                $"<canvas id='{id}' width='{width}' height='{height}' aria-hidden='true' tabindex='-1' " +
-                "style='position:fixed;left:-10000px;top:-10000px;pointer-events:none;opacity:0.01'></canvas>");
-        }
-
-        return sb.ToString();
-    }
-
     private string BuildHtml()
     {
         var rqDataJson = System.Text.Json.JsonSerializer.Serialize(_rqData ?? string.Empty);
@@ -198,21 +138,15 @@ public partial class ChallengeWindow : Window
         var sb = new StringBuilder();
         sb.AppendLine("<!DOCTYPE html>");
         sb.AppendLine("<html><head><meta charset='utf-8'>");
-        // Never leak a referrer to the widget/proxy requests.
-        sb.AppendLine("<meta name='referrer' content='no-referrer'>");
         sb.AppendLine("<style>body{background:#1e1e2e;color:#cdd6f4;font-family:Segoe UI,sans-serif;margin:0;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 32px);box-sizing:border-box}#status{margin-bottom:12px;font-size:14px}#checkbox{min-width:303px;min-height:78px}</style>");
         sb.AppendLine("<script>function hcaptchaOnLoad(){ window.__tabascoReady = true; }</script>");
         sb.AppendLine($"<script src='{scriptUrl}'></script>");
         sb.AppendLine("</head><body>");
-        // Per-request decoy markup keeps the host-page HTML hash unique on every load.
-        sb.AppendLine(BuildHtmlDecorations());
         sb.AppendLine("<div id='status'>Loading challenge…</div>");
         sb.AppendLine("<div id='checkbox'></div>");
         sb.AppendLine("<script>");
-        // Host bridge that survives the hardening script's cleanup: prefers the stashed
-        // webview handle, falls back to window.external.notify.
         sb.AppendLine("function postToHost(msg){");
-        sb.AppendLine("  try { if (window.__hostBridge) { window.__hostBridge.postMessage(JSON.stringify(msg)); return; } } catch(e){}");
+        sb.AppendLine("  try { if (window.chrome && window.chrome.webview) { window.chrome.webview.postMessage(JSON.stringify(msg)); return; } } catch(e){}");
         sb.AppendLine("  try { window.external.notify(JSON.stringify(msg)); } catch(e){}");
         sb.AppendLine("}");
         sb.AppendLine("function reportError(err){ postToHost({type:'tabasco_error', error:String(err)}); }");
@@ -249,9 +183,8 @@ public partial class ChallengeWindow : Window
         sb.AppendLine("  }");
         sb.AppendLine("}");
         sb.AppendLine("function waitForReady(){");
-        sb.AppendLine("  if (!(window.__tabascoReady && typeof hcaptcha !== 'undefined')) { setTimeout(waitForReady, 80 + Math.floor(Math.random()*70)); return; }");
-        // Human-like start delay: never execute at a fixed offset after widget load.
-        sb.AppendLine("  setTimeout(startChallenge, 420 + Math.floor(Math.random()*720));");
+        sb.AppendLine("  if (!(window.__tabascoReady && typeof hcaptcha !== 'undefined')) { setTimeout(waitForReady, 100); return; }");
+        sb.AppendLine("  setTimeout(startChallenge, 500);");
         sb.AppendLine("}");
         sb.AppendLine("waitForReady();");
         sb.AppendLine("</script></body></html>");
