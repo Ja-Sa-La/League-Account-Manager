@@ -584,10 +584,13 @@ internal static class RsoLoginService
     {
         if (response is HttpResponseMessage http)
         {
-            var text = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!http.IsSuccessStatusCode && string.IsNullOrWhiteSpace(text))
-                DebugConsole.WriteLine($"[RsoLogin] HTTP {(int)http.StatusCode} with empty body.", ConsoleColor.Red);
-            return text ?? string.Empty;
+            using (http)
+            {
+                var text = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!http.IsSuccessStatusCode && string.IsNullOrWhiteSpace(text))
+                    DebugConsole.WriteLine($"[RsoLogin] HTTP {(int)http.StatusCode} with empty body.", ConsoleColor.Red);
+                return text ?? string.Empty;
+            }
         }
 
         DebugConsole.WriteLine("[RsoLogin] No HTTP response (client not running or in game).", ConsoleColor.Red);

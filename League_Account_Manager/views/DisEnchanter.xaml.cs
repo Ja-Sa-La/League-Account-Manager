@@ -35,7 +35,7 @@ public partial class DisEnchanter : Page
             if (leagueclientprocess.Length == 0) return;
             LootChampsList.Clear();
             LootSkinsList.Clear();
-            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "")
+            using var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot-map", "")
                 as HttpResponseMessage;
             if (resp == null)
                 return;

@@ -250,12 +250,14 @@ internal static class AccountFileStore
         try
         {
             using var parsed = JsonDocument.Parse(document);
-            if (!parsed.RootElement.TryGetProperty("Accounts", out var accounts) ||
+            if (parsed.RootElement.ValueKind != JsonValueKind.Object ||
+                !parsed.RootElement.TryGetProperty("Accounts", out var accounts) ||
                 accounts.ValueKind != JsonValueKind.Array)
                 return 0;
             return accounts.EnumerateArray().Count(account =>
                 account.ValueKind == JsonValueKind.Object &&
                 account.TryGetProperty("username", out var username) &&
+                username.ValueKind == JsonValueKind.String &&
                 !string.IsNullOrWhiteSpace(username.GetString()));
         }
         catch (JsonException)

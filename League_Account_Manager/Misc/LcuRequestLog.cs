@@ -80,7 +80,7 @@ internal static partial class LcuRequestLog
         return entry;
     }
 
-    internal static LcuRequestRecord Update(long id, int? statusCode, string status, string responseBody,
+    internal static LcuRequestRecord? Update(long id, int? statusCode, string status, string responseBody,
         long durationMilliseconds, string? error = null, string responseHeaders = "", string? direction = null)
     {
         LcuRequestRecord entry;
@@ -88,7 +88,7 @@ internal static partial class LcuRequestLog
         {
             var index = Entries.FindIndex(record => record.Id == id);
             if (index < 0)
-                throw new InvalidOperationException($"Request log entry {id} was not found.");
+                return null;
 
             entry = Entries[index] with
             {

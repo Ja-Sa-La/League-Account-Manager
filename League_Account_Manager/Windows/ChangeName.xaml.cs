@@ -103,7 +103,7 @@ public partial class ChangeName : Window
             ["gameName"] = name,
             ["tagLine"] = tag
         };
-        var response = await Lcu.Connector("riot", "post", endpoint,
+        using var response = await Lcu.Connector("riot", "post", endpoint,
             payload.ToString(Newtonsoft.Json.Formatting.None)) as HttpResponseMessage;
         if (response == null)
             throw new InvalidOperationException("Riot client did not return a response.");

@@ -619,9 +619,20 @@ internal class OfflineLauncher
                     $"[OfflineLauncher] Chat request #{connectionId}: connected upstream {_upstreamHost}:{_upstreamPort}.");
 
                 var state = new PresenceInjectionState();
-                var c2s = PumpClientToServerAsync(incomingSsl, outgoingSsl, connectionId, state, token);
-                var s2c = PumpServerToClientAsync(outgoingSsl, incomingSsl, connectionId, state, token);
+                using var connectionStop = CancellationTokenSource.CreateLinkedTokenSource(token);
+                var c2s = PumpClientToServerAsync(incomingSsl, outgoingSsl, connectionId, state,
+                    connectionStop.Token);
+                var s2c = PumpServerToClientAsync(outgoingSsl, incomingSsl, connectionId, state,
+                    connectionStop.Token);
                 await Task.WhenAny(c2s, s2c);
+                connectionStop.Cancel();
+                try
+                {
+                    await Task.WhenAll(c2s, s2c);
+                }
+                catch (OperationCanceledException) when (connectionStop.IsCancellationRequested)
+                {
+                }
             }
 
             DebugConsole.WriteLine($"[OfflineLauncher] Chat request #{connectionId}: connection finished.");

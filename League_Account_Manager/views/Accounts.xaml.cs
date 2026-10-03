@@ -862,7 +862,7 @@ public partial class Accounts : Page
             SetAccountOperationStatus("Reading the active Riot account...");
             try
             {
-                var authResp =
+                using var authResp =
                     await Lcu.Connector("riot", "get", "/riot-client-auth/v1/authorization", "", cancellationToken)
                         as HttpResponseMessage;
                 if (authResp != null)
@@ -1088,7 +1088,7 @@ public partial class Accounts : Page
                             var lootId = thing["lootId"]?.ToString();
                             if (string.IsNullOrEmpty(lootId)) continue;
 
-                            var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "",
+                            using var resp = await Lcu.Connector("league", "get", "/lol-loot/v1/player-loot/" + lootId, "",
                                     cancellationToken)
                                 as HttpResponseMessage;
                             if (resp == null) continue;
@@ -2257,7 +2257,7 @@ public partial class Accounts : Page
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "",
+                using var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "",
                         cancellationToken)
                     as HttpResponseMessage;
 
