@@ -68,7 +68,7 @@ public partial class ChampionBuyer : Page
                     BuyLog.Text = championsFailedLog;
                 }
 
-                Thread.Sleep(500);
+                await Task.Delay(500);
                 count++;
             }
 

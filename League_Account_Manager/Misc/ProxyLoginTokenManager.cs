@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -20,8 +20,6 @@ internal static class ProxyLoginTokenManager
     private const string LoginRedirectBaseUrl = "https://lam.monster/login";
     private const string ProductLeague = "league";
     private const string ProductValorant = "valorant";
-    private static readonly TimeSpan LoginReadinessTimeout = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan LoginPollDelay = TimeSpan.FromMilliseconds(200);
     private static int _captureInProgress;
     private static TaskCompletionSource<bool> _captureTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -54,51 +52,14 @@ internal static class ProxyLoginTokenManager
     }
 
     /// <summary>
-    ///     Asks whether the session should be persisted. Personal login flows honour the saved
-    ///     Always/Never preference; <paramref name="alwaysPrompt"/> bypasses it so flows that
-    ///     hand the token to other users (Generate token) always ask.
+    ///     Asks whether a shared session should stay logged in. Sharing flows always ask
+    ///     (they must never silently apply the personal Always/Never login preference), so this
+    ///     delegates to <see cref="RiotLoginManager.PromptPersistLoginAsync"/> with
+    ///     <c>alwaysPrompt: true</c>. Normal-login prompt calls go to RiotLoginManager directly.
     /// </summary>
-    public static async Task<bool?> PromptPersistLoginAsync(bool alwaysPrompt = false)
+    public static Task<bool?> PromptPersistLoginForShareAsync()
     {
-        if (alwaysPrompt)
-        {
-            LogFlow("TOKEN", "Generated tokens are shared with other users; always asking about persist login.");
-        }
-        else
-        {
-            // Respect the configured persistent-login mode (Ask / Always / Never).
-            switch (Settings.settingsloaded.PersistentLoginMode)
-            {
-                case PersistentLoginMode.Always:
-                    LogFlow("TOKEN", "PersistentLoginMode=Always, persisting login without prompting.");
-                    return true;
-                case PersistentLoginMode.Never:
-                    LogFlow("TOKEN", "PersistentLoginMode=Never, skipping persist without prompting.");
-                    return false;
-            }
-        }
-
-        if (Application.Current?.Dispatcher == null)
-            return false;
-
-        return await Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            // Generated tokens are handed to other users; hide the "remember my choice" shortcut
-            // so a one-off share answer can never overwrite the personal login preference.
-            var prompt = new PersistLoginPromptWindow("Allow user to stay logged in?", !alwaysPrompt);
-            prompt.ShowDialog();
-            if (!alwaysPrompt && prompt.RememberChoiceSelected)
-            {
-                Settings.settingsloaded.PersistentLoginMode = prompt.PersistLogin
-                    ? PersistentLoginMode.Always
-                    : PersistentLoginMode.Never;
-                Settings.Save();
-                LogFlow("TOKEN",
-                    $"PersistentLoginMode saved as {Settings.settingsloaded.PersistentLoginMode}.");
-            }
-
-            return prompt.PersistLogin;
-        });
+        return RiotLoginManager.PromptPersistLoginAsync(alwaysPrompt: true);
     }
 
     public static void RegisterLoginUriScheme()
@@ -173,15 +134,22 @@ internal static class ProxyLoginTokenManager
         var product = GetProductFromEncodedTokenOrDefault(token);
         LogFlow("URI", $"Token product detected: {product}");
 
+        var payload = DecodeLoginTokenPayload(token);
+        if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
+        {
+            LogFlow("URI", "Token payload did not contain a login token.", ConsoleColor.Red);
+            return;
+        }
+
         if (product == ProductValorant)
         {
             LogFlow("URI", "Dispatching token login to Valorant handler.");
-            await UseLoginTokenValorantAsync(token);
+            await RiotLoginManager.UseLoginTokenValorantAsync(payload.LoginToken, payload.PersistLogin);
         }
         else
         {
             LogFlow("URI", "Dispatching token login to League handler.");
-            await UseLoginTokenAsync(token);
+            await RiotLoginManager.UseLoginTokenAsync(payload.LoginToken, payload.PersistLogin);
         }
 
         LogFlow("URI", "TryHandleLoginUriAsync completed.");
@@ -244,8 +212,47 @@ internal static class ProxyLoginTokenManager
 
         // The token is handed to other users, so always ask about persist login (same policy as
         // the clientless Generate token flow) before copying to the clipboard.
-        var persist = await PromptPersistLoginAsync(alwaysPrompt: true);
+        var persist = await PromptPersistLoginForShareAsync();
         await CaptureLoginTokenAsync(body, persistLogin: persist, product: product);
+    }
+
+    /// <summary>
+    ///     Mints a fresh login token from the Riot Client session that is signed in right now and
+    ///     returns the raw token. Unlike <see cref="GenerateTokenFromCurrentSessionAsync"/> this
+    ///     does not prompt or touch the clipboard — the default login uses it to persist a session
+    ///     it just created, and the token the client was signed in with is already spent.
+    /// </summary>
+    public static async Task<string?> MintLoginTokenFromSessionAsync()
+    {
+        HttpResponseMessage? response;
+        try
+        {
+            response = await Lcu.Connector("riot", "post",
+                "/rso-authenticator/v1/authentication/redirect", "{}");
+        }
+        catch (Exception ex)
+        {
+            LogFlow("Session", $"Minting a session token failed: {ex.Message}", ConsoleColor.Red);
+            return null;
+        }
+
+        if (response is not HttpResponseMessage { IsSuccessStatusCode: true } http)
+        {
+            LogFlow("Session", "The client refused to mint a login token from the session.",
+                ConsoleColor.Red);
+            return null;
+        }
+
+        var body = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var token = ExtractLoginToken(body);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            LogFlow("Session", "The session response did not contain a login token.", ConsoleColor.Red);
+            return null;
+        }
+
+        LogFlow("Session", "Minted a fresh login token from the signed-in session.");
+        return token;
     }
 
     public static async Task CaptureLoginTokenAsync(string responseText, bool? persistLogin = false,
@@ -304,16 +311,16 @@ internal static class ProxyLoginTokenManager
 
     public static async Task<bool> UseLoginTokenAsync()
     {
-        LogFlow("League", "UseLoginTokenAsync invoked (clipboard source).");
+        LogFlow("Token", "UseLoginTokenAsync invoked (clipboard source).");
         var encodedToken = await TryGetLoginTokenFromClipboardAsync();
         if (string.IsNullOrWhiteSpace(encodedToken))
         {
-            LogFlow("League", "Clipboard does not contain a login token.", ConsoleColor.Yellow);
+            LogFlow("Token", "Clipboard does not contain a login token.", ConsoleColor.Yellow);
             return false;
         }
 
-        LogFlow("League", "Token extracted from clipboard successfully.");
-        return await UseLoginTokenAsync(encodedToken);
+        LogFlow("Token", "Token extracted from clipboard successfully.");
+        return await RedeemSharedTokenAsync(encodedToken, source: "clipboard");
     }
 
     /// <summary>
@@ -323,496 +330,79 @@ internal static class ProxyLoginTokenManager
     public static Task<bool> SubmitRawLoginTokenAsync(string rawLoginToken, bool persistLogin,
         string product = ProductLeague)
     {
-        var payload = new LoginTokenPayload
-        {
-            AuthenticationType = "RiotAuth",
-            LoginToken = rawLoginToken,
-            PersistLogin = persistLogin,
-            Product = NormalizeProduct(product)
-        };
-
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
-        var encodedToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
-        return UseLoginTokenAsync(encodedToken);
-    }
-
-    /// <summary>
-    ///     Redeems a raw login token on the <b>already running</b> Riot Client without restarting
-    ///     it (protocol-handler redemption + product authorization). Used by the default login, which —
-    ///     like the normal login — starts the client once and then completes authentication on it.
-    /// </summary>
-    public static async Task<bool> RedeemRawLoginTokenOnRunningClientAsync(string rawLoginToken,
-        string product = ProductLeague)
-    {
-        var flow = NormalizeProduct(product) == ProductValorant ? "Valorant" : "League";
-
-        LogFlow(flow, "Redeeming login token on the running client.");
-        if (!await RedeemLoginTokenViaProtocolAsync(flow, rawLoginToken))
-            return false;
-
-        LogFlow(flow, "Preparing /rso-auth/v2/authorizations payload.");
-        var authorizationPayload = JsonSerializer.Serialize(new
-        {
-            clientId = "riot-client",
-            trustLevels = new[] { "always_trusted" }
-        }, JsonOptions);
-
-        LogFlow(flow, "Sending /rso-auth/v2/authorizations payload.");
-        dynamic? authorizationResponse;
-        try
-        {
-            authorizationResponse =
-                await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
-            LogFlow(flow, "/rso-auth/v2/authorizations request completed.");
-        }
-        catch (Exception ex)
-        {
-            LogFlow(flow, $"/rso-auth/v2/authorizations failed: {ex.Message}", ConsoleColor.Red);
-            return false;
-        }
-
-        await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
-
-        var success = IsSuccessfulResponse(authorizationResponse);
-        LogFlow(flow, $"Token authentication stage completed: {success}");
-        return success;
-    }
-
-    /// <summary>
-    ///     Redeems a raw RSO login token using the mechanism the current Riot Client itself uses:
-    ///     the token is delivered to RiotClientServices.exe through the <c>riotclient://</c> protocol
-    ///     handler as <c>{scheme}://auth/v1/{login_token}</c>. The deprecated
-    ///     <c>PUT /rso-auth/v1/session/login-token</c> local endpoint is no longer used.
-    /// </summary>
-    private static async Task<bool> RedeemLoginTokenViaProtocolAsync(string flow, string rawLoginToken)
-    {
-        // 1. Ask the running client which protocol scheme it listens on.
-        string? scheme = null;
-        try
-        {
-            var schemeResponse = await Lcu.Connector("riot", "post", "/riot-client-app-command/v1/uri-handler", "");
-            if (schemeResponse is HttpResponseMessage { IsSuccessStatusCode: true } schemeHttp)
-            {
-                var schemeBody = await schemeHttp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                LogFlow(flow, $"uri-handler response: {(schemeBody.Length <= 200 ? schemeBody : schemeBody[..200] + "…")}");
-                var node = JsonNode.Parse(schemeBody);
-                scheme = node is JsonObject obj
-                    ? obj.Select(kvp => kvp.Value).OfType<JsonValue>().FirstOrDefault()?.GetValue<string>()
-                    : null;
-            }
-            else
-            {
-                LogFlow(flow, "uri-handler request was not successful; falling back to 'riotclient'.",
-                    ConsoleColor.Yellow);
-            }
-        }
-        catch (Exception ex)
-        {
-            LogFlow(flow, $"uri-handler request failed: {ex.Message}; falling back to 'riotclient'.",
-                ConsoleColor.Yellow);
-        }
-
-        if (string.IsNullOrWhiteSpace(scheme))
-            scheme = "riotclient";
-
-        // 2. Hand the token to the client through the OS protocol handler. RiotClientServices.exe
-        //    (--app-command="%1") consumes it natively and completes the RSO session.
-        var authUrl = $"{scheme}://auth/v1/{rawLoginToken}";
-        LogFlow(flow, $"Opening protocol URL for token redemption ({scheme}://auth/v1/…).");
-        try
-        {
-            Process.Start(new ProcessStartInfo(authUrl) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            LogFlow(flow, $"Failed to open protocol URL: {ex.Message}", ConsoleColor.Red);
-            Notif.notificationManager.Show("Token login failed",
-                "Could not hand the login token to the Riot Client.",
-                NotificationType.Error);
-            return false;
-        }
-
-        // 3. Wait until the client reports an authenticated RSO session.
-        LogFlow(flow, "Waiting for authenticated RSO session after token redemption...");
-        var deadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
-        while (true)
-        {
-            if (DateTimeOffset.UtcNow >= deadline)
-            {
-                LogFlow(flow, "Timed out waiting for token redemption.", ConsoleColor.Red);
-                Notif.notificationManager.Show("Token login failed",
-                    "The Riot Client did not accept the login token in time. It may be expired — generate a new one.",
-                    NotificationType.Error);
-                return false;
-            }
-
-            try
-            {
-                var authResp = await Lcu.Connector("riot", "get", "/rso-auth/v1/authorization", "");
-                if (authResp is HttpResponseMessage { IsSuccessStatusCode: true } authHttp)
-                {
-                    var authBody = await authHttp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    var node = JsonNode.Parse(authBody);
-                    var subject = node?["subject"]?.GetValue<string>();
-                    if (!string.IsNullOrWhiteSpace(subject))
-                    {
-                        LogFlow(flow, $"RSO session established (subject present).");
-                        return true;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogFlow(flow, $"Authorization poll failed: {ex.Message}; retrying.", ConsoleColor.Yellow);
-            }
-
-            await Task.Delay(LoginPollDelay);
-        }
-    }
-
-    private static async Task<bool> UseLoginTokenAsync(string encodedToken)
-    {
-        try
-        {
-            LogFlow("League", "Token login flow started.");
-            if (!await CheckLeague()) throw new Exception("League not installed");
-            LogFlow("League", "Riot executable path validated.");
-
-            LogFlow("League", "Killing existing client processes (KillLeagueFunc2).");
-            Utils.KillLeagueFunc2();
-            var riotProcess = Process.Start(Settings.settingsloaded.riotPath,
-                "--launch-product=league_of_legends --launch-patchline=live");
-            LogFlow("League", riotProcess != null
-                ? $"Riot launch command executed. PID={riotProcess.Id}"
-                : "Riot launch command executed. Process object is null.");
-
-            LogFlow("League", "Waiting for Riot client process to appear...");
-            var num = 0;
-            while (true)
-            {
-                if (Process.GetProcessesByName("Riot Client").Length != 0) break;
-
-                if (Process.GetProcessesByName("RiotClientUx").Length != 0) break;
-
-
-                await Task.Delay(200);
-                num++;
-                if (num == 200)
-                {
-                    LogFlow("League", "Riot client process did not appear in time.", ConsoleColor.Red);
-                    return false;
-                }
-            }
-            LogFlow("League", "Riot client process detected.");
-
-            LogFlow("League", "Waiting for /rso-auth ready state...");
-            var readyDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
-            while (true)
-            {
-                if (DateTimeOffset.UtcNow >= readyDeadline)
-                {
-                    LogFlow("League", "Timed out waiting for Riot ready state.", ConsoleColor.Red);
-                    return false;
-                }
-
-                var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
-                if (readyResp != null)
-                {
-                    var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    try
-                    {
-                        var node = JsonNode.Parse(readyBody);
-                        var ready = node?["ready"]?.GetValue<bool>() ?? false;
-                        if (ready)
-                            break;
-                    }
-                    catch
-                    {
-                        LogFlow("League", "Ready-state payload parse failed; retrying.", ConsoleColor.Yellow);
-                    }
-                }
-
-                await Task.Delay(LoginPollDelay);
-            }
-            LogFlow("League", "Riot ready state reached.");
-
-            byte[] encrypted;
-            try
-            {
-                encrypted = Convert.FromBase64String(encodedToken);
-                LogFlow("League", "Base64 token decode successful.");
-            }
-            catch (FormatException)
-            {
-                LogFlow("League", "Login token is not valid base64.", ConsoleColor.Red);
-                return false;
-            }
-
-            var payload = JsonSerializer.Deserialize<LoginTokenPayload>(encrypted, JsonOptions);
-            if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
-            {
-                LogFlow("League", "Login token payload missing or invalid.", ConsoleColor.Red);
-                return false;
-            }
-            LogFlow("League", "Token payload deserialized successfully.");
-
-            DebugConsole.WriteLine("[ProxyLoginToken] Login token payload validated.");
-
-            LogFlow("League", "Redeeming login token via the client protocol handler.");
-            if (!await RedeemLoginTokenViaProtocolAsync("League", payload.LoginToken))
-                return false;
-
-            LogFlow("League", "Preparing /rso-auth/v2/authorizations payload.");
-            var authorizationPayload = JsonSerializer.Serialize(new
-            {
-                clientId = "riot-client",
-                trustLevels = new[] { "always_trusted" }
-            }, JsonOptions);
-
-            LogFlow("League", "Sending /rso-auth/v2/authorizations payload.");
-            dynamic? authorizationResponse;
-            try
-            {
-                authorizationResponse =
-                    await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
-                LogFlow("League", "/rso-auth/v2/authorizations request completed.");
-            }
-            catch (Exception ex)
-            {
-                LogFlow("League", $"/rso-auth/v2/authorizations failed: {ex.Message}", ConsoleColor.Red);
-                return false;
-            }
-
-            await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
-
-            var success = IsSuccessfulResponse(authorizationResponse);
-            LogFlow("League", $"Token authentication stage completed: {success}");
-            if (!success)
-                return false;
-
-            LogFlow("League", "Checking EULA acceptance state...");
-            string? lastEulaStatus = null;
-            var eulaDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
-            while (true)
-            {
-                if (DateTimeOffset.UtcNow >= eulaDeadline)
-                {
-                    LogFlow("League", "Timed out waiting for EULA acceptance.", ConsoleColor.Red);
-                    return false;
-                }
-
-                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
-                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
-                {
-                    lastEulaStatus = status;
-                    DebugConsole.WriteLine($"[ProxyLoginToken][League] EULA status changed: {status}");
-                }
-                if (status == "\"Accepted\"") break;
-                if (status == "\"AcceptanceRequired\"")
-                {
-                    LogFlow("League", "EULA acceptance required; sending acceptance request.");
-                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                    await Task.Delay(LoginPollDelay);
-                }
-                else
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(500));
-                }
-            }
-            LogFlow("League", "EULA accepted.");
-
-            LogFlow("League", "Launching League product patchline.");
-            await Lcu.Connector("riot", "post",
-                "/product-launcher/v1/products/league_of_legends/patchlines/live", "");
-            LogFlow("League", "League product launch request sent successfully.");
-            LogFlow("League", $"UseLoginTokenAsync finished. Success={success}");
-
-            return success;
-        }
-        catch (Exception ex)
-        {
-            LogFlow("League", $"Failed to use login token: {ex}", ConsoleColor.Red);
-            return false;
-        }
+        // Persist is a property of the minted payload: bake it in so redemption always honours
+        // the payload data. Fresh-client login mechanics live in RiotLoginManager.
+        return NormalizeProduct(product) == ProductValorant
+            ? RiotLoginManager.UseLoginTokenValorantAsync(rawLoginToken, persistLogin)
+            : RiotLoginManager.UseLoginTokenAsync(rawLoginToken, persistLogin);
     }
 
     public static async Task<bool> UseLoginTokenValorantAsync()
     {
-        LogFlow("Valorant", "UseLoginTokenValorantAsync invoked (clipboard source).");
+        LogFlow("Token", "UseLoginTokenValorantAsync invoked (clipboard source).");
         var encodedToken = await TryGetLoginTokenFromClipboardAsync();
         if (string.IsNullOrWhiteSpace(encodedToken))
         {
-            LogFlow("Valorant", "Clipboard does not contain a login token.", ConsoleColor.Yellow);
+            LogFlow("Token", "Clipboard does not contain a login token.", ConsoleColor.Yellow);
             return false;
         }
 
-        LogFlow("Valorant", "Token extracted from clipboard successfully.");
-        return await UseLoginTokenValorantAsync(encodedToken);
+        LogFlow("Token", "Token extracted from clipboard successfully.");
+        // Product routing is decided by the payload, not by which button was clicked.
+        return await RedeemSharedTokenAsync(encodedToken, source: "clipboard");
     }
-    private static async Task<bool> UseLoginTokenValorantAsync(string encodedToken)
+
+    /// <summary>
+    ///     Redeems a shared login token strictly according to its payload data: the embedded
+    ///     <c>product</c> selects League/Valorant and the embedded <c>persist_login</c> decides
+    ///     whether the session is trusted. Never falls back to the calling context.
+    /// </summary>
+    private static async Task<bool> RedeemSharedTokenAsync(string encodedToken, string source)
+    {
+        var payload = DecodeLoginTokenPayload(encodedToken);
+        if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
+        {
+            LogFlow("Token", $"Token payload missing or invalid ({source}).", ConsoleColor.Red);
+            Notif.notificationManager.Show("Token login failed",
+                "The login token is not in a recognized format.",
+                NotificationType.Error);
+            return false;
+        }
+
+        var product = NormalizeProduct(payload.Product);
+        LogFlow("Token",
+            $"Redeeming shared token ({source}): product={product} persist_login={payload.PersistLogin}");
+
+        // Fresh-client login mechanics live in RiotLoginManager (normal-login side).
+        return product == ProductValorant
+            ? await RiotLoginManager.UseLoginTokenValorantAsync(payload.LoginToken, payload.PersistLogin)
+            : await RiotLoginManager.UseLoginTokenAsync(payload.LoginToken, payload.PersistLogin);
+    }
+
+    /// <summary>
+    ///     Decodes a base64 <see cref="LoginTokenPayload"/> and returns the raw login token, or
+    ///     null when the payload is missing/invalid. Used when a shared token is redeemed.
+    /// </summary>
+    internal static string? DecodeLoginToken(string encodedToken)
+    {
+        var payload = DecodeLoginTokenPayload(encodedToken);
+        return string.IsNullOrWhiteSpace(payload?.LoginToken) ? null : payload.LoginToken;
+    }
+
+    /// <summary>
+    ///     Decodes a base64 shared-token payload. Redemption always honours the payload data
+    ///     (product + persist_login) exactly as it was minted — never the calling context.
+    /// </summary>
+    internal static LoginTokenPayload? DecodeLoginTokenPayload(string encodedToken)
     {
         try
         {
-            LogFlow("Valorant", "Token login flow started.");
-            if (!await CheckLeague()) throw new Exception("valorant not installed");
-            LogFlow("Valorant", "Riot executable path validated.");
-
-            LogFlow("Valorant", "Killing existing client processes (KillLeagueFunc2).");
-            Utils.KillLeagueFunc2();
-            var riotProcess = Process.Start(Settings.settingsloaded.riotPath,
-                "--launch-product=valorant --launch-patchline=live");
-            LogFlow("Valorant", riotProcess != null
-                ? $"Riot launch command executed. PID={riotProcess.Id}"
-                : "Riot launch command executed. Process object is null.");
-
-            LogFlow("Valorant", "Waiting for Riot client process to appear...");
-            var num = 0;
-            while (true)
-            {
-                if (Process.GetProcessesByName("Riot Client").Length != 0) break;
-
-                if (Process.GetProcessesByName("RiotClientUx").Length != 0) break;
-
-
-                await Task.Delay(200);
-                num++;
-                if (num == 20)
-                {
-                    LogFlow("Valorant", "Riot client process did not appear in time.", ConsoleColor.Red);
-                    return false;
-                }
-            }
-            LogFlow("Valorant", "Riot client process detected.");
-
-            LogFlow("Valorant", "Waiting for /rso-auth ready state...");
-            var readyDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
-            while (true)
-            {
-                if (DateTimeOffset.UtcNow >= readyDeadline)
-                {
-                    LogFlow("Valorant", "Timed out waiting for Riot ready state.", ConsoleColor.Red);
-                    return false;
-                }
-
-                var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "");
-                if (readyResp != null)
-                {
-                    var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    try
-                    {
-                        var node = JsonNode.Parse(readyBody);
-                        var ready = node?["ready"]?.GetValue<bool>() ?? false;
-                        if (ready)
-                            break;
-                    }
-                    catch
-                    {
-                        LogFlow("Valorant", "Ready-state payload parse failed; retrying.", ConsoleColor.Yellow);
-                    }
-                }
-
-                await Task.Delay(LoginPollDelay);
-            }
-            LogFlow("Valorant", "Riot ready state reached.");
-
-            byte[] encrypted;
-            try
-            {
-                encrypted = Convert.FromBase64String(encodedToken);
-                LogFlow("Valorant", "Base64 token decode successful.");
-            }
-            catch (FormatException)
-            {
-                LogFlow("Valorant", "Login token is not valid base64.", ConsoleColor.Red);
-                return false;
-            }
-
-            var payload = JsonSerializer.Deserialize<LoginTokenPayload>(encrypted, JsonOptions);
-            if (payload == null || string.IsNullOrWhiteSpace(payload.LoginToken))
-            {
-                LogFlow("Valorant", "Login token payload missing or invalid.", ConsoleColor.Red);
-                return false;
-            }
-            LogFlow("Valorant", "Token payload deserialized successfully.");
-
-            DebugConsole.WriteLine("[ProxyLoginToken] Login token payload validated.");
-
-            LogFlow("Valorant", "Redeeming login token via the client protocol handler.");
-            if (!await RedeemLoginTokenViaProtocolAsync("Valorant", payload.LoginToken))
-                return false;
-
-            LogFlow("Valorant", "Preparing /rso-auth/v2/authorizations payload.");
-            var authorizationPayload = JsonSerializer.Serialize(new
-            {
-                clientId = "riot-client",
-                trustLevels = new[] { "always_trusted" }
-            }, JsonOptions);
-
-            LogFlow("Valorant", "Sending /rso-auth/v2/authorizations payload.");
-            dynamic? authorizationResponse;
-            try
-            {
-                authorizationResponse =
-                    await Lcu.Connector("riot", "post", "/rso-auth/v2/authorizations", authorizationPayload);
-                LogFlow("Valorant", "/rso-auth/v2/authorizations request completed.");
-            }
-            catch (Exception ex)
-            {
-                LogFlow("Valorant", $"/rso-auth/v2/authorizations failed: {ex.Message}", ConsoleColor.Red);
-                return false;
-            }
-
-            await LogResponseAsync("/rso-auth/v2/authorizations", authorizationResponse);
-
-            var success = IsSuccessfulResponse(authorizationResponse);
-            LogFlow("Valorant", $"Token authentication stage completed: {success}");
-            if (!success)
-                return false;
-            LogFlow("Valorant", "Checking EULA acceptance state...");
-            string? lastEulaStatus = null;
-            var eulaDeadline = DateTimeOffset.UtcNow + LoginReadinessTimeout;
-            while (true)
-            {
-                if (DateTimeOffset.UtcNow >= eulaDeadline)
-                {
-                    LogFlow("Valorant", "Timed out waiting for EULA acceptance.", ConsoleColor.Red);
-                    return false;
-                }
-
-                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
-                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (!string.Equals(status, lastEulaStatus, StringComparison.Ordinal))
-                {
-                    lastEulaStatus = status;
-                    DebugConsole.WriteLine($"[ProxyLoginToken][Valorant] EULA status changed: {status}");
-                }
-                if (status == "\"Accepted\"") break;
-                if (status == "\"AcceptanceRequired\"")
-                {
-                    LogFlow("Valorant", "EULA acceptance required; sending acceptance request.");
-                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
-                    await Task.Delay(LoginPollDelay);
-                }
-                else
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(500));
-                }
-            }
-            LogFlow("Valorant", "EULA accepted.");
-
-            LogFlow("Valorant", "Launching Valorant product patchline.");
-            await Lcu.Connector("riot", "post",
-                "/product-launcher/v1/products/valorant/patchlines/live", "");
-            LogFlow("Valorant", "Valorant product launch request sent successfully.");
-            LogFlow("Valorant", $"UseLoginTokenValorantAsync finished. Success={success}");
-
-            return success;
+            var bytes = Convert.FromBase64String(encodedToken);
+            return JsonSerializer.Deserialize<LoginTokenPayload>(bytes, JsonOptions);
         }
-        catch (Exception ex)
+        catch
         {
-            LogFlow("Valorant", $"Failed to use login token: {ex}", ConsoleColor.Red);
-            return false;
+            return null;
         }
     }
 
@@ -821,44 +411,9 @@ internal static class ProxyLoginTokenManager
         DebugConsole.WriteLine($"[ProxyLoginToken][{flow}] {message}", color);
     }
 
-    private static async Task LogResponseAsync(string endpoint, object? response)
-    {
-        if (response is not HttpResponseMessage httpResponse)
-        {
-            DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response: <null>");
-            return;
-        }
-
-        try
-        {
-            var status = httpResponse.StatusCode;
-            var contentLength = httpResponse.Content.Headers.ContentLength;
-            DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response: {(int)status} {status}" +
-                                   (contentLength.HasValue ? $" bytes={contentLength.Value}" : string.Empty));
-
-            // Log the body so API error payloads (e.g. 400 with error details) are visible.
-            var body = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(body))
-                DebugConsole.WriteLine(
-                    $"[ProxyLoginToken] {endpoint} body: {(body.Length <= 800 ? body : body[..800] + "…")}",
-                    httpResponse.IsSuccessStatusCode ? ConsoleColor.Gray : ConsoleColor.Red);
-        }
-        catch (Exception ex)
-        {
-            DebugConsole.WriteLine($"[ProxyLoginToken] {endpoint} response logging failed: {ex.Message}");
-        }
-    }
-
     internal static bool IsSuccessfulResponse(object? response)
     {
         return response is HttpResponseMessage { IsSuccessStatusCode: true };
-    }
-
-    public static async Task<bool> CheckLeague()
-    {
-        if (File.Exists(Settings.settingsloaded.riotPath))
-            return true;
-        return false;
     }
 
     internal static string GetProductFromEncodedTokenOrDefault(string encodedToken)
@@ -1117,7 +672,7 @@ internal static class ProxyLoginTokenManager
     }
 
 
-    private sealed class LoginTokenPayload
+    internal sealed class LoginTokenPayload
     {
         [JsonPropertyName("authentication_type")]
         public string AuthenticationType { get; set; } = "RiotAuth";

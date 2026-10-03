@@ -1,0 +1,22 @@
+<Window x:Class="League_Account_Manager.Windows.BackgroundOperationStatusWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Width="320" SizeToContent="Height"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual">
+    <Border CornerRadius="8" Background="{StaticResource SurfaceRaisedBrush}"
+            BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1" Padding="14,12">
+        <StackPanel>
+            <TextBlock Text="LOGIN IN PROGRESS" Foreground="{StaticResource SuccessBrush}" FontSize="10"
+                       FontWeight="SemiBold" />
+            <TextBlock x:Name="StatusText" Margin="0,6,0,0" Foreground="{StaticResource TextPrimaryBrush}"
+                       FontSize="13" TextWrapping="Wrap" Text="Logging in..." />
+        </StackPanel>
+    </Border>
+</Window>

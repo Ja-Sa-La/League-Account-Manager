@@ -582,6 +582,182 @@ public partial class ValorantAccounts : Page
         }
     }
 
+    /// <summary>
+    ///     Logs into Valorant without touching the client's login window: the RSO authenticator
+    ///     flow runs clientless against the public authenticator and the returned login token
+    ///     signs the client in once it is running. When remember-me is chosen a fresh token is
+    ///     then minted from that signed-in session and exchanged for the refresh token written
+    ///     into the client's private settings, so later launches restore it.
+    /// </summary>
+    private async Task LoginClientlessAsync(bool stealth, bool? persist)
+    {
+        try
+        {
+            DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Starting clientless authentication.");
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
+            var captchaToken = string.Empty;
+            if (challenge.RequiresChallenge)
+            {
+                DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Challenge required: {challenge.Type}");
+                var challengeResult = await Dispatcher.InvokeAsync(() =>
+                {
+                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                        RsoLoginService.ClientlessHost);
+                    win.ShowDialog();
+                    return win.Token;
+                });
+
+                if (string.IsNullOrWhiteSpace(challengeResult))
+                {
+                    DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Challenge cancelled by user.",
+                        ConsoleColor.Yellow);
+                    return;
+                }
+                captchaToken = challengeResult;
+            }
+
+            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+
+            if (result.Type == "multifactor")
+            {
+                DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] MFA required, prompting for code.");
+                var otp = await Dispatcher.InvokeAsync(() =>
+                {
+                    var win = new PasswordPrompt("Enter the 2FA code (email/authenticator):");
+                    win.ShowDialog();
+                    return win.Password;
+                });
+
+                if (string.IsNullOrWhiteSpace(otp))
+                {
+                    DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] MFA cancelled by user.",
+                        ConsoleColor.Yellow);
+                    return;
+                }
+
+                result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: persist ?? false);
+            }
+
+            if (result.Type != "success")
+            {
+                if (string.Equals(result.Error, "auth_failure", StringComparison.OrdinalIgnoreCase))
+                {
+                    DebugConsole.WriteLine(
+                        "[ValorantAccounts][RsoLogin] Credentials rejected, marking account invalid.",
+                        ConsoleColor.Red);
+                    await MarkSelectedValorantAccountInvalidAsync();
+                    return;
+                }
+
+                Notif.notificationManager.Show("Login",
+                    $"Login failed: {result.Error ?? result.Type}", NotificationType.Error);
+                return;
+            }
+
+            // The clientless login token signs the client in and is single use, so remember-me is
+            // done afterwards with a fresh token minted from the session that login created.
+            if (string.IsNullOrWhiteSpace(result.LoginToken))
+            {
+                DebugConsole.WriteLine(
+                    "[ValorantAccounts][RsoLogin] Login succeeded but no login token was returned.",
+                    ConsoleColor.Red);
+                return;
+            }
+
+            DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Launching Riot client.");
+            if (stealth)
+                await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath,
+                    false, true);
+            else
+                StartRiotClient("--launch-product=valorant --launch-patchline=live");
+
+            for (var attempt = 0; attempt < 80; attempt++)
+            {
+                if (Process.GetProcessesByName("Riot Client").Length != 0 ||
+                    Process.GetProcessesByName("RiotClientUx").Length != 0)
+                    break;
+                if (attempt == 79)
+                {
+                    DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Timed out waiting for Riot client.",
+                        ConsoleColor.Yellow);
+                    return;
+                }
+                await Task.Delay(200);
+            }
+
+            DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Signing in to the Riot Client.");
+            // When remember-me was chosen this also mints a fresh token from the signed-in
+            // session and writes the refresh token the client restores on its next launch.
+            if (!await RiotLoginManager.RedeemRawLoginTokenOnRunningClientAsync(result.LoginToken,
+                    "valorant", persist ?? false))
+            {
+                DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] The Riot Client rejected the login token.",
+                    ConsoleColor.Red);
+                return;
+            }
+
+            // Accept the EULA once the client's API is up, then launch the product.
+            while (true)
+            {
+                var resp = await Lcu.Connector("riot", "get", "/eula/v1/agreement/acceptance", "");
+                string status = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (status == "\"Accepted\"") break;
+                if (status == "\"AcceptanceRequired\"")
+                {
+                    await Lcu.Connector("riot", "put", "/eula/v1/agreement/acceptance", "");
+                    await Task.Delay(200);
+                }
+                else
+                {
+                    await Task.Delay(500);
+                }
+            }
+
+            DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Login accepted, launching Valorant product.");
+            await Lcu.Connector("riot", "post", "/product-launcher/v1/products/valorant/patchlines/live", "");
+            OnPullDataClick(this, new RoutedEventArgs());
+        }
+        catch (Exception exception)
+        {
+            LogManager.GetCurrentClassLogger().Error(exception, "Error logging in to Valorant");
+            DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Failed: {exception.Message}", ConsoleColor.Red);
+        }
+    }
+
+    /// <summary>
+    ///     Marks the selected Valorant account as an invalid login (keeping its note) and saves.
+    /// </summary>
+    private async Task MarkSelectedValorantAccountInvalidAsync()
+    {
+        var existingNote = ActualAccountlists.FindLast(x =>
+            x.username == SelectedUsername && x.password == SelectedPassword)?.note;
+        ActualAccountlists.RemoveAll(x =>
+            x.username == SelectedUsername && x.password == SelectedPassword);
+        ActualAccountlists.Add(new Utils.AccountList
+        {
+            username = SelectedUsername,
+            password = SelectedPassword,
+            riotID = "Invalid Login",
+            level = 0,
+            server = "INVALID",
+            be = 0,
+            rp = 0,
+            rank = "Invalid Login",
+            champions = "",
+            Champions = 0,
+            skins = "",
+            Skins = 0,
+            Loot = "",
+            Loots = 0,
+            rank2 = "Invalid Login",
+            note = existingNote
+        });
+
+        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
+        DebugConsole.WriteLine("[ValorantAccounts] Invalid login detected, account updated.");
+    }
+
     private async void OnLoginClick(object sender, RoutedEventArgs e)
     {
         try
@@ -611,8 +787,17 @@ public partial class ValorantAccounts : Page
 
             DebugConsole.WriteLine($"[ValorantAccounts] Login mode: {clickedButton.Name}");
 
+            // Asked before the client launches, so the prompt never stacks on the login window.
+            var persist = await RiotLoginManager.PromptPersistLoginAsync();
 
-
+            // Same rule as the League page: "Use legacy login" picks the window login,
+            // otherwise the clientless flow is used. Stealth only changes the launch.
+            if (clickedButton.Name is "Login" or "StealthLogin" &&
+                !Misc.Settings.settingsloaded.UseLegacyLogin)
+            {
+                await LoginClientlessAsync(clickedButton.Name == "StealthLogin", persist);
+                return;
+            }
 
             switch (clickedButton.Name)
             {
@@ -702,7 +887,6 @@ public partial class ValorantAccounts : Page
 
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-                        var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
                         if (persist == true && checkbox.AsCheckBox() is { } rememberBox &&
                             rememberBox.IsChecked != true)
                         {
@@ -848,6 +1032,12 @@ public partial class ValorantAccounts : Page
                                 await Task.Delay(500);
                                 continue;
                             }
+
+                            // The client's own remember-me checkbox does not survive a restart, so
+                            // save the session the same way the clientless login does.
+                            if (persist == true &&
+                                !await RiotLoginManager.PersistRememberedSessionAsync("Valorant"))
+                                return;
 
                             DebugConsole.WriteLine("[ValorantAccounts] Login accepted, launching Valorant product");
                             await Lcu.Connector("riot", "post",
@@ -1837,7 +2027,7 @@ public partial class ValorantAccounts : Page
             DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
             // The generated token is shared with other users, so always ask about persist login
             // instead of silently applying the personal Always/Never preference.
-            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync(alwaysPrompt: true);
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginForShareAsync();
             ProxyLoginTokenManager.ResetCaptureSignal();
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
@@ -1846,8 +2036,8 @@ public partial class ValorantAccounts : Page
             // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
             // which is copied to the clipboard in the same format as before.
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
-            var challenge = await RsoLoginService.ClientlessStartSessionAsync();
-            var challengeToken = string.Empty;
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
+            var captchaToken = string.Empty;
 
             if (challenge.RequiresChallenge)
             {
@@ -1866,7 +2056,7 @@ public partial class ValorantAccounts : Page
                         ConsoleColor.Yellow);
                     return;
                 }
-                challengeToken = challengeResult;
+                captchaToken = challengeResult;
             }
             else
             {
@@ -1874,7 +2064,7 @@ public partial class ValorantAccounts : Page
             }
 
             var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
 
             if (result.Type == "multifactor")
             {

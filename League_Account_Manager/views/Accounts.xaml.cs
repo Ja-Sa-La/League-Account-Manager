@@ -58,6 +58,7 @@ public partial class Accounts : Page
     private bool Executing;
     private CancellationTokenSource? _accountOperationCancellation;
     private bool _accountOperationRunning;
+    private BackgroundOperationStatusWindow? _backgroundOperationStatus;
     private CancellationTokenSource? _rankUpdateCancellation;
     private FileSystemWatcher? fileWatcher;
     private ScrollViewer? _accountsScrollViewer;
@@ -160,7 +161,13 @@ public partial class Accounts : Page
 
     private async void Accounts_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (!IsVisible) return;
+        if (!IsVisible)
+        {
+            _ = Dispatcher.BeginInvoke(ShowBackgroundOperationStatus, DispatcherPriority.Background);
+            return;
+        }
+
+        HideBackgroundOperationStatus();
         var filePath = AccountFileStore.GetAccountsFilePath();
         if (File.Exists(filePath))
         {
@@ -174,8 +181,15 @@ public partial class Accounts : Page
 
     private void Accounts_Unloaded(object sender, RoutedEventArgs e)
     {
-        _accountOperationCancellation?.Cancel();
+        // Switching tabs unloads this page, but a login must keep running in the background.
+        // Cancelling here also killed the Riot and League clients, since the login treats
+        // cancellation as "stop everything". Only the Cancel button cancels the operation.
         StopAccountsScrollAnimation();
+
+        // Opening a window directly inside Unloaded re-enters the dispatcher while the
+        // navigation is still swapping pages, which aborts the navigation: the menu highlight
+        // moves but the page stays. Show the status only once navigation has finished.
+        _ = Dispatcher.BeginInvoke(ShowBackgroundOperationStatus, DispatcherPriority.Background);
     }
 
     private async void OnAccountsFileUpdated(object? sender, EventArgs e)
@@ -706,6 +720,7 @@ public partial class Accounts : Page
         if (ReferenceEquals(_accountOperationCancellation, cancellation))
             _accountOperationCancellation = null;
         cancellation.Dispose();
+        HideBackgroundOperationStatus();
         if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
             return;
 
@@ -726,6 +741,52 @@ public partial class Accounts : Page
         });
     }
 
+    /// <summary>
+    ///     Parks the login status at the left edge of the desktop while the accounts page is not
+    ///     on screen, so switching tabs does not hide what the background login is doing.
+    /// </summary>
+    private void ShowBackgroundOperationStatus()
+    {
+        if (!_accountOperationRunning || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        void Show()
+        {
+            _backgroundOperationStatus ??= new BackgroundOperationStatusWindow();
+            _backgroundOperationStatus.StatusText.Text = GetAccountOperationStatusControl()?.Text ?? "Logging in...";
+            var workArea = SystemParameters.WorkArea;
+            _backgroundOperationStatus.Left = workArea.Left + 12;
+            _backgroundOperationStatus.Top = workArea.Top + 12;
+            if (!_backgroundOperationStatus.IsVisible)
+                _backgroundOperationStatus.Show();
+        }
+
+        if (Dispatcher.CheckAccess())
+            Show();
+        else
+            Dispatcher.Invoke(Show);
+    }
+
+    private void HideBackgroundOperationStatus()
+    {
+        if (_backgroundOperationStatus == null)
+            return;
+
+        void Hide()
+        {
+            _backgroundOperationStatus?.Close();
+            _backgroundOperationStatus = null;
+        }
+
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        if (Dispatcher.CheckAccess())
+            Hide();
+        else
+            Dispatcher.Invoke(Hide);
+    }
+
     private void SetAccountOperationStatus(string status)
     {
         if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
@@ -735,6 +796,7 @@ public partial class Accounts : Page
         {
             var statusControl = GetAccountOperationStatusControl();
             if (statusControl != null) statusControl.Text = status;
+            if (_backgroundOperationStatus != null) _backgroundOperationStatus.StatusText.Text = status;
         }
 
         if (Dispatcher.CheckAccess())
@@ -1838,13 +1900,24 @@ public partial class Accounts : Page
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
 
-            // The default login runs through the RSO authenticator API. The legacy
-            // UI-automation flow is only used when "Use legacy login" is enabled in
-            // settings, or for the debug/stealth launch modes.
-            if (clickedButton.Name == "Login" && !Misc.Settings.settingsloaded.UseLegacyLogin)
+            // Every button follows the "Use legacy login" setting: off runs the clientless
+            // authenticator flow, on types into the client's own login window. Debug and
+            // stealth only change how the client is launched.
+            var operationTitle = clickedButton.Name switch
             {
-                DebugConsole.WriteLine("[Accounts][RsoLogin] Starting RSO login.");
-                StartAccountOperation("Logging in",
+                "Stealthlogin" => "Stealth login",
+                "DebugLogin" => "Debug mode login",
+                _ => "Logging in"
+            };
+
+            // Asked before the progress window opens, so the two never stack.
+            var persist = await RiotLoginManager.PromptPersistLoginAsync();
+
+            if (clickedButton.Name is "Login" or "DebugLogin" or "Stealthlogin" &&
+                !Misc.Settings.settingsloaded.UseLegacyLogin)
+            {
+                DebugConsole.WriteLine($"[Accounts][RsoLogin] Starting RSO login ({clickedButton.Name}).");
+                StartAccountOperation(operationTitle,
                     new[]
                     {
                         "Start Riot client",
@@ -1855,16 +1928,10 @@ public partial class Accounts : Page
                         "Waiting for summoner readiness",
                         "Fetch account data"
                     },
-                    cancellationToken => LoginRsoAsync(cancellationToken));
+                    cancellationToken => LoginRsoAsync(clickedButton.Name, persist, cancellationToken));
                 return;
             }
 
-            var operationTitle = clickedButton.Name switch
-            {
-                "Stealthlogin" => "Stealth login",
-                "DebugLogin" => "Debug mode login",
-                _ => "Logging in"
-            };
             StartAccountOperation(operationTitle,
                 new[]
                 {
@@ -1876,7 +1943,7 @@ public partial class Accounts : Page
                     "Waiting for summoner readiness",
                     "Fetch account data"
                 },
-                cancellationToken => LoginAsync(clickedButton.Name, cancellationToken));
+                cancellationToken => LoginAsync(clickedButton.Name, persist, cancellationToken));
         }
         catch (Exception exception)
         {
@@ -1888,7 +1955,8 @@ public partial class Accounts : Page
         }
     }
 
-    private async Task<bool> LoginAsync(string loginButtonName, CancellationToken cancellationToken)
+    private async Task<bool> LoginAsync(string loginButtonName, bool? persistLogin,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -1998,7 +2066,7 @@ public partial class Accounts : Page
 
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-                        var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
+                        var persist = persistLogin;
                         if (persist == true && checkbox.AsCheckBox() is { } rememberBox &&
                             rememberBox.IsChecked != true)
                         {
@@ -2117,6 +2185,15 @@ public partial class Accounts : Page
                                 continue;
                             }
 
+                            // The client's own remember-me checkbox does not survive a restart, so
+                            // save the session the same way the clientless login does.
+                            if (persist == true)
+                            {
+                                SetAccountOperationStatus("Saving remembered session...");
+                                if (!await RiotLoginManager.PersistRememberedSessionAsync("League"))
+                                    return false;
+                            }
+
                             SetAccountOperationStatus("Opening League client...");
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/league_of_legends/patchlines/live", "",
@@ -2151,6 +2228,27 @@ public partial class Accounts : Page
         }
     }
 
+
+    /// <summary>
+    ///     Waits until the Riot Client process is up, so its local API can be talked to.
+    /// </summary>
+    private async Task<bool> WaitForRiotProcessAsync(CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 80; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Process.GetProcessesByName("Riot Client").Length != 0 ||
+                Process.GetProcessesByName("RiotClientUx").Length != 0)
+                return true;
+
+            SetAccountOperationStatus("Waiting for Riot client...");
+            await Task.Delay(200, cancellationToken);
+        }
+
+        DebugConsole.WriteLine("[Accounts][RsoLogin] Timed out waiting for the Riot client process.",
+            ConsoleColor.Yellow);
+        return false;
+    }
 
     private async Task<bool> WaitForSummonerReadyAsync(CancellationToken cancellationToken)
     {
@@ -3134,7 +3232,7 @@ public partial class Accounts : Page
             DebugConsole.WriteLine($"[Accounts] Username selected: {SelectedUsername}");
             // The generated token is shared with other users, so always ask about persist login
             // instead of silently applying the personal Always/Never preference.
-            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync(alwaysPrompt: true);
+            var persist = await ProxyLoginTokenManager.PromptPersistLoginForShareAsync();
             ProxyLoginTokenManager.ResetCaptureSignal();
             var clickedButton = sender as Button;
             if (clickedButton == null) return;
@@ -3143,8 +3241,8 @@ public partial class Accounts : Page
             // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
             // which is copied to the clipboard in the same format as before.
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
-            var challenge = await RsoLoginService.ClientlessStartSessionAsync();
-            var challengeToken = string.Empty;
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
+            var captchaToken = string.Empty;
 
             if (challenge.RequiresChallenge)
             {
@@ -3163,7 +3261,7 @@ public partial class Accounts : Page
                         ConsoleColor.Yellow);
                     return;
                 }
-                challengeToken = challengeResult;
+                captchaToken = challengeResult;
             }
             else
             {
@@ -3171,7 +3269,7 @@ public partial class Accounts : Page
             }
 
             var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
 
             if (result.Type == "multifactor")
             {
@@ -3267,86 +3365,32 @@ public partial class Accounts : Page
     ///     Default login: identical to the legacy login (kill client → start client → progress UI →
     ///     EULA → launch League → summoner readiness → pull account data). Only the credential
     ///     entry differs: instead of typing into the login window via UI automation, the RSO
-    ///     authenticator flow runs through the running client's local API (Tabasco in an
-    ///     embedded WebView2 and 2FA supported) and the resulting login token is redeemed by
-    ///     the client. Enable "Use legacy login" in settings to use the old UI automation
-    ///     flow instead.
+    ///     authenticator flow runs clientless against the public authenticator (Tabasco in an
+    ///     embedded WebView2 and 2FA supported) before the client is started. The returned login
+    ///     token signs the client in once it is running. When remember-me is chosen a fresh token
+    ///     is then minted from that signed-in session, exchanged for a refresh token and written
+    ///     into the client's private settings, so later launches restore it. Enable "Use legacy
+    ///     login" in settings to use the old UI automation flow instead.
     /// </summary>
-    private async Task<bool> LoginRsoAsync(CancellationToken cancellationToken)
+    private async Task<bool> LoginRsoAsync(string loginButtonName, bool? persist,
+        CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // The client must be closed before authentication: the remembered session is written
+            // into its private settings, and a running client would overwrite that from memory.
             Utils.KillLeagueFunc();
-            var num = 0;
-
-            SetAccountOperationStatus("Starting Riot client...");
-            StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
-
-            while (true)
-            {
-                if (Process.GetProcessesByName("Riot Client").Length != 0 ||
-                    Process.GetProcessesByName("RiotClientUx").Length != 0)
-                    break;
-
-                cancellationToken.ThrowIfCancellationRequested();
-                SetAccountOperationStatus("Waiting for Riot client...");
-                DebugConsole.WriteLine("[Accounts][RsoLogin] Waiting for riot process");
-
-                await Task.Delay(200, cancellationToken);
-                num++;
-                if (num == 80) return false;
-            }
-            MarkTaskCompleted("Start Riot client");
-
-            // Wait for the client's local API to accept requests (the normal login implicitly
-            // waits for the login window; V2 talks to the API instead).
-            SetAccountOperationStatus("Waiting for Riot client API...");
-            var readyDeadline = DateTimeOffset.UtcNow.AddMinutes(2);
-            while (true)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (DateTimeOffset.UtcNow >= readyDeadline)
-                {
-                    DebugConsole.WriteLine("[Accounts][RsoLogin] Timed out waiting for Riot ready state.",
-                        ConsoleColor.Red);
-                    return false;
-                }
-
-                try
-                {
-                    var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "",
-                        cancellationToken);
-                    if (readyResp is HttpResponseMessage { IsSuccessStatusCode: true } readyHttp)
-                    {
-                        var readyBody = await readyHttp.Content.ReadAsStringAsync(cancellationToken)
-                            .ConfigureAwait(false);
-                        var node = Newtonsoft.Json.Linq.JToken.Parse(readyBody);
-                        if (node["ready"]?.Value<bool>() == true)
-                            break;
-                    }
-                }
-                catch
-                {
-                    // API not up yet, keep polling
-                }
-
-                await Task.Delay(200, cancellationToken);
-            }
-
-            // Ask about persisting the session up-front (same as the normal login's remember-me
-            // question) so no dialog interrupts after challenge/2FA have already succeeded.
-            var persist = await ProxyLoginTokenManager.PromptPersistLoginAsync();
 
             // --- The login part that differs from the normal login: -------------------------
-            // run the RSO authenticator flow directly against the public web authenticator
-            // (clientless — the same proven path as the Generate Token flow). The minted
-            // login_token is then redeemed on the running client below.
+            // run the RSO authenticator flow clientless, directly against the public
+            // authenticator, before the client exists. The client's own proxy is not involved,
+            // so the login token has to be turned into a persisted session afterwards.
             SetAccountOperationStatus("Starting authentication...");
-            var challenge = await RsoLoginService.ClientlessStartSessionAsync();
-            var challengeToken = string.Empty;
-
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false,
+                cancellationToken);
+            var captchaToken = string.Empty;
             if (challenge.RequiresChallenge)
             {
                 SetAccountOperationStatus("Solving challenge...");
@@ -3364,7 +3408,7 @@ public partial class Accounts : Page
                     DebugConsole.WriteLine("[Accounts][RsoLogin] Challenge cancelled by user.", ConsoleColor.Yellow);
                     return false;
                 }
-                challengeToken = challengeResult;
+                captchaToken = challengeResult;
             }
             else
             {
@@ -3374,7 +3418,7 @@ public partial class Accounts : Page
 
             SetAccountOperationStatus("Submitting credentials...");
             var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, challengeToken);
+                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken, cancellationToken);
             MarkTaskCompleted("Submit credentials");
 
             if (result.Type == "multifactor")
@@ -3397,20 +3441,65 @@ public partial class Accounts : Page
                 // Same as the real client's "Remember this app for 30 days" checkbox on the
                 // 2FA screen — honour the persist decision so the trusted-device cookie is
                 // written when the user chose to stay signed in.
-                result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: persist ?? false);
+                result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: persist ?? false,
+                    cancellationToken);
             }
 
-            switch (result.Type)
+            if (result.Type == "success")
             {
-                case "success" when !string.IsNullOrWhiteSpace(result.LoginToken):
-                    SetAccountOperationStatus("Waiting for Riot authentication...");
-                    DebugConsole.WriteLine("[Accounts][RsoLogin] Login token acquired, submitting to Riot Client.");
-                    var ok = await ProxyLoginTokenManager.RedeemRawLoginTokenOnRunningClientAsync(
-                        result.LoginToken, product: "league");
-                    DebugConsole.WriteLine($"[Accounts][RsoLogin] Token submission finished. Success={ok}");
-                    if (!ok) return false;
+                // The clientless login token is what signs the client in. It is single use, so the
+                // remembered session is built afterwards from a second token minted out of the
+                // session that login created.
+                if (string.IsNullOrWhiteSpace(result.LoginToken))
+                {
+                    DebugConsole.WriteLine(
+                        "[Accounts][RsoLogin] Login succeeded but no login token was returned.",
+                        ConsoleColor.Red);
+                    return false;
+                }
 
-                    // Make sure EULA is accepted (mirrors the normal login's post-auth step).
+                SetAccountOperationStatus("Starting Riot client...");
+                DebugConsole.WriteLine("[Accounts][RsoLogin] Authenticator accepted the login.");
+                switch (loginButtonName)
+                {
+                    case "DebugLogin":
+                        // Same client as a normal login, but launched through the traffic
+                        // capture proxies so LCU traffic is recorded.
+                        LcuWebSocketMonitor.Start();
+                        await App.DebugClientTrafficLauncher.LaunchAsync(Misc.Settings.settingsloaded.riotPath,
+                            "--launch-product=league_of_legends --launch-patchline=live --allow-multiple-clients",
+                            cancellationToken);
+                        DebugConsole.WriteLine(
+                            "[Accounts][RsoLogin] Started Riot client in native debug mode; LCU traffic capture is active.");
+                        break;
+
+                    case "Stealthlogin":
+                        await App.OfflineLauncher.LaunchRiotOrLeagueOfflineAsync(
+                            Misc.Settings.settingsloaded.riotPath, cancellationToken: cancellationToken);
+                        break;
+
+                    default:
+                        StartRiotClient("--launch-product=league_of_legends --launch-patchline=live");
+                        break;
+                }
+                if (!await WaitForRiotProcessAsync(cancellationToken))
+                    return false;
+                MarkTaskCompleted("Start Riot client");
+
+                SetAccountOperationStatus(persist == true
+                    ? "Signing in and saving remembered session..."
+                    : "Signing in to Riot client...");
+                // When remember-me was chosen this also mints a fresh token from the signed-in
+                // session and writes the refresh token the client restores on its next launch.
+                if (!await RiotLoginManager.RedeemRawLoginTokenOnRunningClientAsync(result.LoginToken,
+                        persistLogin: persist ?? false))
+                {
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] The Riot Client rejected the login token.",
+                        ConsoleColor.Red);
+                    return false;
+                }
+
+                // Make sure EULA is accepted (mirrors the normal login's post-auth step).
                     while (true)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -3438,13 +3527,10 @@ public partial class Accounts : Page
                         cancellationToken);
                     MarkTaskCompleted("Open League client");
                     return await WaitForSummonerReadyAsync(cancellationToken);
+            }
 
-                case "success":
-                    Notif.notificationManager.Show("Login",
-                        "Login succeeded but no login token was returned.",
-                        NotificationType.Error);
-                    return false;
-
+            switch (result.Type)
+            {
                 case "error" when string.Equals(result.Error, "auth_failure", StringComparison.OrdinalIgnoreCase):
                     // Same handling as the normal login's "credentials don't match" tooltip:
                     // mark the account invalid and stop.

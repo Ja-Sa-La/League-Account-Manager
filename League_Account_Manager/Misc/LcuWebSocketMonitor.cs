@@ -8,6 +8,7 @@ namespace League_Account_Manager.Misc;
 
 internal static class LcuWebSocketMonitor
 {
+    private const int MaximumMessageBytes = 10 * 1024 * 1024;
     private static readonly Lock Sync = new();
     private static CancellationTokenSource? _lifetimeCancellation;
     private static Task? _monitorTask;
@@ -88,6 +89,9 @@ internal static class LcuWebSocketMonitor
                 if (result.MessageType == WebSocketMessageType.Close)
                     return;
 
+                if (message.Length + result.Count > MaximumMessageBytes)
+                    throw new InvalidDataException("LCU WebSocket message exceeded the size limit.");
+
                 message.Write(buffer, 0, result.Count);
             } while (!result.EndOfMessage);
 
@@ -102,13 +106,15 @@ internal static class LcuWebSocketMonitor
     {
         try
         {
+            if (Encoding.UTF8.GetByteCount(message) > MaximumMessageBytes)
+                return;
+
             var frame = JArray.Parse(message);
             if (frame.Count < 3 || frame[2] is not JObject payload)
                 return;
 
             var uri = payload["uri"]?.ToString() ?? string.Empty;
             var eventType = payload["eventType"]?.ToString() ?? "Event";
-            var data = payload["data"]?.ToString(Formatting.None) ?? string.Empty;
             LcuRequestLog.Add("league", "RECEIVE", uri, string.Empty, null, eventType, message, 0,
                 trafficType: "WebSocket", eventType: eventType, direction: "Incoming");
         }

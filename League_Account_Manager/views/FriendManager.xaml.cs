@@ -21,6 +21,7 @@ public partial class FriendManager : Page
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly ObservableCollection<FriendEntry> _friends = new();
     private readonly ICollectionView _friendsView;
+    private int _messageLoadVersion;
 
     public FriendManager()
     {
@@ -307,6 +308,8 @@ public partial class FriendManager : Page
 
     private void OnFriendSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
+        _messageLoadVersion++;
+        MessagesList.Items.Clear();
         if (FriendsGrid.SelectedItem is not FriendEntry friend) return;
         SelectedIcon.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(friend.IconUrl));
         SelectedName.Text = friend.DisplayName;
@@ -321,11 +324,14 @@ public partial class FriendManager : Page
 
     private async Task LoadMessagesAsync(FriendEntry friend)
     {
+        if (!ReferenceEquals(FriendsGrid.SelectedItem, friend)) return;
+        var loadVersion = ++_messageLoadVersion;
         MessagesList.Items.Clear();
         MessagesList.Items.Add("Loading messages...");
         try
         {
             var conversations = await GetJsonAsync("/lol-chat/v1/conversations");
+            if (loadVersion != _messageLoadVersion) return;
             var conversationId = FindConversationId(conversations, friend);
             if (string.IsNullOrWhiteSpace(conversationId))
             {
@@ -335,6 +341,7 @@ public partial class FriendManager : Page
             }
 
             var messages = ExtractArray(await GetJsonAsync(BuildMessagesEndpoint(conversationId)));
+            if (loadVersion != _messageLoadVersion) return;
             MessagesList.Items.Clear();
             foreach (var message in messages?.OfType<JObject>().TakeLast(50) ?? Enumerable.Empty<JObject>())
             {
@@ -359,6 +366,7 @@ public partial class FriendManager : Page
         }
         catch (Exception exception)
         {
+            if (loadVersion != _messageLoadVersion) return;
             Logger.Warn(exception, "Failed to load messages for {FriendName}", friend.DisplayName);
             MessagesList.Items.Clear();
             MessagesList.Items.Add("Messages unavailable.");

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -74,7 +76,7 @@ internal static class RsoLoginService
         DebugConsole.WriteLine($"[RsoLogin] start response: {Truncate(text)}");
 
         var node = TryParse(text);
-        var challenge = node?["challenge"] as JsonObject;
+        var challenge = GetCaptchaNode(node) as JsonObject;
 
         var type = challenge?["type"]?.GetValue<string>() ?? "none";
         string? siteKey = null;
@@ -151,19 +153,63 @@ internal static class RsoLoginService
         if (body != null)
             request.Content = new StringContent(body, Encoding.UTF8, "application/json");
 
+        // Surface clientless authenticator traffic in the LCU traffic view alongside the rest.
+        var requestHeaders = string.Join(Environment.NewLine,
+            request.Headers.Concat(request.Content?.Headers ??
+                                   Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
+                .Select(header => $"{header.Key}: {string.Join(", ", header.Value)}"));
+        var requestRecord = LcuRequestLog.Add(
+            "rso-authenticator",
+            method.Method,
+            AuthenticatorBaseUrl + path,
+            body ?? string.Empty,
+            null,
+            "Pending",
+            string.Empty,
+            0,
+            trafficType: "HTTP",
+            requestHeaders: requestHeaders,
+            direction: "Outgoing");
+
+        var stopwatch = Stopwatch.StartNew();
         using var response = await ClientlessClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+        LcuRequestLog.Update(
+            requestRecord.Id,
+            (int)response.StatusCode,
+            response.ReasonPhrase ?? response.StatusCode.ToString(),
+            text,
+            stopwatch.ElapsedMilliseconds,
+            responseHeaders: FormatClientlessResponseHeaders(response));
         DebugConsole.WriteLine(
             $"[RsoLogin][Clientless] {method} {path} -> HTTP {(int)response.StatusCode}: {Truncate(text)}");
         return text;
+    }
+
+    private static string FormatClientlessResponseHeaders(HttpResponseMessage response)
+    {
+        var headers = response.Headers
+            .Concat(response.Content?.Headers ??
+                    Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
+            .GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => $"{group.Key}: {string.Join(", ", group.SelectMany(header => header.Value))}");
+        return string.Join(Environment.NewLine, headers);
     }
 
     /// <summary>
     ///     Starts a clientless authenticator session directly against the public web authenticator:
     ///     DELETE resets any lingering session, POST starts a fresh one and returns the Tabasco
     ///     sitekey + rqdata. Requires no running Riot Client.
+    ///     <paramref name="remember"/> is the remember-me choice and is sent on this start request
+    ///     as well as the later complete PUT, matching the real client.
     /// </summary>
-    public static async Task<ChallengeInfo> ClientlessStartSessionAsync(CancellationToken cancellationToken = default)
+    public static Task<ChallengeInfo> ClientlessStartSessionAsync(CancellationToken cancellationToken = default)
+        => ClientlessStartSessionAsync(remember: false, cancellationToken);
+
+    /// <inheritdoc cref="ClientlessStartSessionAsync(bool, CancellationToken)"/>
+    public static async Task<ChallengeInfo> ClientlessStartSessionAsync(bool remember,
+        CancellationToken cancellationToken = default)
     {
         await ClientlessRequestAsync(HttpMethod.Delete, "/api/v1/login", null, cancellationToken)
             .ConfigureAwait(false);
@@ -182,14 +228,14 @@ internal static class RsoLoginService
             nintendo = (object?)null,
             platform = "windows",
             playstation = (object?)null,
-            remember = (bool?)null,
+            remember = (bool?)remember,
             riot_identity = new
             {
                 campaign = (object?)null,
-                challenge = (string?)null,
+                captcha = (string?)null,
                 language = "en_US",
                 password = (string?)null,
-                remember = (bool?)null,
+                remember = (bool?)remember,
                 state = "auth",
                 username = (string?)null
             },
@@ -202,31 +248,33 @@ internal static class RsoLoginService
 
         var text = await ClientlessRequestAsync(HttpMethod.Post, "/api/v1/login", body, cancellationToken)
             .ConfigureAwait(false);
-        return ParseChallenge(TryParse(text)?["challenge"]);
+        return ParseChallenge(GetCaptchaNode(TryParse(text)));
     }
 
     /// <summary>
-    ///     Completes the clientless login with credentials (and challenge token if required).
+    ///     Completes the clientless login with credentials (and captcha token if required).
     ///     On success the response carries <c>success.login_token</c> — the same token type the
     ///     Riot Client mints, usable with the existing token login/clipboard flows.
     /// </summary>
     public static async Task<AuthResult> ClientlessCompleteAuthAsync(string username, string password, bool remember,
-        string? challengeToken, CancellationToken cancellationToken = default)
+        string? captchaToken, CancellationToken cancellationToken = default)
     {
-        var challengeField = string.IsNullOrWhiteSpace(challengeToken) ? null : $"hcaptcha {challengeToken}";
+        var captchaField = string.IsNullOrWhiteSpace(captchaToken) ? null : $"hcaptcha {captchaToken}";
+        // Wire shape mirrors the real client exactly (captured): campaign/language/remember/type
+        // live at the TOP level; riot_identity carries only captcha/password/state/username.
         var body = JsonSerializer.Serialize(new
         {
-            type = "auth",
+            campaign = (object?)null,
+            language = "en_US",
+            remember,
             riot_identity = new
             {
-                campaign = (object?)null,
-                challenge = challengeField,
-                language = "en_US",
+                captcha = captchaField,
                 password,
-                remember,
                 state = (string?)null,
                 username
-            }
+            },
+            type = "auth"
         }, JsonOptions);
 
         var text = await ClientlessRequestAsync(HttpMethod.Put, "/api/v1/login", body, cancellationToken)
@@ -240,32 +288,21 @@ internal static class RsoLoginService
     public static async Task<AuthResult> ClientlessSubmitMfaAsync(string otp, bool rememberDevice,
         CancellationToken cancellationToken = default)
     {
+        // Wire shape mirrors the real client's reduced envelope (same pattern as the captured
+        // complete request): top-level campaign/language/remember/type + the active method block.
         var body = JsonSerializer.Serialize(new
         {
-            apple = (object?)null,
             campaign = (object?)null,
-            clientId = "riot-client",
-            code = (object?)null,
-            facebook = (object?)null,
-            gamecenter = (object?)null,
-            google = (object?)null,
-            language = "",
+            language = "en_US",
+            remember = rememberDevice,
             multifactor = new
             {
                 action = (string?)null,
                 otp,
                 rememberDevice
             },
-            nintendo = (object?)null,
-            platform = "windows",
-            playstation = (object?)null,
-            remember = (bool?)null,
             riot_identity = (object?)null,
-            riot_identity_signup = (object?)null,
-            rso = (object?)null,
-            sdkVersion = "",
-            type = "multifactor",
-            xbox = (object?)null
+            type = "multifactor"
         }, JsonOptions);
 
         var text = await ClientlessRequestAsync(HttpMethod.Put, "/api/v1/login", body, cancellationToken)
@@ -274,19 +311,163 @@ internal static class RsoLoginService
     }
 
     /// <summary>
-    ///     Completes the RSO identity authentication with credentials (and challenge token if required).
+    ///     Turns a clientless login into a session the Riot Client restores on its own. The
+    ///     authenticator's <c>remember</c> flag only marks the returned login token; what the client
+    ///     actually restores is the refresh token it keeps in
+    ///     <c>RiotGamesPrivateSettings.yaml</c>. This exchanges the login token for that refresh
+    ///     token the same way the client does (RFC 8693 token exchange at
+    ///     <c>auth.riotgames.com/token</c>) and writes it into the file. The client must be shut
+    ///     down first, because it rewrites the file from memory while it runs and would discard the
+    ///     change.
+    /// </summary>
+    public static async Task<bool> PersistLoginTokenAsync(string loginToken,
+        CancellationToken cancellationToken = default)
+    {
+        var exchanged = await ExchangeLoginTokenAsync(loginToken, cancellationToken).ConfigureAwait(false);
+        if (exchanged == null)
+            return false;
+
+        return WritePersistedAuthorization(exchanged.Value.RefreshToken, exchanged.Value.IdToken);
+    }
+
+    /// <summary>
+    ///     Exchanges an authenticator login token for RSO tokens. Mirrors the client's own token
+    ///     request: <c>grant_type=urn:ietf:params:oauth:grant-type:token-exchange</c> with the login
+    ///     token as the subject. The <c>scope</c> is required: without it the server issues a short
+    ///     refresh token that it later rejects with <c>invalid_grant</c>, so the client restores the
+    ///     record and then drops it. This is the scope a remembered session refreshes with.
+    /// </summary>
+    private static async Task<(string RefreshToken, string IdToken)?> ExchangeLoginTokenAsync(string loginToken,
+        CancellationToken cancellationToken)
+    {
+        var body = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["client_id"] = "riot-client",
+            ["grant_type"] = "urn:ietf:params:oauth:grant-type:token-exchange",
+            ["subject_token"] = loginToken,
+            ["subject_token_type"] = "urn:riot:params:oauth:token-type:authentication-token",
+            ["scope"] = "openid link ban lol_region lol account summoner offline_access"
+        });
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, AuthBaseUrl + "/token") { Content = body };
+        request.Headers.TryAddWithoutValidation("User-Agent", RiotAuthUserAgent);
+
+        using var response = await ClientlessClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        DebugConsole.WriteLine(
+            $"[RsoLogin][Clientless] POST /token -> HTTP {(int)response.StatusCode}: {Truncate(text)}");
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var node = TryParse(text);
+        var refreshToken = node?["refresh_token"]?.GetValue<string>();
+        var idToken = node?["id_token"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(refreshToken) || string.IsNullOrWhiteSpace(idToken))
+        {
+            DebugConsole.WriteLine("[RsoLogin][Clientless] Token exchange returned no refresh token.",
+                ConsoleColor.Yellow);
+            return null;
+        }
+
+        return (refreshToken, idToken);
+    }
+
+    /// <summary>
+    ///     Scopes the client requests for itself, so the restored session authorizes the same set.
+    /// </summary>
+    private static readonly string[] PersistedScopes =
+        ["openid", "link", "ban", "lol_region", "lol", "account"];
+
+    /// <summary>
+    ///     Writes the exchanged tokens into the client's private settings, replacing only the
+    ///     <c>psl.authorization.riot-client</c> record and leaving the rest of the file untouched.
+    /// </summary>
+    private static bool WritePersistedAuthorization(string refreshToken, string idToken)
+    {
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Riot Games", "Riot Client", "Data", "RiotGamesPrivateSettings.yaml");
+
+        try
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            var yaml = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            var record = BuildAuthorizationRecord(refreshToken, idToken);
+            var updated = ReplaceAuthorizationRecord(yaml, record);
+            File.WriteAllText(path, updated);
+            DebugConsole.WriteLine($"[RsoLogin][Clientless] Wrote persisted authorization to {path}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[RsoLogin][Clientless] Failed to write persisted authorization: {ex.Message}",
+                ConsoleColor.Red);
+            return false;
+        }
+    }
+
+    private static string BuildAuthorizationRecord(string refreshToken, string idToken)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var builder = new StringBuilder();
+        builder.AppendLine("psl:");
+        builder.AppendLine("    authorization:");
+        builder.AppendLine("        riot-client:");
+        builder.AppendLine("            claims: []");
+        builder.AppendLine($"            id_token: \"{idToken}\"");
+        builder.AppendLine("            is_dpop_bound: false");
+        builder.AppendLine($"            last_token_creation_time: {now}");
+        builder.AppendLine($"            original_token_creation_time: {now}");
+        builder.AppendLine($"            refresh_token: \"{refreshToken}\"");
+        builder.AppendLine("            refresh_token_write_count: 1");
+        builder.AppendLine($"            refresh_tokens_session_id: \"{Guid.NewGuid()}\"");
+        builder.AppendLine("            scopes:");
+        foreach (var scope in PersistedScopes)
+            builder.AppendLine($"            - \"{scope}\"");
+        return builder.ToString().TrimEnd('\r', '\n');
+    }
+
+    /// <summary>
+    ///     Swaps the <c>psl</c> block of an existing private-settings file for <paramref name="record"/>.
+    ///     The block runs until the next top-level key, so the <c>riot-login</c> and
+    ///     <c>rso-authenticator</c> sections survive. A file without the block gets one prepended.
+    /// </summary>
+    private static string ReplaceAuthorizationRecord(string yaml, string record)
+    {
+        var start = yaml.IndexOf("\npsl:", StringComparison.Ordinal);
+        if (start < 0 && yaml.StartsWith("psl:", StringComparison.Ordinal))
+            start = 0;
+        else if (start >= 0)
+            start += 1;
+
+        if (start < 0)
+            return string.IsNullOrWhiteSpace(yaml) ? record + "\n" : record + "\n" + yaml;
+
+        var end = yaml.IndexOf("\nriot-login:", start, StringComparison.Ordinal);
+        if (end < 0)
+            return yaml[..start] + record + "\n";
+
+        return yaml[..start] + record + yaml[end..];
+    }
+
+    /// <summary>
+    ///     Completes the RSO identity authentication with credentials (and captcha token if required).
     /// </summary>
     public static async Task<AuthResult> CompleteAuthAsync(string username, string password, bool remember,
-        string? challengeToken, CancellationToken cancellationToken = default)
+        string? captchaToken, CancellationToken cancellationToken = default)
     {
-        var challengeField = string.IsNullOrWhiteSpace(challengeToken) ? string.Empty : $"hcaptcha {challengeToken}";
+        var captchaField = string.IsNullOrWhiteSpace(captchaToken) ? string.Empty : $"hcaptcha {captchaToken}";
         var body = JsonSerializer.Serialize(new
         {
             username,
             password,
             remember,
             language = "en_US",
-            challenge = challengeField
+            captcha = captchaField
         }, JsonOptions);
 
         var response = await Lcu.Connector("riot", "post", CompleteEndpoint, body, cancellationToken)
@@ -332,8 +513,22 @@ internal static class RsoLoginService
             Type = type,
             Error = error,
             LoginToken = loginToken,
-            Challenge = ParseChallenge(node?["challenge"])
+            Challenge = ParseChallenge(GetCaptchaNode(node))
         };
+    }
+
+    /// <summary>
+    ///     The web authenticator returns challenge requirements under the <c>captcha</c> key
+    ///     (see real-client captures). Older/other variants may use <c>challenge</c>, so accept
+    ///     both to be safe when reading responses.
+    /// </summary>
+    private static JsonNode? GetCaptchaNode(JsonNode? node)
+    {
+        if (node is not JsonObject obj)
+            return null;
+
+        var captcha = obj["captcha"];
+        return captcha ?? obj["challenge"];
     }
 
     private static ChallengeInfo ParseChallenge(JsonNode? challengeNode)
@@ -355,9 +550,6 @@ internal static class RsoLoginService
 
     private static string? FindLoginToken(JsonNode? node)
     {
-        if (node == null)
-            return null;
-
         if (node is JsonObject obj)
         {
             foreach (var (key, value) in obj)

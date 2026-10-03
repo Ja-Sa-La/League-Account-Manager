@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34526.213
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExamplePlugin", "Examples\ExamplePlugin\ExamplePlugin.csproj", "{BADE5A14-0972-4773-8A00-23C15D496EA8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoopTest", "LoopTest\LoopTest.csproj", "{6A7F5099-490C-459D-B883-5A9C685C8DCD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "certcheck", "certcheck\certcheck.csproj", "{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -85,6 +87,18 @@ Global
 		{6A7F5099-490C-459D-B883-5A9C685C8DCD}.Release|x64.Build.0 = Release|Any CPU
 		{6A7F5099-490C-459D-B883-5A9C685C8DCD}.Release|x86.ActiveCfg = Release|Any CPU
 		{6A7F5099-490C-459D-B883-5A9C685C8DCD}.Release|x86.Build.0 = Release|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Debug|x64.Build.0 = Debug|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Debug|x86.Build.0 = Debug|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Release|x64.ActiveCfg = Release|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Release|x64.Build.0 = Release|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Release|x86.ActiveCfg = Release|Any CPU
+		{49A620CD-1DBC-4DC1-9749-0DE4D5F825C1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

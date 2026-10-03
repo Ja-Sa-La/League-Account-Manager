@@ -124,8 +124,30 @@ internal class OfflineLauncher
                     CopyHeaderIfPresent(ctx.Request, req, "x-riot-entitlements-jwt", "X-Riot-Entitlements-JWT");
                     CopyHeaderIfPresent(ctx.Request, req, "authorization", "Authorization");
 
+                    // Surface offline-launcher config traffic in the LCU traffic view.
+                    var configRecord = LcuRequestLog.Add(
+                        "offline-config",
+                        "GET",
+                        upstreamUrl,
+                        string.Empty,
+                        null,
+                        "Pending",
+                        string.Empty,
+                        0,
+                        trafficType: "HTTP",
+                        requestHeaders: string.Join(Environment.NewLine,
+                            req.Headers.Select(header => $"{header.Key}: {string.Join(", ", header.Value)}")),
+                        direction: "Outgoing");
+                    var configStopwatch = Stopwatch.StartNew();
                     using var res = await httpClient.SendAsync(req, cancellationToken);
                     var content = await res.Content.ReadAsStringAsync(cancellationToken);
+                    configStopwatch.Stop();
+                    LcuRequestLog.Update(
+                        configRecord.Id,
+                        (int)res.StatusCode,
+                        res.ReasonPhrase ?? res.StatusCode.ToString(),
+                        content,
+                        configStopwatch.ElapsedMilliseconds);
                     DebugConsole.WriteLine($"[OfflineLauncher] Config response #{requestId}: {(int)res.StatusCode}");
 
                     var patchedContent = await TryPatchConfigForOfflineAsync(content,
@@ -209,9 +231,29 @@ internal class OfflineLauncher
             {
                 using var pasRequest = new HttpRequestMessage(HttpMethod.Get, GeoPasUrl);
                 pasRequest.Headers.TryAddWithoutValidation("Authorization", authorizationHeader);
-                var pasJwt =
-                    await (await httpClient.SendAsync(pasRequest, cancellationToken)).Content.ReadAsStringAsync(
-                        cancellationToken);
+
+                var pasRecord = LcuRequestLog.Add(
+                    "riot-geo-pas",
+                    "GET",
+                    GeoPasUrl,
+                    string.Empty,
+                    null,
+                    "Pending",
+                    string.Empty,
+                    0,
+                    trafficType: "HTTP",
+                    requestHeaders: $"Authorization: {authorizationHeader}",
+                    direction: "Outgoing");
+                var pasStopwatch = Stopwatch.StartNew();
+                using var pasResponse = await httpClient.SendAsync(pasRequest, cancellationToken);
+                var pasJwt = await pasResponse.Content.ReadAsStringAsync(cancellationToken);
+                pasStopwatch.Stop();
+                LcuRequestLog.Update(
+                    pasRecord.Id,
+                    (int)pasResponse.StatusCode,
+                    pasResponse.ReasonPhrase ?? pasResponse.StatusCode.ToString(),
+                    pasJwt,
+                    pasStopwatch.ElapsedMilliseconds);
                 var payload = pasJwt.Split('.')[1];
                 var padded = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
                 var json = Encoding.UTF8.GetString(Convert.FromBase64String(padded));

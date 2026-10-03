@@ -144,7 +144,7 @@ public partial class MainWindow : Window
                 Updates.FinishUpdate(updateTarget);
 
             // Load settings
-            await Settings.loadsettings();
+            await Settings.LoadAsync();
             App.Plugins.LoadPlugins(Path.Combine(AppContext.BaseDirectory, "Plugins"), Settings.settingsloaded.DisabledPluginPaths);
             RegisterPluginPages();
             ((App)Application.Current).StartProfileSettingsLoop();

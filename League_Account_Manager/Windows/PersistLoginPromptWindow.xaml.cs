@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Input;
 using League_Account_Manager.Misc;
 
 namespace League_Account_Manager.Windows;
@@ -34,11 +33,5 @@ public partial class PersistLoginPromptWindow : Window
     {
         PersistLogin = false;
         DialogResult = true;
-    }
-
-    private void Window_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton == MouseButton.Left)
-            DragMove();
     }
 }
