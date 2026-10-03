@@ -66,8 +66,6 @@ public partial class LcuRequestTracker : Page
         }
 
         _rows.Add(new TrafficRow(record));
-        if (_rows.Count > 1000)
-            _rows.RemoveAt(0);
     }
 
     private bool FilterTraffic(object item)

@@ -20,7 +20,6 @@ internal sealed record LcuRequestRecord(
 
 internal static partial class LcuRequestLog
 {
-    private const int MaximumEntries = 1000;
     private const int MaximumBodyLength = 200_000;
     private static readonly Lock Sync = new();
     private static readonly List<LcuRequestRecord> Entries = [];
@@ -64,11 +63,7 @@ internal static partial class LcuRequestLog
             responseHeaders ?? string.Empty);
 
         lock (Sync)
-        {
             Entries.Add(entry);
-            if (Entries.Count > MaximumEntries)
-                Entries.RemoveRange(0, Entries.Count - MaximumEntries);
-        }
 
         var handlers = RequestCompleted;
         if (handlers != null)

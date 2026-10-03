@@ -13,8 +13,19 @@ internal static class ProfileSettingsService
         {
             try
             {
-                if (Process.GetProcessesByName("LeagueClientUx").Length > 0)
-                    await ApplyAsync(cancellationToken);
+                var processes = Process.GetProcessesByName("LeagueClientUx");
+                try
+                {
+                    if (processes.Length > 0)
+                        await ApplyAsync(cancellationToken);
+                }
+                finally
+                {
+                    foreach (var process in processes)
+                        process.Dispose();
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -24,8 +35,6 @@ internal static class ProfileSettingsService
             {
                 LogManager.GetCurrentClassLogger().Error(exception, "Error applying saved profile settings");
             }
-
-            await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken);
         }
     }
 

@@ -48,7 +48,15 @@ public partial class ChallengeWindow : Window
                 DefaultBackgroundColor = Color.Transparent
             };
             WebViewHost.Child = _webView;
-            await _webView.EnsureCoreWebView2Async();
+            // Without an explicit folder WebView2 creates "<exe name>.WebView2" beside the
+            // executable, so a renamed copy (e.g. a browser's " (1)" download) grows a new folder
+            // on every login. Keep the profile in one fixed place instead.
+            var userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "League Account Manager", "WebView2");
+            Directory.CreateDirectory(userDataFolder);
+            var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+            await _webView.EnsureCoreWebView2Async(environment);
             await AttachNetworkLoggingAsync();
 
             // Tabasco tokens are validated against the page origin the widget runs on. The real

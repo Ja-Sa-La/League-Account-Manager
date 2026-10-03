@@ -250,12 +250,11 @@ public partial class ChampionSelect : Page
         return new Gamestats();
     }
 
-    private void OnOpenOpGgClick(object sender, RoutedEventArgs e)
+    private async void OnOpenOpGgClick(object sender, RoutedEventArgs e)
     {
         try
         {
-            // Ensure region is loaded before building the URL
-            EnsureRegionAsync().GetAwaiter().GetResult();
+            await EnsureRegionAsync();
             if (region == null) throw new InvalidOperationException("Region not available");
 
             var playerNumber = ((Button)sender).Name.Last();

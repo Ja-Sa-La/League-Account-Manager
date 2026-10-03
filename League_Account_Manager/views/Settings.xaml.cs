@@ -85,7 +85,7 @@ public partial class Settings : Page
     private async void OnCloudUploadClick(object sender, RoutedEventArgs e)
     {
         if (AppMessageBox.Show(
-                $"Replace the cloud accounts for {AccountSyncService.Instance.Username} with this computer's accounts, including saved credentials? The server encrypts them at rest but can decrypt them. This is not end-to-end encryption.",
+                $"Replace the cloud accounts for {AccountSyncService.Instance.Username} with this computer's accounts, including saved credentials? They are encrypted on this computer before upload, and the server cannot decrypt them.",
                 "Upload accounts", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
         await RunCloudActionAsync(async () =>

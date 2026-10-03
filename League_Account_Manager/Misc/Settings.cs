@@ -19,7 +19,7 @@ public enum PersistentLoginMode
     Never = 2
 }
 
-public class Settings
+public static class Settings
 {
     public static settings1 settingsloaded;
     public static event Action? AccountPasswordSupplied;
@@ -87,102 +87,80 @@ public class Settings
         Save();
     }
 
-    public static async
-        Task
-        loadsettings()
+    public static async Task LoadAsync()
     {
         var settingsPath = GetSettingsPath();
-        if (File.Exists(settingsPath))
+        settingsloaded = File.Exists(settingsPath)
+            ? LoadFromDisk(settingsPath)
+            : CreateDefaults();
+
+        NormalizeAndMigrateAccountFileName();
+        settingsloaded.LeagueDefaultSortColumn ??= "level";
+        settingsloaded.ValorantDefaultSortColumn ??= "valorantLevel";
+
+        await LoadAccountFilePasswordAsync();
+        await DiscoverMissingPathsAsync();
+        Save();
+    }
+
+    private static settings1 LoadFromDisk(string settingsPath)
+    {
+        try
         {
-            try
-            {
-                settingsloaded = MergeWithDefaults(File.ReadAllText(settingsPath));
-            }
-            catch (Exception ex) when (ex is JsonException or IOException)
-            {
-                var backupPath = settingsPath + ".bak";
-                if (!File.Exists(backupPath))
-                    throw;
-
-                DebugConsole.WriteLine($"[Settings] Recovering settings backup: {ex.Message}");
-                settingsloaded = MergeWithDefaults(File.ReadAllText(backupPath));
-                File.Copy(backupPath, settingsPath, true);
-            }
-            NormalizeAndMigrateAccountFileName();
-            if (string.IsNullOrWhiteSpace(settingsloaded.LeagueDefaultSortColumn))
-                settingsloaded.LeagueDefaultSortColumn = "level";
-            if (string.IsNullOrWhiteSpace(settingsloaded.ValorantDefaultSortColumn))
-                settingsloaded.ValorantDefaultSortColumn = "valorantLevel";
-            if (settingsloaded.AccountFileEncryptionEnabled)
-            {
-                AccountFileStore.SetPassword(null);
-                string? password = null;
-
-                // Always prompt on startup when encryption is enabled.
-                if (Application.Current?.Dispatcher != null)
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        password = PromptForAccountFilePassword(
-                            "Enter the password to decrypt your account list.");
-                    });
-                else
-                    password = PromptForAccountFilePassword(
-                        "Enter the password to decrypt your account list.");
-
-                if (string.IsNullOrWhiteSpace(password))
-                {
-                    AppMessageBox.Show(
-                        "Account file password is required to load encrypted accounts. The application will now close.",
-                        "Password Required", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    Application.Current?.Shutdown();
-                    Environment.Exit(0);
-                    return;
-                }
-
-                AccountFileStore.SetPassword(password);
-                AccountPasswordSupplied?.Invoke();
-            }
-
-            if (settingsloaded.riotPath == null)
-            {
-                settingsloaded.riotPath = findriot();
-                Save();
-            }
-
-            if (settingsloaded.riotPath != null &&
-                (settingsloaded.LeaguePath == null || settingsloaded.LeaguePath == ""))
-            {
-                settingsloaded.LeaguePath = await findleague();
-                Save();
-            }
-
-            if (settingsloaded.settingsLocation == null)
-            {
-                settingsloaded.settingsLocation = await findSettings();
-                Save();
-            }
-
-            Save();
+            return MergeWithDefaults(File.ReadAllText(settingsPath));
         }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            var backupPath = settingsPath + ".bak";
+            if (!File.Exists(backupPath))
+                throw;
+
+            DebugConsole.WriteLine($"[Settings] Recovering settings backup: {ex.Message}");
+            var recovered = MergeWithDefaults(File.ReadAllText(backupPath));
+            File.Copy(backupPath, settingsPath, true);
+            return recovered;
+        }
+    }
+
+    private static async Task LoadAccountFilePasswordAsync()
+    {
+        if (!settingsloaded.AccountFileEncryptionEnabled)
+            return;
+
+        AccountFileStore.SetPassword(null);
+        string? password = null;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher != null)
+            await dispatcher.InvokeAsync(() => password = PromptForAccountFilePassword(
+                "Enter the password to decrypt your account list."));
         else
+            password = PromptForAccountFilePassword("Enter the password to decrypt your account list.");
+
+        if (string.IsNullOrWhiteSpace(password))
         {
-            settingsloaded.UpdateRanks = true;
-            settingsloaded.filename = "Accounts";
-            settingsloaded.updates = true;
-            settingsloaded.ReleaseChannel = UpdateReleaseChannel.Stable.ToString();
-            settingsloaded.DisplayPasswords = true;
-            settingsloaded.AccountFileEncryptionEnabled = false;
-            settingsloaded.AccountFileEncryptionPassword = null;
-            settingsloaded.LeagueDefaultSortColumn = "level";
-            settingsloaded.LeagueDefaultSortDescending = true;
-            settingsloaded.ValorantDefaultSortColumn = "valorantLevel";
-            settingsloaded.ValorantDefaultSortDescending = true;
-            NormalizeAndMigrateAccountFileName();
-            settingsloaded.riotPath = findriot();
-            settingsloaded.LeaguePath = await findleague();
-            settingsloaded.settingsLocation = await findSettings();
-            Save();
+            AppMessageBox.Show(
+                "Account file password is required to load encrypted accounts. The application will now close.",
+                "Password Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Application.Current?.Shutdown();
+            Environment.Exit(0);
+            return;
         }
+
+        AccountFileStore.SetPassword(password);
+        AccountPasswordSupplied?.Invoke();
+    }
+
+    private static async Task DiscoverMissingPathsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(settingsloaded.riotPath) || !File.Exists(settingsloaded.riotPath))
+            settingsloaded.riotPath = FindRiot();
+
+        if (string.IsNullOrWhiteSpace(settingsloaded.LeaguePath) || !File.Exists(settingsloaded.LeaguePath))
+            settingsloaded.LeaguePath = await FindLeagueAsync();
+
+        if (string.IsNullOrWhiteSpace(settingsloaded.settingsLocation) ||
+            !File.Exists(settingsloaded.settingsLocation))
+            settingsloaded.settingsLocation = FindSettings();
     }
 
     private static string GetSettingsPath()
@@ -242,53 +220,15 @@ public class Settings
         }
     }
 
-    private static string findriot()
+    private static string FindRiot()
     {
         DebugConsole.WriteLine("[Settings] Finding Riot client path...");
-        string[] registryEntries =
+
+        var found = FindRiotClientExecutable();
+        if (found != null)
         {
-            @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game Riot_Client.",
-            "UninstallString",
-
-            @"HKEY_CLASSES_ROOT\riotclient\DefaultIcon",
-            "(Default)",
-
-            @"HKEY_CLASSES_ROOT\riotclient\shell\open\command",
-            "(Default)",
-
-            @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run",
-            "RiotClient",
-
-            @"HKEY_LOCAL_MACHINE\SOFTWARE\Classes\riotclient\DefaultIcon",
-            "(Default)"
-        };
-
-        string? installPath = null;
-
-        for (var i = 0; i < registryEntries.Length; i += 2)
-        {
-            var key = registryEntries[i];
-            var valueName = registryEntries[i + 1];
-
-            installPath = (string?)Registry.GetValue(key, valueName, null);
-
-            if (installPath != null)
-            {
-                var pattern = "\"(.*?)\"";
-                var match = Regex.Match(installPath, pattern);
-                if (match.Success)
-                    if (File.Exists(match.Groups[1].Value))
-                    {
-                        DebugConsole.WriteLine($"[Settings] Riot client found in registry: {match.Groups[1].Value}");
-                        return match.Groups[1].Value;
-                    }
-            }
-        }
-
-        if (File.Exists("C:\\Riot Games\\Riot Client\\RiotClientServices.exe"))
-        {
-            DebugConsole.WriteLine("[Settings] Riot client found in default install path: C:\\Riot Games\\Riot Client\\RiotClientServices.exe");
-            return "C:\\Riot Games\\Riot Client\\RiotClientServices.exe";
+            DebugConsole.WriteLine($"[Settings] Riot client found: {found}");
+            return found;
         }
 
         DebugConsole.WriteLine("[Settings] Riot client was not found automatically. Prompting for RiotClientServices.exe.");
@@ -313,6 +253,90 @@ public class Settings
                 DebugConsole.WriteLine("[Settings] Riot client selection was cancelled. Closing application.");
                 Environment.Exit(0);
             }
+    }
+
+    /// <summary>
+    ///     Locates RiotClientServices.exe from the installer's own registry entries and the usual
+    ///     install folders. Returns null when nothing on the machine points at it.
+    /// </summary>
+    private static string? FindRiotClientExecutable()
+    {
+        foreach (var candidate in RiotClientCandidates())
+        {
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> RiotClientCandidates()
+    {
+        // The Riot installer registers every product under the per-user uninstall key, and each
+        // product's UninstallString starts with the quoted path of the one shared
+        // RiotClientServices.exe. Enumerating beats the old fixed "Riot Game Riot_Client." key,
+        // which is missed entirely when the client was installed under a different name.
+        foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+        {
+            using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, view);
+            using var uninstall = baseKey.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall");
+            if (uninstall == null)
+                continue;
+
+            foreach (var subKeyName in uninstall.GetSubKeyNames())
+            {
+                if (!subKeyName.StartsWith("Riot Game ", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                using var subKey = uninstall.OpenSubKey(subKeyName);
+                var executable = ExtractExecutablePath(subKey?.GetValue("UninstallString") as string);
+                if (executable != null)
+                    yield return executable;
+
+                // InstallLocation points at the product folder (e.g. "C:/Riot Games/Riot Client"),
+                // so the client executable only lives directly inside the Riot Client one.
+                var location = subKey?.GetValue("InstallLocation") as string;
+                if (!string.IsNullOrWhiteSpace(location))
+                    yield return Path.Combine(location, "RiotClientServices.exe");
+            }
+        }
+
+        // The protocol handler is registered machine-wide and survives even when the per-user
+        // uninstall entries are missing. Its command is `"<exe>" --app-command="%1"`.
+        foreach (var commandKey in new[]
+                 {
+                     @"HKEY_LOCAL_MACHINE\SOFTWARE\Classes\riotclient\shell\open\command",
+                     @"HKEY_CURRENT_USER\SOFTWARE\Classes\riotclient\shell\open\command",
+                     @"HKEY_CLASSES_ROOT\riotclient\shell\open\command"
+                 })
+        {
+            var executable = ExtractExecutablePath(Registry.GetValue(commandKey, string.Empty, null) as string);
+            if (executable != null)
+                yield return executable;
+        }
+
+        // The default install directory, on whichever drive Windows itself is installed on.
+        var systemDrive = Path.GetPathRoot(Environment.SystemDirectory);
+        if (!string.IsNullOrEmpty(systemDrive))
+            yield return Path.Combine(systemDrive, "Riot Games", "Riot Client", "RiotClientServices.exe");
+    }
+
+    /// <summary>
+    ///     Pulls the executable out of a registry command line. Riot quotes the path
+    ///     ("C:\Riot Games\Riot Client\RiotClientServices.exe" --uninstall-product=...), but an
+    ///     unquoted path with no arguments is accepted too.
+    /// </summary>
+    private static string? ExtractExecutablePath(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return null;
+
+        var match = Regex.Match(command, "^\\s*\"(?<path>[^\"]+)\"|^\\s*(?<path>\\S+)");
+        if (!match.Success)
+            return null;
+
+        var path = match.Groups["path"].Value;
+        return path.EndsWith("RiotClientServices.exe", StringComparison.OrdinalIgnoreCase) ? path : null;
     }
 
     internal static settings1 CreateDefaults()
@@ -357,14 +381,18 @@ public class Settings
         return result;
     }
 
-    private static async Task<string> findSettings()
+    private static string FindSettings()
     {
         DebugConsole.WriteLine("[Settings] Finding League settings file...");
-        DebugConsole.WriteLine(Path.GetDirectoryName(settingsloaded.LeaguePath) + "//Config//game.cfg");
-        if (File.Exists(Path.GetDirectoryName(settingsloaded.LeaguePath) + "//Config//game.cfg"))
+        var leagueDirectory = Path.GetDirectoryName(settingsloaded.LeaguePath);
+        var settingsPath = string.IsNullOrWhiteSpace(leagueDirectory)
+            ? null
+            : Path.Combine(leagueDirectory, "Config", "game.cfg");
+        DebugConsole.WriteLine(settingsPath ?? "[Settings] League client directory is unavailable.");
+        if (settingsPath != null && File.Exists(settingsPath))
         {
-            DebugConsole.WriteLine($"[Settings] League settings found automatically: {Path.GetDirectoryName(settingsloaded.LeaguePath)}//Config//game.cfg");
-            return Path.GetDirectoryName(settingsloaded.LeaguePath) + "//Config//game.cfg";
+            DebugConsole.WriteLine($"[Settings] League settings found automatically: {settingsPath}");
+            return settingsPath;
         }
 
         DebugConsole.WriteLine("[Settings] League settings file was not found automatically. Prompting for game.cfg.");
@@ -390,123 +418,135 @@ public class Settings
             }
     }
 
-    private static async Task<string> findleague()
+    private static async Task<string> FindLeagueAsync()
     {
         DebugConsole.WriteLine("[Settings] Finding League client path...");
-        Process? riotclient = null;
-        var startedclient = 0;
+        var startedClient = false;
         if (Process.GetProcessesByName("Riot Client").Length == 0 &&
             Process.GetProcessesByName("RiotClientUx").Length == 0)
         {
             DebugConsole.WriteLine("[Settings] Riot client is not running. Launching it to detect League installation.");
-            riotclient = Process.Start(settingsloaded.riotPath,
+            Process.Start(settingsloaded.riotPath,
                 "--launch-product=league_of_legends --launch-patchline=live");
-            startedclient = 1;
+            startedClient = true;
         }
 
-        var clientDetected = false;
-        for (var attempt = 0; attempt < 25; attempt++)
+        try
         {
-            if (Process.GetProcessesByName("Riot Client").Length != 0 ||
-                Process.GetProcessesByName("RiotClientUx").Length != 0)
+            var clientDetected = false;
+            for (var attempt = 0; attempt < 25; attempt++)
             {
-                clientDetected = true;
-                break;
-            }
-
-            await Task.Delay(2000).ConfigureAwait(true);
-        }
-
-        if (clientDetected)
-        {
-            for (var attempt = 0; attempt < 150; attempt++)
-            {
-                var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "")
-                    as System.Net.Http.HttpResponseMessage;
-                if (readyResp != null)
+                if (Process.GetProcessesByName("Riot Client").Length != 0 ||
+                    Process.GetProcessesByName("RiotClientUx").Length != 0)
                 {
-                    var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    try
-                    {
-                        var node = JsonNode.Parse(readyBody);
-                        var ready = node?["ready"]?.GetValue<bool>() ?? false;
-                        if (ready)
-                            break;
-                    }
-                    catch
-                    {
-                    }
+                    clientDetected = true;
+                    break;
                 }
 
-                await Task.Delay(200).ConfigureAwait(true);
-            }
-        }
-
-        DebugConsole.WriteLine("[Settings] Querying Riot client for League installation path.");
-        JObject? responseBody = null;
-        for (var attempt = 1; attempt <= 10; attempt++)
-        {
-            DebugConsole.WriteLine($"[Settings] League install lookup attempt {attempt}/10.");
-            var resp = await Lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "")
-                as System.Net.Http.HttpResponseMessage;
-            if (resp == null)
-            {
-                if (attempt < 10)
-                    await Task.Delay(1000);
-                continue;
+                await Task.Delay(2000).ConfigureAwait(true);
             }
 
-            var responseContent = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-            try
+            if (clientDetected)
             {
-                responseBody = JObject.Parse(responseContent);
-                if (responseBody.ContainsKey("path"))
-                    break;
-            }
-            catch
-            {
-            }
-
-            if (attempt < 10)
-                await Task.Delay(1000);
-        }
-        if (startedclient == 1) Utils.KillLeagueFunc();
-
-        if (responseBody != null && responseBody.ContainsKey("path"))
-        {
-            var installPath = responseBody["path"]?.ToString();
-            if (string.IsNullOrWhiteSpace(installPath))
-                return string.Empty;
-
-            var leaguePath = installPath.Replace("/", "\\") + "\\LeagueClient.exe";
-            DebugConsole.WriteLine($"[Settings] League client found automatically: {leaguePath}");
-            return leaguePath;
-        }
-        DebugConsole.WriteLine(responseBody?.ToString() ?? "[Settings] No install response received");
-        DebugConsole.WriteLine("[Settings] League client was not found automatically. Prompting for LeagueClient.exe.");
-        var openFileDialog = new OpenFileDialog();
-        openFileDialog.Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*";
-        openFileDialog.FileName = "LeagueClient.exe";
-        while (true)
-            if (openFileDialog.ShowDialog() == true)
-            {
-                if (Path.GetFileName(openFileDialog.FileName) != "LeagueClient.exe")
+                for (var attempt = 0; attempt < 150; attempt++)
                 {
-                    AppMessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    var readyResp = await Lcu.Connector("riot", "get", "/rso-auth/configuration/v3/ready-state", "")
+                        as System.Net.Http.HttpResponseMessage;
+                    if (readyResp != null)
+                    {
+                        using (readyResp)
+                        {
+                            var readyBody = await readyResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            try
+                            {
+                                var node = JsonNode.Parse(readyBody);
+                                if (node?["ready"]?.GetValue<bool>() == true)
+                                    break;
+                            }
+                            catch (JsonException)
+                            {
+                            }
+                        }
+                    }
+
+                    await Task.Delay(200).ConfigureAwait(true);
+                }
+            }
+
+            DebugConsole.WriteLine("[Settings] Querying Riot client for League installation path.");
+            JObject? responseBody = null;
+            for (var attempt = 1; attempt <= 10; attempt++)
+            {
+                DebugConsole.WriteLine($"[Settings] League install lookup attempt {attempt}/10.");
+                var resp = await Lcu.Connector("riot", "get", "/patch/v1/installs/league_of_legends.live", "")
+                    as System.Net.Http.HttpResponseMessage;
+                if (resp == null)
+                {
+                    if (attempt < 10)
+                        await Task.Delay(1000);
                     continue;
                 }
 
-                DebugConsole.WriteLine($"[Settings] League client selected manually: {openFileDialog.FileName}");
-                return openFileDialog.FileName;
+                using (resp)
+                {
+                    try
+                    {
+                        responseBody = JObject.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+                        if (responseBody.ContainsKey("path"))
+                            break;
+                    }
+                    catch (JsonException)
+                    {
+                    }
+                }
+
+                if (attempt < 10)
+                    await Task.Delay(1000);
             }
-            else
+
+            if (responseBody?.ContainsKey("path") == true)
             {
+                var installPath = responseBody["path"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(installPath))
+                {
+                    var leaguePath = Path.Combine(installPath.Replace('/', '\\'), "LeagueClient.exe");
+                    DebugConsole.WriteLine($"[Settings] League client found automatically: {leaguePath}");
+                    return leaguePath;
+                }
+            }
+
+            DebugConsole.WriteLine(responseBody?.ToString() ?? "[Settings] No install response received");
+            DebugConsole.WriteLine("[Settings] League client was not found automatically. Prompting for LeagueClient.exe.");
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
+                FileName = "LeagueClient.exe"
+            };
+            while (true)
+            {
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    if (!string.Equals(Path.GetFileName(openFileDialog.FileName), "LeagueClient.exe",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        AppMessageBox.Show("Please select a file with the name LeagueClient.exe", "Invalid Filename",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        continue;
+                    }
+
+                    DebugConsole.WriteLine($"[Settings] League client selected manually: {openFileDialog.FileName}");
+                    return openFileDialog.FileName;
+                }
+
                 DebugConsole.WriteLine("[Settings] League client selection was cancelled.");
                 return string.Empty;
-                //Environment.Exit(0);
             }
+        }
+        finally
+        {
+            if (startedClient)
+                Utils.KillLeagueFunc();
+        }
     }
 
     public struct settings1

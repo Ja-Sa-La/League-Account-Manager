@@ -160,7 +160,7 @@ internal class Lcu
                                      System.Net.DecompressionMethods.Deflate |
                                      System.Net.DecompressionMethods.Brotli
         };
-        var client = new HttpClient(clientHandler);
+        using var client = new HttpClient(clientHandler);
         var token = Encoding.UTF8.GetBytes("riot:" + authToken);
         SetClientHeaders(client, port, token, version);
         return await SendRequest(client, target, mode, endpoint, data, port, cancellationToken);
@@ -177,7 +177,7 @@ internal class Lcu
             IdToken)>
         CreateValorantClientAsync()
     {
-        var entitlementsResponse = await Connector("riot", "get", "/entitlements/v1/token", "") as HttpResponseMessage;
+        using var entitlementsResponse = await Connector("riot", "get", "/entitlements/v1/token", "") as HttpResponseMessage;
         if (entitlementsResponse == null)
             throw new InvalidOperationException("Failed to get entitlements token.");
 
@@ -188,7 +188,7 @@ internal class Lcu
         if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(entitlementsToken))
             throw new InvalidOperationException("Missing entitlement or access token.");
 
-        var authResponse =
+        using var authResponse =
             await Connector("riot", "get", "/riot-client-auth/v1/authorization", "") as HttpResponseMessage;
         if (authResponse == null)
             throw new InvalidOperationException("Failed to get authorization details.");

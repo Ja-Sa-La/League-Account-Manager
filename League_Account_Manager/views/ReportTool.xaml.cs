@@ -120,7 +120,7 @@ public partial class ReportTool : Page
         }
     }
 
-    private void OnSendReportsClick(object sender, RoutedEventArgs e)
+    private async void OnSendReportsClick(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -128,62 +128,55 @@ public partial class ReportTool : Page
             var currentReports = 0;
             Status.Text = $"{currentReports} / {totalreport} reports created";
             var tmp = plaList;
-            Task.Run(async () =>
-            {
-                foreach (var item in tmp)
-                    if (item.report)
+            foreach (var item in tmp)
+                if (item.report)
+                {
+                    var success = await RetryOperation(async () =>
                     {
-                        var success = await RetryOperation(async () =>
+                        var reportstring = "{\"gameId\":" + item.gameId +
+                                           ",\"categories\":[\"NEGATIVE_ATTITUDE\",\"VERBAL_ABUSE\",\"HATE_SPEECH\"],\"offenderSummonerId\":" +
+                                           item.summonerId + ",\"offenderPuuid\":\"" +
+                                           item.puuId + "\"}";
+
+                        using var resp = await Connector("league", "post",
+                            "/lol-player-report-sender/v1/match-history-reports", reportstring);
+
+                        var responseBody3 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        _logger.Debug("Report response for {GameId}/{SummonerId}: {Response}", item.gameId,
+                            item.summonerId, responseBody3);
+
+                        if (resp.StatusCode == HttpStatusCode.TooManyRequests)
                         {
-                            var reportstring = "{\"gameId\":" + item.gameId +
-                                               ",\"categories\":[\"NEGATIVE_ATTITUDE\",\"VERBAL_ABUSE\",\"HATE_SPEECH\"],\"offenderSummonerId\":" +
-                                               item.summonerId + ",\"offenderPuuid\":\"" +
-                                               item.puuId + "\"}";
+                            _logger.Warn("Rate limited while sending reports. Processed {Processed} of {Total}",
+                                currentReports, totalreport);
+                            Status.Text =
+                                $"Currently rate limited waiting! {currentReports} / {totalreport} reports created";
+                            await Task.Delay(50000);
+                            return false;
+                        }
 
-                            HttpResponseMessage resp = await Connector("league", "post",
-                                "/lol-player-report-sender/v1/match-history-reports", reportstring);
+                        return true;
+                    }, 10);
 
-                            var responseBody3 = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                            _logger.Debug("Report response for {GameId}/{SummonerId}: {Response}", item.gameId,
-                                item.summonerId, responseBody3);
-
-                            if (resp.StatusCode == HttpStatusCode.TooManyRequests)
-                            {
-                                _logger.Warn("Rate limited while sending reports. Processed {Processed} of {Total}",
-                                    currentReports, totalreport);
-                                Dispatcher.Invoke(() =>
-                                {
-                                    Status.Text =
-                                        $"Currently rate limited waiting! {currentReports} / {totalreport} reports created";
-                                });
-                                Thread.Sleep(50000);
-                                return false; // Indicate failure to retry
-                            }
-
-                            return true; // Indicate success
-                        }, 10);
-
-                        if (success)
-                            Dispatcher.Invoke(() =>
-                            {
-                                plaList.Where(thing =>
-                                        thing.gameId == item.gameId && thing.summonerId == item.summonerId)
-                                    .ToList()
-                                    .ForEach(thing => thing.reported = "yes");
-                                Reportable.ItemsSource = null;
-                                Reportable.ItemsSource = plaList;
-                                Status.Text = $"{++currentReports} / {totalreport} reports created";
-                                _logger.Info("Report submitted for {GameId}/{SummonerId} ({Current}/{Total})",
-                                    item.gameId, item.summonerId, currentReports, totalreport);
-                            });
-
-                        Thread.Sleep(1000);
+                    if (success)
+                    {
+                        plaList.Where(thing =>
+                                thing.gameId == item.gameId && thing.summonerId == item.summonerId)
+                            .ToList()
+                            .ForEach(thing => thing.reported = "yes");
+                        Reportable.ItemsSource = null;
+                        Reportable.ItemsSource = plaList;
+                        Status.Text = $"{++currentReports} / {totalreport} reports created";
+                        _logger.Info("Report submitted for {GameId}/{SummonerId} ({Current}/{Total})",
+                            item.gameId, item.summonerId, currentReports, totalreport);
                     }
-            });
+
+                    await Task.Delay(1000);
+                }
         }
         catch (Exception exception)
         {
-            _logger.Error(exception, "Failed while queuing report submissions");
+            _logger.Error(exception, "Failed while sending reports");
         }
     }
 
@@ -195,8 +188,10 @@ public partial class ReportTool : Page
             try
             {
                 if (await operation())
-                    // If the operation succeeds, return true
                     return true;
+
+                currentRetry++;
+                await Task.Delay(TimeSpan.FromSeconds(1));
             }
             catch (Exception ex)
             {
