@@ -10,6 +10,7 @@ namespace League_Account_Manager;
 public partial class App : Application
 {
     private CancellationTokenSource? profileSettingsCts;
+    private CancellationTokenSource? runeImportCts;
     public static string[]? StartupArgs { get; private set; }
     internal static AuthRouteLauncher AuthLauncher { get; } = new();
     internal static OfflineLauncher OfflineLauncher { get; } = new();
@@ -32,6 +33,8 @@ public partial class App : Application
         Task.Run(async () => await Plugins.DisposeAsync()).GetAwaiter().GetResult();
         profileSettingsCts?.Cancel();
         profileSettingsCts?.Dispose();
+        runeImportCts?.Cancel();
+        runeImportCts?.Dispose();
         LcuWebSocketMonitor.Stop();
         DebugClientTrafficLauncher.Dispose();
         DebugTrafficCapture.Dispose();
@@ -42,5 +45,11 @@ public partial class App : Application
     {
         profileSettingsCts ??= new CancellationTokenSource();
         _ = ProfileSettingsService.RunAsync(profileSettingsCts.Token);
+    }
+
+    internal void StartRuneImportLoop()
+    {
+        runeImportCts ??= new CancellationTokenSource();
+        _ = RuneAutoImportService.RunAsync(runeImportCts.Token);
     }
 }

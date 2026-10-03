@@ -28,6 +28,9 @@ public class SettingsTests
         Assert.AreEqual("valorantLevel", result.ValorantDefaultSortColumn);
         Assert.IsTrue(result.ValorantDefaultSortDescending);
         Assert.IsFalse(result.UseLegacyLogin);
+        Assert.IsFalse(result.AutoImportRunes);
+        Assert.AreEqual("ugg", result.RuneImportSource);
+        Assert.AreEqual("automatic", result.RuneImportRole);
     }
 
     [TestMethod]

@@ -1,0 +1,140 @@
+<Page x:Class="League_Account_Manager.views.RuneManager"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      mc:Ignorable="d"
+      d:DesignHeight="749" d:DesignWidth="1216"
+      Title="Runes">
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Runes" Style="{StaticResource PageTitleStyle}" />
+                <TextBlock Text="Review the page currently applied in the League client, edit it, or import a recommended page."
+                           Style="{StaticResource PageSubtitleStyle}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <ui:Button Content="Refresh current" Click="OnRefreshClick" Margin="0,0,8,0" />
+                <ui:Button Content="Apply page" Click="OnApplyClick" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource SurfacePanelStyle}" Margin="0,14,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="Champion" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                        <ui:TextBox x:Name="ChampionName" PlaceholderText="Champion name" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                        <TextBlock Text="Role" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                        <ComboBox x:Name="ImportRole" DisplayMemberPath="Label" SelectedValuePath="Id" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                        <TextBlock Text="Source" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                        <ComboBox x:Name="ImportSource" DisplayMemberPath="Label" SelectedValuePath="Id" />
+                    </StackPanel>
+                    <ui:Button Grid.Column="3" Content="Import" Click="OnImportClick" VerticalAlignment="Bottom" MinWidth="110" />
+                </Grid>
+                <DockPanel Grid.Row="1" Margin="0,14,0,0">
+                    <ui:Button DockPanel.Dock="Right" Content="Import for selected champion" Click="OnImportSelectedChampionClick"
+                               Margin="12,0,0,0" />
+                    <CheckBox x:Name="AutoImport" Content="Automatically import runes in champion select after a champion is selected"
+                              VerticalAlignment="Center" Checked="OnAutoImportChanged" Unchecked="OnAutoImportChanged" />
+                </DockPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="2" Margin="0,14,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock x:Name="CurrentPageSummary" Text="Current page has not been loaded."
+                                   TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Page" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock Text="Name" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                                <ui:TextBox x:Name="PageName" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                <TextBlock Text="Primary tree" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                                <ComboBox x:Name="PrimaryStyle" DisplayMemberPath="Name" SelectionChanged="OnStyleChanged" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Secondary tree" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                                <ComboBox x:Name="SecondaryStyle" DisplayMemberPath="Name" SelectionChanged="OnStyleChanged" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource SurfacePanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Primary runes" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                            <StackPanel x:Name="PrimarySlots" />
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Grid.Column="2">
+                        <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Secondary runes" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                                <TextBlock Text="Pick one rune from two different rows."
+                                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,10" />
+                                <StackPanel x:Name="SecondarySlots" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SurfacePanelStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Stat shards" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                                <StackPanel x:Name="ShardSlots" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,12,0,0" TextWrapping="Wrap"
+                   Foreground="{StaticResource TextSecondaryBrush}" />
+    </Grid>
+</Page>

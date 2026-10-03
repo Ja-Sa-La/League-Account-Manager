@@ -164,6 +164,7 @@ public partial class MainWindow : Window
             installloclea.Content = Settings.settingsloaded.LeaguePath;
 
             await ProxyLoginTokenManager.TryHandleLoginUriAsync(App.StartupArgs);
+            ((App)Application.Current).StartRuneImportLoop();
             await Dispatcher.InvokeAsync(OfferCloudSync, DispatcherPriority.ContextIdle);
         }
         catch (Exception e)

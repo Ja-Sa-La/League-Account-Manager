@@ -75,6 +75,12 @@
                             <ui:SymbolIcon Symbol="Group20" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
+                    <ui:NavigationViewItem Content="Runes" NavigationCacheMode="Required"
+                                           TargetPageType="{x:Type Page:RuneManager}">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:SymbolIcon Symbol="Star24" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Auto Champ select" NavigationCacheMode="Required"
                                            TargetPageType="{x:Type Page:Autolobby}">
                         <ui:NavigationViewItem.Icon>
