@@ -357,7 +357,10 @@ public static class Settings
             LeagueDefaultSortDescending = true,
             ValorantDefaultSortColumn = "valorantLevel",
             ValorantDefaultSortDescending = true,
-            UseLegacyLogin = false
+            UseLegacyLogin = false,
+            AutoImportRunes = false,
+            RuneImportSource = "ugg",
+            RuneImportRole = "automatic"
         };
     }
 
@@ -580,5 +583,8 @@ public static class Settings
         public bool AutoLobbyMessage { get; set; }
         public bool AutoLobbyMute { get; set; }
         public bool UseLegacyLogin { get; set; }
+        public bool AutoImportRunes { get; set; }
+        public string RuneImportSource { get; set; }
+        public string RuneImportRole { get; set; }
     }
 }
