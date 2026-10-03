@@ -43,11 +43,24 @@ public class LcuRequestLogTests
 
         var records = LcuRequestLog.Snapshot();
         Assert.AreEqual(1, records.Count);
+        Assert.IsNotNull(completed);
         Assert.AreEqual(pending.Id, completed.Id);
         Assert.AreEqual("Outgoing", records[0].Direction);
         Assert.AreEqual(200, records[0].StatusCode);
         Assert.AreEqual("Accept: application/json", records[0].RequestHeaders);
         Assert.AreEqual("Content-Type: application/json", records[0].ResponseHeaders);
+    }
+
+    [TestMethod]
+    public void Update_IgnoresCompletionAfterClear()
+    {
+        var pending = LcuRequestLog.Add("league", "GET", "/resource", "", null, "Pending", "", 0);
+        LcuRequestLog.Clear();
+
+        var completed = LcuRequestLog.Update(pending.Id, 200, "OK", "{}", 10);
+
+        Assert.IsNull(completed);
+        Assert.AreEqual(0, LcuRequestLog.Snapshot().Count);
     }
 
     [TestMethod]

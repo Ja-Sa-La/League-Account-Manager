@@ -506,7 +506,7 @@ public partial class Autolobby : Page
                             ["obfuscatedPuuid"] = obfuscatedPuuid,
                             ["obfuscatedSummonerId"] = member["obfuscatedSummonerId"]?.Value<long>() ?? 0
                         };
-                        var resp = await Lcu.Connector("league", "post",
+                        using var resp = await Lcu.Connector("league", "post",
                                            "/lol-champ-select/v1/toggle-player-muted",
                                            body.ToString(Newtonsoft.Json.Formatting.None)) as HttpResponseMessage;
 
@@ -922,7 +922,7 @@ public partial class Autolobby : Page
                 DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") +
                 "\",\"body\":\"" + msg.Replace("\"", "\\\"") + "\"}";
 
-            var responseMessage = await Lcu.Connector("league", "post",
+            using var responseMessage = await Lcu.Connector("league", "post",
                 "/lol-chat/v1/conversations/" + champSelect.pid + "/messages",
                 postdata) as HttpResponseMessage;
 

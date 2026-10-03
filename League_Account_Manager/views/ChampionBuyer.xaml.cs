@@ -35,7 +35,7 @@ public partial class ChampionBuyer : Page
             var championsFailedLog = "Failed to Buy \n";
             foreach (ChampionEntry champ in BuyableChampionsList.SelectedItems)
             {
-                var val = await Lcu.Connector("league", "post", "/lol-purchase-widget/v2/purchaseItems",
+                using var val = await Lcu.Connector("league", "post", "/lol-purchase-widget/v2/purchaseItems",
                     "{\"items\":[{\"itemKey\":{\"inventoryType\":\"CHAMPION\",\"itemId\":" + champ.ID +
                     "},\"purchaseCurrencyInfo\":{\"currencyType\":\"IP\",\"price\":" + champ.Price +
                     ",\"purchasable\":true},\"source\":\"cdp\",\"quantity\":1}]}") as HttpResponseMessage;
@@ -88,18 +88,18 @@ public partial class ChampionBuyer : Page
             var leagueclientprocess = Process.GetProcessesByName("LeagueClientUx");
             if (leagueclientprocess.Length == 0) return;
             _buyableChampions.Clear();
-            var responseBody = await Lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "")
+            using var storeResponse = await Lcu.Connector("league", "get", "/lol-store/v1/getStoreUrl", "")
                 as HttpResponseMessage;
-            if (responseBody == null)
+            if (storeResponse == null)
                 return;
 
-            string storeurl = await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false);
-            responseBody = await Lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "")
+            string storeurl = await storeResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            using var authResponse = await Lcu.Connector("league", "get", "/lol-rso-auth/v1/authorization/access-token", "")
                 as HttpResponseMessage;
-            if (responseBody == null)
+            if (authResponse == null)
                 return;
 
-            JObject authtoken = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
+            JObject authtoken = JObject.Parse(await authResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
             var accessToken = authtoken["token"]?.ToString();
             if (string.IsNullOrWhiteSpace(accessToken))
                 return;
@@ -108,7 +108,7 @@ public partial class ChampionBuyer : Page
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
                 MaxConnectionsPerServer = 500
             };
-            var client = new HttpClient(handler);
+            using var client = new HttpClient(handler);
             client.DefaultRequestVersion = HttpVersion.Version20;
             client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
             client.Timeout = TimeSpan.FromSeconds(15);
@@ -118,9 +118,9 @@ public partial class ChampionBuyer : Page
             client.DefaultRequestHeaders.Add("User-Agent",
                 "Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) LeagueOfLegendsClient/14.6.568.8373 (CEF 91) Safari/537.36");
             client.DefaultRequestHeaders.Add("AUTHORIZATION", "Bearer " + accessToken);
-            responseBody =
+            using var storeFrontResponse =
                 await client.GetAsync(storeurl.Replace("\"", "") + "/storefront/v3/view/champions?language=en_US");
-            JObject finalresp = JObject.Parse(await responseBody.Content.ReadAsStringAsync().ConfigureAwait(false));
+            JObject finalresp = JObject.Parse(await storeFrontResponse.Content.ReadAsStringAsync().ConfigureAwait(false));
             foreach (var champ in finalresp["catalog"]?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
             {
                 if (!champ.ContainsKey("ownedQuantity"))
@@ -144,7 +144,6 @@ public partial class ChampionBuyer : Page
 
             BuyableChampionsList.ItemsSource = _buyableChampions;
             BuyableChampionsList.Items.SortDescriptions.Add(new SortDescription("Price", ListSortDirection.Ascending));
-            client.Dispose();
         }
         catch (Exception exception)
         {

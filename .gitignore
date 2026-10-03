@@ -360,5 +360,13 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
-FodyWeavers.xsdtmp-cdp-*.mjs
+FodyWeavers.xsd
+
+# Local SDK resolver scratch projects
+*.csproj.SdkResolver.*.proj
+
+# Temporary browser automation scripts
+tmp-cdp-*.mjs
+
+# Local Node tooling manifest
 package.json

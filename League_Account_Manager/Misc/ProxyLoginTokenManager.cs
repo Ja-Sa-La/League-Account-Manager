@@ -194,6 +194,7 @@ internal static class ProxyLoginTokenManager
 
         if (response is not HttpResponseMessage { IsSuccessStatusCode: true } http)
         {
+            (response as IDisposable)?.Dispose();
             LogFlow("Session", "Session export rejected; the client may not be logged in.", ConsoleColor.Red);
             Notif.notificationManager.Show("Token from session",
                 "Could not mint a login token. Make sure the Riot Client is logged in.",
@@ -201,19 +202,22 @@ internal static class ProxyLoginTokenManager
             return;
         }
 
-        var body = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(ExtractLoginToken(body)))
+        using (http)
         {
-            LogFlow("Session", "Response did not contain a login token.", ConsoleColor.Red);
-            Notif.notificationManager.Show("Token from session",
-                "The Riot Client has no active session to export.", NotificationType.Error);
-            return;
-        }
+            var body = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(ExtractLoginToken(body)))
+            {
+                LogFlow("Session", "Response did not contain a login token.", ConsoleColor.Red);
+                Notif.notificationManager.Show("Token from session",
+                    "The Riot Client has no active session to export.", NotificationType.Error);
+                return;
+            }
 
-        // The token is handed to other users, so always ask about persist login (same policy as
-        // the clientless Generate token flow) before copying to the clipboard.
-        var persist = await PromptPersistLoginForShareAsync();
-        await CaptureLoginTokenAsync(body, persistLogin: persist, product: product);
+            // The token is handed to other users, so always ask about persist login (same policy as
+            // the clientless Generate token flow) before copying to the clipboard.
+            var persist = await PromptPersistLoginForShareAsync();
+            await CaptureLoginTokenAsync(body, persistLogin: persist, product: product);
+        }
     }
 
     /// <summary>
@@ -238,21 +242,25 @@ internal static class ProxyLoginTokenManager
 
         if (response is not HttpResponseMessage { IsSuccessStatusCode: true } http)
         {
+            (response as IDisposable)?.Dispose();
             LogFlow("Session", "The client refused to mint a login token from the session.",
                 ConsoleColor.Red);
             return null;
         }
 
-        var body = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
-        var token = ExtractLoginToken(body);
-        if (string.IsNullOrWhiteSpace(token))
+        using (http)
         {
-            LogFlow("Session", "The session response did not contain a login token.", ConsoleColor.Red);
-            return null;
-        }
+            var body = await http.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var token = ExtractLoginToken(body);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                LogFlow("Session", "The session response did not contain a login token.", ConsoleColor.Red);
+                return null;
+            }
 
-        LogFlow("Session", "Minted a fresh login token from the signed-in session.");
-        return token;
+            LogFlow("Session", "Minted a fresh login token from the signed-in session.");
+            return token;
+        }
     }
 
     public static async Task CaptureLoginTokenAsync(string responseText, bool? persistLogin = false,

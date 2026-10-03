@@ -104,7 +104,7 @@ public partial class ProfileEditor : Page
     {
         if (!await CheckLeagueClientProcess())
             return "";
-        var resp = await Lcu.Connector(module, method, endpoint, data) as HttpResponseMessage;
+        using var resp = await Lcu.Connector(module, method, endpoint, data) as HttpResponseMessage;
         return resp == null ? string.Empty : await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
@@ -374,7 +374,7 @@ public partial class ProfileEditor : Page
 
             await Task.Run(async () =>
             {
-                var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
+                using var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
                     "inventoryType=[%22SUMMONER_ICON%22]") as HttpResponseMessage;
                 if (resp == null)
                     return;
@@ -423,7 +423,7 @@ public partial class ProfileEditor : Page
 
             await Task.Run(async () =>
             {
-                var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
+                using var resp = await Lcu.Connector("league", "get", "/lol-store/v1/catalog",
                     "inventoryType=[%22CHAMPION_SKIN%22]") as HttpResponseMessage;
                 if (resp == null)
                     return;

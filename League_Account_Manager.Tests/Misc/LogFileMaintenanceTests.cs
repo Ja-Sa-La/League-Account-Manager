@@ -25,6 +25,13 @@ public class LogFileMaintenanceTests
     }
 
     [TestMethod]
+    public void TrimToNewestBytes_RejectsNegativeLimit()
+    {
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            LogFileMaintenance.TrimToNewestBytes("unused", -1));
+    }
+
+    [TestMethod]
     public void TrimToNewestBytes_LeavesSmallFileUnchanged()
     {
         var path = Path.Combine(Path.GetTempPath(), $"lam-log-{Guid.NewGuid():N}.txt");

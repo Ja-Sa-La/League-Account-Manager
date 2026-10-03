@@ -31,7 +31,7 @@ public partial class ReportTool : Page
         {
             plaList.Clear();
             _logger.Info("Loading reportable players for current summoner");
-            var summonerResponse = await Connector("league", "get", "/lol-summoner/v1/current-summoner", "")
+            using var summonerResponse = await Connector("league", "get", "/lol-summoner/v1/current-summoner", "")
                 as HttpResponseMessage;
             if (summonerResponse == null)
                 throw new InvalidOperationException("Unable to retrieve the current summoner.");
@@ -43,7 +43,7 @@ public partial class ReportTool : Page
             if (string.IsNullOrWhiteSpace(currentPuuid))
                 throw new InvalidOperationException("The current summoner response did not include a PUUID.");
 
-            var matchHistoryResponse = await Connector("league", "get",
+            using var matchHistoryResponse = await Connector("league", "get",
                                            "/lol-match-history/v1/products/lol/" + currentPuuid +
                                            "/matches?begIndex=0&endIndex=19", "") as HttpResponseMessage;
             if (matchHistoryResponse == null)
@@ -63,7 +63,7 @@ public partial class ReportTool : Page
                 if (gameCreation.HasValue && !string.IsNullOrWhiteSpace(gameId) &&
                     DateTimeOffset.FromUnixTimeMilliseconds(gameCreation.Value) >= sevenDaysAgo)
                 {
-                    var gameResponse = await Connector("league", "get", "/lol-match-history/v1/games/" + gameId, "")
+                    using var gameResponse = await Connector("league", "get", "/lol-match-history/v1/games/" + gameId, "")
                         as HttpResponseMessage;
                     if (gameResponse != null)
                     {

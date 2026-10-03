@@ -6,6 +6,8 @@ internal static class LogFileMaintenance
 {
     public static void TrimToNewestBytes(string path, long maximumBytes)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maximumBytes);
+
         var file = new FileInfo(path);
         if (!file.Exists || file.Length <= maximumBytes)
             return;
