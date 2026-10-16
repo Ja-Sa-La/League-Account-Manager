@@ -42,6 +42,22 @@ public class RunePageServiceTests
         $"[0,0,{primary},{secondary},[{string.Join(",", runes)}],0,0,0,[0,0,[\"{shards[0]}\",\"{shards[1]}\",\"{shards[2]}\"]],0,0,0,{games}]";
 
     [TestMethod]
+    public void ParseOpGg_ReadsCurrentImportPayload()
+    {
+        const string html = """
+            {\"importClientData\":{\"type\":\"CHAMPION_DETAIL_BUILD\",\"championKey\":\"ahri\",\"primaryStyleId\":8100,\"subStyleId\":8200,\"selectedPerkIds\":[8112,8139,8140,8106,8210,8226,5005,5008,5001]}}
+            """;
+
+        var page = RunePageService.ParseOpGg(html);
+
+        Assert.AreEqual(8100, page.PrimaryStyleId);
+        Assert.AreEqual(8200, page.SubStyleId);
+        CollectionAssert.AreEqual(new[] { 8112, 8139, 8140, 8106 }, page.PerkIds);
+        CollectionAssert.AreEqual(new[] { 8210, 8226 }, page.SecondaryPerkIds);
+        CollectionAssert.AreEqual(new[] { 5005, 5008, 5001 }, page.StatShardIds);
+    }
+
+    [TestMethod]
     public void ParseOpGg_ReadsActiveRunesAndShards()
     {
         var html = string.Join(",",

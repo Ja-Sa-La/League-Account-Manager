@@ -8,7 +8,7 @@
       d:DesignHeight="749" d:DesignWidth="1216"
       Title="Runes">
 
-    <Grid Margin="18">
+    <Grid Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -24,7 +24,7 @@
             <StackPanel>
                 <TextBlock Text="Runes" Style="{StaticResource PageTitleStyle}" />
                 <TextBlock Text="Review the page currently applied in the League client, edit it, or import a recommended page."
-                           Style="{StaticResource PageSubtitleStyle}" />
+                           Style="{StaticResource PageSubtitleStyle}" Margin="0,2,0,0" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <ui:Button Content="Refresh current" Click="OnRefreshClick" Margin="0,0,8,0" />
@@ -32,7 +32,7 @@
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="1" Style="{StaticResource SurfacePanelStyle}" Margin="0,14,0,0">
+        <Border Grid.Row="1" Style="{StaticResource SurfacePanelStyle}" Margin="0,8,0,0" Padding="10">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -40,49 +40,46 @@
                 </Grid.RowDefinitions>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="320" />
                         <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Margin="0,0,12,0">
                         <TextBlock Text="Champion" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
-                        <ui:TextBox x:Name="ChampionName" PlaceholderText="Champion name" />
+                        <ComboBox x:Name="ChampionName" IsEditable="True" IsTextSearchEnabled="True"
+                                  IsTextSearchCaseSensitive="False" StaysOpenOnEdit="True"
+                                  Width="308" MinHeight="40" HorizontalAlignment="Left"
+                                  HorizontalContentAlignment="Stretch" Foreground="{StaticResource TextSecondaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,12,0">
                         <TextBlock Text="Role" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
-                        <ComboBox x:Name="ImportRole" DisplayMemberPath="Label" SelectedValuePath="Id" />
+                        <ComboBox x:Name="ImportRole" DisplayMemberPath="Label" SelectedValuePath="Id" Foreground="{StaticResource TextSecondaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,12,0">
                         <TextBlock Text="Source" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
-                        <ComboBox x:Name="ImportSource" DisplayMemberPath="Label" SelectedValuePath="Id" />
+                        <ComboBox x:Name="ImportSource" DisplayMemberPath="Label" SelectedValuePath="Id" Foreground="{StaticResource TextSecondaryBrush}" />
                     </StackPanel>
-                    <ui:Button Grid.Column="3" Content="Import" Click="OnImportClick" VerticalAlignment="Bottom" MinWidth="110" />
+                    <ui:Button Grid.Column="3" Content="Import" Click="OnImportClick" VerticalAlignment="Bottom" MinWidth="100" />
+                    <CheckBox x:Name="AutoImport" Grid.Column="4" Margin="16,0,12,8"
+                              Content="Auto import in champion select" VerticalAlignment="Bottom"
+                              Checked="OnAutoImportChanged" Unchecked="OnAutoImportChanged" />
+                    <ui:Button Grid.Column="5" Content="Import selected champion" Click="OnImportSelectedChampionClick"
+                               VerticalAlignment="Bottom" />
                 </Grid>
-                <DockPanel Grid.Row="1" Margin="0,14,0,0">
-                    <ui:Button DockPanel.Dock="Right" Content="Import for selected champion" Click="OnImportSelectedChampionClick"
-                               Margin="12,0,0,0" />
-                    <CheckBox x:Name="AutoImport" Content="Automatically import runes in champion select after a champion is selected"
-                              VerticalAlignment="Center" Checked="OnAutoImportChanged" Unchecked="OnAutoImportChanged" />
-                </DockPanel>
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="2" Margin="0,14,0,0" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="2" Margin="0,6,0,0" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
+                <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,6" Padding="8" Height="113">
                     <StackPanel>
-                        <TextBlock x:Name="CurrentPageSummary" Text="Current page has not been loaded."
-                                   TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" />
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Page" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                        <TextBlock Text="Page" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
@@ -90,14 +87,40 @@
                                 <TextBlock Text="Name" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
                                 <ui:TextBox x:Name="PageName" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="0,0,12,0">
-                                <TextBlock Text="Primary tree" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
-                                <ComboBox x:Name="PrimaryStyle" DisplayMemberPath="Name" SelectionChanged="OnStyleChanged" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Secondary tree" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
-                                <ComboBox x:Name="SecondaryStyle" DisplayMemberPath="Name" SelectionChanged="OnStyleChanged" />
-                            </StackPanel>
+                            <Grid Grid.Column="1" Margin="0,0,12,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Primary tree" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                                    <ListBox x:Name="PrimaryStyle" SelectionChanged="OnStyleChanged"
+                                             Style="{StaticResource RuneChoiceListStyle}" ItemContainerStyle="{StaticResource RuneChoiceItemStyle}" />
+                                </StackPanel>
+                                <StackPanel x:Name="PrimaryStyleDetails" Grid.Column="1" Margin="10,0,0,0" Height="96" VerticalAlignment="Center">
+                                    <TextBlock x:Name="PrimaryStyleName" FontWeight="Bold" Foreground="White"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="PrimaryStyleDescription" Height="76" TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis" Foreground="White" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Column="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Secondary tree" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5" />
+                                    <ListBox x:Name="SecondaryStyle" SelectionChanged="OnStyleChanged"
+                                             Style="{StaticResource RuneChoiceListStyle}" ItemContainerStyle="{StaticResource RuneChoiceItemStyle}" />
+                                </StackPanel>
+                                <StackPanel x:Name="SecondaryStyleDetails" Grid.Column="1" Margin="10,0,0,0" Height="96" VerticalAlignment="Center">
+                                    <TextBlock x:Name="SecondaryStyleName" FontWeight="Bold" Foreground="White"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="SecondaryStyleDescription" Height="76" TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis" Foreground="White" />
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -108,24 +131,22 @@
                         <ColumnDefinition Width="12" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource SurfacePanelStyle}">
+                    <Border Style="{StaticResource SurfacePanelStyle}" Padding="0,0,0,1">
                         <StackPanel>
-                            <TextBlock Text="Primary runes" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                            <TextBlock Text="Primary runes" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
                             <StackPanel x:Name="PrimarySlots" />
                         </StackPanel>
                     </Border>
                     <StackPanel Grid.Column="2">
-                        <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,12">
+                        <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,4" Padding="8">
                             <StackPanel>
-                                <TextBlock Text="Secondary runes" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
-                                <TextBlock Text="Pick one rune from two different rows."
-                                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,10" />
+                                <TextBlock Text="Secondary runes" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
                                 <StackPanel x:Name="SecondarySlots" />
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource SurfacePanelStyle}">
+                        <Border Style="{StaticResource SurfacePanelStyle}" Padding="8,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="Stat shards" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
+                                <TextBlock Text="Stat shards" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
                                 <StackPanel x:Name="ShardSlots" />
                             </StackPanel>
                         </Border>
@@ -134,7 +155,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,12,0,0" TextWrapping="Wrap"
+        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,8,0,0" TextWrapping="Wrap"
                    Foreground="{StaticResource TextSecondaryBrush}" />
     </Grid>
 </Page>
