@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.Windows.Media;
+
 namespace League_Account_Manager.Misc;
 
 /// <summary>
@@ -13,26 +16,31 @@ internal static class RuneCatalog
     internal static readonly RuneStyle[] Styles =
     [
         Style(8000, "Precision",
+            ["Keystone", "Heroism", "Legend", "Combat"],
             Slot(8005, "Press the Attack", 8008, "Lethal Tempo", 8021, "Fleet Footwork", 8010, "Conqueror"),
             Slot(9101, "Absorb Life", 9111, "Triumph", 8009, "Presence of Mind"),
             Slot(9104, "Legend: Alacrity", 9105, "Legend: Haste", 9103, "Legend: Bloodline"),
             Slot(8014, "Coup de Grace", 8017, "Cut Down", 8299, "Last Stand")),
         Style(8100, "Domination",
+            ["Keystone", "Malice", "Tracking", "Hunter"],
             Slot(8112, "Electrocute", 8128, "Dark Harvest", 9923, "Hail of Blades"),
             Slot(8126, "Cheap Shot", 8139, "Taste of Blood", 8143, "Sudden Impact"),
             Slot(8137, "Sixth Sense", 8140, "Grisly Mementos", 8141, "Deep Ward"),
             Slot(8135, "Treasure Hunter", 8105, "Relentless Hunter", 8106, "Ultimate Hunter")),
         Style(8200, "Sorcery",
+            ["Keystone", "Artifact", "Excellence", "Power"],
             Slot(8214, "Summon Aery", 8229, "Arcane Comet", 8230, "Stormraider's Surge", 8992, "Deathfire Touch"),
             Slot(8224, "Axiom Arcanist", 8226, "Manaflow Band", 8275, "Nimbus Cloak"),
             Slot(8210, "Transcendence", 8234, "Celerity", 8233, "Absolute Focus"),
             Slot(8237, "Scorch", 8232, "Waterwalking", 8236, "Gathering Storm")),
         Style(8300, "Inspiration",
+            ["Keystone", "Contraptions", "Tomorrow", "Beyond"],
             Slot(8351, "Glacial Augment", 8360, "Unsealed Spellbook", 8369, "First Strike"),
             Slot(8306, "Hextech Flashtraption", 8304, "Magical Footwear", 8321, "Cash Back"),
             Slot(8313, "Triple Tonic", 8352, "Time Warp Tonic", 8345, "Biscuit Delivery"),
             Slot(8347, "Cosmic Insight", 8410, "Approach Velocity", 8316, "Jack Of All Trades")),
         Style(8400, "Resolve",
+            ["Keystone", "Strength", "Resistance", "Vitality"],
             Slot(8437, "Grasp of the Undying", 8439, "Aftershock", 8465, "Guardian"),
             Slot(8446, "Demolish", 8463, "Font of Life", 8401, "Shield Bash"),
             Slot(8429, "Conditioning", 8444, "Second Wind", 8473, "Bone Plating"),
@@ -119,7 +127,23 @@ internal static class RuneCatalog
         };
     }
 
-    private static RuneStyle Style(int id, string name, params RunePerk[][] slots) => new(id, name, slots);
+    internal static void RefreshIcons()
+    {
+        foreach (var style in Styles)
+        {
+            style.RefreshIcon();
+            foreach (var slot in style.Slots)
+            foreach (var perk in slot)
+                perk.RefreshIcon();
+        }
+
+        foreach (var row in ShardRows)
+        foreach (var shard in row.Shards)
+            shard.RefreshIcon();
+    }
+
+    private static RuneStyle Style(int id, string name, string[] slotNames, params RunePerk[][] slots) =>
+        new(id, name, slotNames, slots);
 
     private static RunePerk[] Slot(int id1, string name1, int id2, string name2, int id3, string name3) =>
         [new(id1, name1), new(id2, name2), new(id3, name3)];
@@ -128,11 +152,31 @@ internal static class RuneCatalog
         string name4) => [new(id1, name1), new(id2, name2), new(id3, name3), new(id4, name4)];
 }
 
-internal sealed record RunePerk(int Id, string Name);
+internal abstract class RuneVisual(int id, string name) : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
 
-internal sealed record RuneStyle(int Id, string Name, RunePerk[][] Slots);
+    public int Id { get; } = id;
+    public string Name { get; } = name;
+    public ImageSource? Icon => RuneIcons.Image(Id);
+    public string Description => RuneIcons.Description(Id);
 
-internal sealed record RuneShard(int Id, string Name);
+    internal void RefreshIcon()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Icon)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Description)));
+    }
+}
+
+internal sealed class RunePerk(int id, string name) : RuneVisual(id, name);
+
+internal sealed class RuneStyle(int id, string name, string[] slotNames, RunePerk[][] slots) : RuneVisual(id, name)
+{
+    public string[] SlotNames { get; } = slotNames;
+    public RunePerk[][] Slots { get; } = slots;
+}
+
+internal sealed class RuneShard(int id, string name) : RuneVisual(id, name);
 
 internal sealed record RuneShardRow(int StyleId, string Name, RuneShard[] Shards);
 

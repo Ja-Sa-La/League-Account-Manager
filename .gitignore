@@ -370,3 +370,4 @@ tmp-cdp-*.mjs
 
 # Local Node tooling manifest
 package.json
+.vscode/settings.json

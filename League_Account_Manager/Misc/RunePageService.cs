@@ -79,11 +79,26 @@ internal static class RunePageService
         CancellationToken cancellationToken = default)
     {
         var champions = await ChampionKeysAsync(cancellationToken);
+        if (champions.TryGetValue(championName, out var exact))
+            return exact;
+
         var normalized = NormalizeChampion(championName);
         if (champions.TryGetValue(normalized, out var key))
             return key;
 
         throw new InvalidOperationException($"Champion '{championName}' was not found.");
+    }
+
+    internal static async Task<IReadOnlyList<string>> ChampionNamesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var champions = await ChampionKeysAsync(cancellationToken);
+        return champions
+            .Where(champion => champion.Key.Any(char.IsUpper))
+            .GroupBy(champion => champion.Value)
+            .Select(group => group.First().Key)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     internal static string ChampionName(int championKey)
@@ -93,7 +108,7 @@ internal static class RunePageService
 
         foreach (var champion in championKeys)
         {
-            if (champion.Value == championKey)
+            if (champion.Value == championKey && champion.Key.Any(char.IsUpper))
                 return champion.Key;
         }
 
@@ -114,7 +129,7 @@ internal static class RunePageService
         var uggPatch = patch.Replace('.', '_');
         var url =
             $"https://stats2.u.gg/lol/1.5/overview/{uggPatch}/ranked_solo_5x5/{championKey}/1.5.0.json";
-        var document = JObject.Parse(await GetTextAsync(url, cancellationToken));
+        var document = JObject.Parse(await GetTextAsync(url, cancellationToken, "https://u.gg/"));
         return ParseUggDocument(document, role);
     }
 
@@ -152,6 +167,26 @@ internal static class RunePageService
 
     private static RunePage ParseOpGgFragment(string html)
     {
+        var normalized = html.Replace("\\\"", "\"", StringComparison.Ordinal);
+        var import = Regex.Match(normalized,
+            "\"importClientData\":\\{\"type\":\"CHAMPION_DETAIL_BUILD\".*?\"selectedPerkIds\":\\[(\\d+(?:,\\d+)*)\\]\\}",
+            RegexOptions.Singleline);
+        if (import.Success)
+        {
+            var ids = import.Groups[1].Value.Split(',').Select(int.Parse).ToArray();
+            if (ids.Length >= 9)
+            {
+                return new RunePage
+                {
+                    PrimaryStyleId = MatchInt(import.Value, "\"primaryStyleId\":(\\d+)"),
+                    SubStyleId = MatchInt(import.Value, "\"subStyleId\":(\\d+)"),
+                    PerkIds = ids.Take(4).ToArray(),
+                    SecondaryPerkIds = ids.Skip(4).Take(2).ToArray(),
+                    StatShardIds = ids.Skip(6).Take(3).ToArray()
+                };
+            }
+        }
+
         var marker = html.LastIndexOf("\\\"primary_perk_style\\\":{\\\"id\\\":", StringComparison.Ordinal);
         if (marker < 0)
             marker = html.IndexOf("primary_perk_style", StringComparison.Ordinal);
@@ -160,8 +195,8 @@ internal static class RunePageService
 
         var fragment = html.Substring(marker, Math.Min(30000, html.Length - marker))
             .Replace("\\\"", "\"", StringComparison.Ordinal);
-        var primary = MatchInt(fragment, "\"primary_perk_style\":{\"id\":(\\d+)");
-        var secondary = MatchInt(fragment, "\"perk_sub_style\":{\"id\":(\\d+)");
+        var primary = MatchInt(fragment, "\"primary_perk_style\":\\{\"id\":(\\d+)");
+        var secondary = MatchInt(fragment, "\"perk_sub_style\":\\{\"id\":(\\d+)");
         var active = Regex.Matches(fragment,
                 "\"id\":(\\d+),\"name\":\"(?:\\\\.|[^\"\\\\]*)\",\"image_url\":\"[^\"]+\",\"isActive\":true")
             .Select(match => int.Parse(match.Groups[1].Value))
@@ -243,13 +278,14 @@ internal static class RunePageService
             var patch = await CurrentPatchAsync(cancellationToken);
             var document = JObject.Parse(await GetTextAsync(
                 $"https://ddragon.leagueoflegends.com/cdn/{patch}/data/en_US/champion.json", cancellationToken));
-            var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var result = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var champion in document["data"]?.Children<JProperty>() ?? [])
             {
                 var name = champion.Value?["name"]?.ToString() ?? champion.Name;
                 var key = champion.Value?["key"]?.Value<int>() ?? 0;
-                result[NormalizeChampion(name)] = key;
-                result[NormalizeChampion(champion.Name)] = key;
+                result[name] = key;
+                result.TryAdd(NormalizeChampion(name), key);
+                result.TryAdd(NormalizeChampion(champion.Name), key);
             }
 
             championKeys = result;
@@ -404,9 +440,19 @@ internal static class RunePageService
         }
     }
 
-    private static async Task<string> GetTextAsync(string url, CancellationToken cancellationToken)
+    private static Task<string> GetTextAsync(string url, CancellationToken cancellationToken) =>
+        GetTextAsync(url, cancellationToken, null);
+
+    private static async Task<string> GetTextAsync(string url, CancellationToken cancellationToken, string? referer)
     {
-        using var response = await Http.GetAsync(url, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (!string.IsNullOrWhiteSpace(referer))
+        {
+            request.Headers.Referrer = new Uri(referer);
+            request.Headers.TryAddWithoutValidation("Origin", referer.TrimEnd('/'));
+        }
+
+        using var response = await Http.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }
@@ -416,11 +462,22 @@ internal static class RunePageService
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36");
-        client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/json,*/*");
+        client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/json;q=0.9,*/*;q=0.8");
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         return client;
     }
 }
 
-internal readonly record struct RuneImportSource(string Id, string Label);
+internal sealed class RuneImportSource(string id, string label)
+{
+    public string Id { get; } = id;
+    public string Label { get; } = label;
+    public override string ToString() => Label;
+}
 
-internal readonly record struct RuneImportRole(string Id, string Label);
+internal sealed class RuneImportRole(string id, string label)
+{
+    public string Id { get; } = id;
+    public string Label { get; } = label;
+    public override string ToString() => Label;
+}
