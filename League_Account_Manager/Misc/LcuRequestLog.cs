@@ -20,7 +20,10 @@ internal sealed record LcuRequestRecord(
 
 internal static partial class LcuRequestLog
 {
-    private const int MaximumBodyLength = 200_000;
+    // Every REST call and every LCU WebSocket event used to be kept forever with its full body,
+    // which grew the process to gigabytes. Keep a bounded, truncated window instead.
+    private const int MaximumBodyLength = 16_000;
+    private const int MaximumEntries = 300;
     private static readonly Lock Sync = new();
     private static readonly List<LcuRequestRecord> Entries = [];
     private static long _nextId;
@@ -50,10 +53,10 @@ internal static partial class LcuRequestLog
             target,
             method.ToUpperInvariant(),
             endpoint,
-            requestBody ?? string.Empty,
+            Truncate(requestBody),
             statusCode,
             status,
-            responseBody ?? string.Empty,
+            Truncate(responseBody),
             durationMilliseconds,
             error,
             trafficType,
@@ -63,7 +66,11 @@ internal static partial class LcuRequestLog
             responseHeaders ?? string.Empty);
 
         lock (Sync)
+        {
             Entries.Add(entry);
+            if (Entries.Count > MaximumEntries)
+                Entries.RemoveRange(0, Entries.Count - MaximumEntries);
+        }
 
         var handlers = RequestCompleted;
         if (handlers != null)
@@ -94,7 +101,7 @@ internal static partial class LcuRequestLog
             {
                 StatusCode = statusCode,
                 Status = status,
-                ResponseBody = responseBody ?? string.Empty,
+                ResponseBody = Truncate(responseBody),
                 DurationMilliseconds = durationMilliseconds,
                 Error = error,
                 ResponseHeaders = responseHeaders ?? string.Empty,
@@ -118,4 +125,11 @@ internal static partial class LcuRequestLog
         return entry;
     }
 
+    private static string Truncate(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value.Length <= MaximumBodyLength ? value : value[..MaximumBodyLength] + "… (truncated)";
+    }
 }

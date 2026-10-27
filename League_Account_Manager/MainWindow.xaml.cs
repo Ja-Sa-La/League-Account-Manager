@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private TaskCompletionSource<MessageBoxResult>? _updateModalCompletion;
     private Action? _updateModalReleaseAction;
     private Action? _updateModalUpdateAction;
+    private DispatcherTimer? _memoryTrimTimer;
 
     public MainWindow()
     {
@@ -208,11 +209,44 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    ///     Pages allocate large account/JSON strings on the large object heap, which .NET only
+    ///     reclaims on a full collection and never compacts by default, so every tab switch left
+    ///     the process bigger. Once navigation settles, run one compacting collection.
+    /// </summary>
+    private void ScheduleMemoryTrim()
+    {
+        _memoryTrimTimer ??= new DispatcherTimer(DispatcherPriority.ApplicationIdle, Dispatcher)
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _memoryTrimTimer.Tick -= MemoryTrimTimerOnTick;
+        _memoryTrimTimer.Tick += MemoryTrimTimerOnTick;
+        _memoryTrimTimer.Stop();
+        _memoryTrimTimer.Start();
+    }
+
+    private void MemoryTrimTimerOnTick(object? sender, EventArgs e)
+    {
+        _memoryTrimTimer?.Stop();
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode =
+            System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(2, GCCollectionMode.Forced, true, true);
+    }
+
     private void RootNavigation_OnLoaded(object sender, RoutedEventArgs e)
     {
+        RootNavigation.Navigated -= RootNavigationOnNavigated;
+        RootNavigation.Navigated += RootNavigationOnNavigated;
         RootNavigation.Navigate("home");
         Dispatcher.BeginInvoke(DisableNavigationScrollViewers, DispatcherPriority.Loaded);
         Dispatcher.BeginInvoke(DisableNavigationScrollViewers, DispatcherPriority.ContextIdle);
+    }
+
+    private void RootNavigationOnNavigated(Wpf.Ui.Controls.NavigationView sender,
+        Wpf.Ui.Controls.NavigatedEventArgs args)
+    {
+        ScheduleMemoryTrim();
     }
 
     private void DisableNavigationScrollViewers()

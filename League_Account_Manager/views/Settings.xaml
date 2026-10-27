@@ -54,6 +54,12 @@
                                                  <CheckBox x:Name="UseLegacyLogin" Content="Use legacy login" Margin="0,0,0,7"
                                                            ToolTip="Log in by typing the credentials into the Riot Client window (browser automation) instead of the RSO API. Enable this only if the standard login has issues with your accounts."
                                                            IsChecked="False" />
+                                                 <CheckBox x:Name="CloseAfterLogin" Content="Close LAM after login" Margin="0,0,0,7"
+                                                           ToolTip="Exit League Account Manager once a normal login has launched the game. Stealth and debug logins always stay open."
+                                                           IsChecked="True" />
+                                                 <CheckBox x:Name="SkipFetchAfterLogin" Content="Login only (don't fetch account data)" Margin="0,0,0,7"
+                                                           ToolTip="After logging in, just launch the game and close LAM without pulling rank, champions, skins and other account data."
+                                                           IsChecked="False" />
                                                  <CheckBox x:Name="AccountFileEncryption" Content="Encrypt the account file with a password"
                                                                  Checked="OnAccountFileEncryptionChecked" Unchecked="OnAccountFileEncryptionChecked" />
                                                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">

@@ -460,6 +460,11 @@ public partial class ValorantAccounts : Page
 
     private async void OnPullDataClick(object sender, RoutedEventArgs e)
     {
+        await PullDataCoreAsync();
+    }
+
+    private async Task PullDataCoreAsync()
+    {
         try
         {
             if (Process.GetProcessesByName("Riot Client").Length == 0 &&
@@ -716,7 +721,11 @@ public partial class ValorantAccounts : Page
 
             DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Login accepted, launching Valorant product.");
             await Lcu.Connector("riot", "post", "/product-launcher/v1/products/valorant/patchlines/live", "");
-            OnPullDataClick(this, new RoutedEventArgs());
+            if (!Misc.Settings.settingsloaded.SkipFetchAfterLogin)
+                await PullDataCoreAsync();
+            // Stealth login keeps its offline proxy inside this process, so only a normal login closes LAM.
+            if (!stealth)
+                App.ShutdownAfterLogin();
         }
         catch (Exception exception)
         {
@@ -1043,7 +1052,10 @@ public partial class ValorantAccounts : Page
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/valorant/patchlines/live", "");
                             DebugConsole.WriteLine("[ValorantAccounts] Triggering Valorant account pull after login");
-                            OnPullDataClick(this, new RoutedEventArgs());
+                            if (!Misc.Settings.settingsloaded.SkipFetchAfterLogin)
+                                await PullDataCoreAsync();
+                            if (clickedButton.Name == "Login")
+                                App.ShutdownAfterLogin();
                             break;
                         }
 
@@ -1187,28 +1199,12 @@ public partial class ValorantAccounts : Page
     {
         try
         {
-            await Task.Run(async () =>
-            {
-                var filePath = AccountFileStore.GetAccountsFilePath();
-
-                if (File.Exists(filePath))
-                {
-                    ActualAccountlists = await AccountFileStore.LoadAsync(filePath, config);
-                    _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
-                }
-                else
-                {
-                    ActualAccountlists = new List<Utils.AccountList>();
-                    await AccountFileStore.SaveAsync(filePath, ActualAccountlists, config);
-                    _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
-                }
-
-                ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-                Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
-            });
+            _lastKnownFileWrite = await Task.Run(() => Accounts.LoadSharedAccountListAsync(config));
 
             Dispatcher.Invoke(() =>
             {
+                if (ReferenceEquals(ValorantAccountsDataGrid.ItemsSource, ActualAccountlists))
+                    return;
                 ValorantAccountsDataGrid.ItemsSource = null;
                 ValorantAccountsDataGrid.ItemsSource = ActualAccountlists;
                 ApplyValorantSortToGrid();
