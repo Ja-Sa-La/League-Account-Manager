@@ -13,6 +13,10 @@
 	<ItemGroup>
 	  <Content Include="Assests\LAM Icon.ico" />
 	</ItemGroup>
+	<ItemGroup>
+		<!-- Let the GC compact a fragmented large object heap instead of growing the process. -->
+		<RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+	</ItemGroup>
  <ItemGroup>
 		<Resource Include="Assests\Navigation Icons\*.png" />
 		<Resource Include="Assests\Rank Icons\*.svg" />

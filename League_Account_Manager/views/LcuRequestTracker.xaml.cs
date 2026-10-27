@@ -12,6 +12,7 @@ namespace League_Account_Manager.views;
 
 public partial class LcuRequestTracker : Page
 {
+    private const int MaximumRows = 300;
     private readonly ObservableCollection<TrafficRow> _rows = [];
     private readonly ICollectionView _view;
     private bool _allSelected;
@@ -66,6 +67,8 @@ public partial class LcuRequestTracker : Page
         }
 
         _rows.Add(new TrafficRow(record));
+        while (_rows.Count > MaximumRows)
+            _rows.RemoveAt(0);
     }
 
     private bool FilterTraffic(object item)

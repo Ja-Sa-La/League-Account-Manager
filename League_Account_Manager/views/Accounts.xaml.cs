@@ -78,6 +78,33 @@ public partial class Accounts : Page
     }
 
     public static List<Utils.AccountList> ActualAccountlists { get; set; } = new();
+
+    // Write time of the account file the shared list was read from. The League and Valorant pages
+    // both load the same file; re-reading it on every tab switch kept several multi-megabyte copies
+    // alive, so a page reuses the shared list while the file is unchanged.
+    internal static DateTime SharedListWriteTimeUtc { get; set; } = DateTime.MinValue;
+
+    /// <summary>Loads the account file into <see cref="ActualAccountlists" /> unless it is already current.</summary>
+    internal static async Task<DateTime> LoadSharedAccountListAsync(CsvConfiguration csvConfig)
+    {
+        var filePath = AccountFileStore.GetAccountsFilePath();
+        if (!File.Exists(filePath))
+        {
+            ActualAccountlists = new List<Utils.AccountList>();
+            await AccountFileStore.SaveAsync(filePath, ActualAccountlists, csvConfig);
+            return SharedListWriteTimeUtc = File.GetLastWriteTimeUtc(filePath);
+        }
+
+        var writeTime = File.GetLastWriteTimeUtc(filePath);
+        if (ActualAccountlists.Count > 0 && writeTime == SharedListWriteTimeUtc)
+            return writeTime;
+
+        var records = await AccountFileStore.LoadAsync(filePath, csvConfig);
+        records.RemoveAll(r => r.username == "username" && r.password == "password");
+        Utils.RemoveDoubleQuotesFromList(records);
+        ActualAccountlists = records;
+        return SharedListWriteTimeUtc = File.GetLastWriteTimeUtc(filePath);
+    }
     public static event Action? PullDataCompleted;
 
     private void Accounts_OnLoaded(object sender, RoutedEventArgs e)
@@ -497,28 +524,12 @@ public partial class Accounts : Page
         await _accountDataGate.WaitAsync();
         try
         {
-            await Task.Run(async () =>
-            {
-                var filePath = AccountFileStore.GetAccountsFilePath();
-
-                if (File.Exists(filePath))
-                {
-                    ActualAccountlists = await AccountFileStore.LoadAsync(filePath, config);
-                    _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
-                }
-                else
-                {
-                    ActualAccountlists = new List<Utils.AccountList>();
-                    await AccountFileStore.SaveAsync(filePath, ActualAccountlists, config);
-                    _lastKnownFileWrite = File.GetLastWriteTimeUtc(filePath);
-                }
-
-                ActualAccountlists.RemoveAll(r => r.username == "username" && r.password == "password");
-                Utils.RemoveDoubleQuotesFromList(ActualAccountlists);
-            });
+            _lastKnownFileWrite = await Task.Run(() => LoadSharedAccountListAsync(config));
 
             Dispatcher.Invoke(() =>
             {
+                if (ReferenceEquals(AccountsDataGrid.ItemsSource, ActualAccountlists))
+                    return;
                 AccountsDataGrid.ItemsSource = null;
                 AccountsDataGrid.ItemsSource = ActualAccountlists;
                 ApplyLeagueSortToGrid();
@@ -1928,7 +1939,8 @@ public partial class Accounts : Page
                         "Waiting for summoner readiness",
                         "Fetch account data"
                     },
-                    cancellationToken => LoginRsoAsync(clickedButton.Name, persist, cancellationToken));
+                    cancellationToken => ShutdownAfterLoginAsync(clickedButton.Name,
+                        LoginRsoAsync(clickedButton.Name, persist, cancellationToken)));
                 return;
             }
 
@@ -1943,7 +1955,8 @@ public partial class Accounts : Page
                     "Waiting for summoner readiness",
                     "Fetch account data"
                 },
-                cancellationToken => LoginAsync(clickedButton.Name, persist, cancellationToken));
+                cancellationToken => ShutdownAfterLoginAsync(clickedButton.Name,
+                    LoginAsync(clickedButton.Name, persist, cancellationToken)));
         }
         catch (Exception exception)
         {
@@ -1953,6 +1966,18 @@ public partial class Accounts : Page
                 "WindowArea", TimeSpan.FromSeconds(10), null, null, null, null, () => Notif.donothing(), "OK",
                 NotificationTextTrimType.NoTrim, 2U, true, null, null, false);
         }
+    }
+
+    /// <summary>
+    ///     Closes LAM after a successful normal login. Stealth and debug logins keep running
+    ///     because their offline/capture proxies live inside this process.
+    /// </summary>
+    private static async Task<bool> ShutdownAfterLoginAsync(string loginButtonName, Task<bool> login)
+    {
+        var loggedIn = await login;
+        if (loggedIn && loginButtonName == "Login")
+            App.ShutdownAfterLogin();
+        return loggedIn;
     }
 
     private async Task<bool> LoginAsync(string loginButtonName, bool? persistLogin,
@@ -2252,6 +2277,13 @@ public partial class Accounts : Page
 
     private async Task<bool> WaitForSummonerReadyAsync(CancellationToken cancellationToken)
     {
+        // "Login only": the League client is already launching, nothing left to wait for.
+        if (Misc.Settings.settingsloaded.SkipFetchAfterLogin)
+        {
+            SetAccountOperationStatus("League client launched.");
+            return true;
+        }
+
         while (true)
         {
             try

@@ -358,6 +358,7 @@ public static class Settings
             ValorantDefaultSortColumn = "valorantLevel",
             ValorantDefaultSortDescending = true,
             UseLegacyLogin = false,
+            CloseAfterLogin = true,
             AutoImportRunes = false,
             RuneImportSource = "ugg",
             RuneImportRole = "automatic"
@@ -583,6 +584,8 @@ public static class Settings
         public bool AutoLobbyMessage { get; set; }
         public bool AutoLobbyMute { get; set; }
         public bool UseLegacyLogin { get; set; }
+        public bool SkipFetchAfterLogin { get; set; }
+        public bool CloseAfterLogin { get; set; }
         public bool AutoImportRunes { get; set; }
         public string RuneImportSource { get; set; }
         public string RuneImportRole { get; set; }
