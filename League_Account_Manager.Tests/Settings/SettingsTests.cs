@@ -28,6 +28,11 @@ public class SettingsTests
         Assert.AreEqual("valorantLevel", result.ValorantDefaultSortColumn);
         Assert.IsTrue(result.ValorantDefaultSortDescending);
         Assert.IsFalse(result.UseLegacyLogin);
+        Assert.IsFalse(result.CloseAfterLogin);
+        Assert.IsFalse(result.SkipFetchAfterLogin);
+        Assert.IsTrue(result.LimitLcuTrafficLog);
+        Assert.AreEqual(300, result.LcuTrafficLogEntryLimit);
+        Assert.AreEqual(16, result.LcuTrafficBodyLimitKb);
         Assert.IsFalse(result.AutoImportRunes);
         Assert.AreEqual("ugg", result.RuneImportSource);
         Assert.AreEqual("automatic", result.RuneImportRole);

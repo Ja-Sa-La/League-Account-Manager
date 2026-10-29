@@ -1,4 +1,4 @@
-﻿using League_Account_Manager.Windows;
+using League_Account_Manager.Windows;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -358,6 +358,10 @@ public static class Settings
             ValorantDefaultSortColumn = "valorantLevel",
             ValorantDefaultSortDescending = true,
             UseLegacyLogin = false,
+            CloseAfterLogin = false,
+            LimitLcuTrafficLog = true,
+            LcuTrafficLogEntryLimit = 300,
+            LcuTrafficBodyLimitKb = 16,
             AutoImportRunes = false,
             RuneImportSource = "ugg",
             RuneImportRole = "automatic"
@@ -583,6 +587,17 @@ public static class Settings
         public bool AutoLobbyMessage { get; set; }
         public bool AutoLobbyMute { get; set; }
         public bool UseLegacyLogin { get; set; }
+        public bool SkipFetchAfterLogin { get; set; }
+        public bool CloseAfterLogin { get; set; }
+
+        /// <summary>
+        ///     Keeps the LCU traffic log and the traffic page to the newest
+        ///     <see cref="LcuTrafficLogEntryLimit" /> entries and cuts each stored body at
+        ///     <see cref="LcuTrafficBodyLimitKb" /> KB. Turn off to keep everything captured.
+        /// </summary>
+        public bool LimitLcuTrafficLog { get; set; }
+        public int LcuTrafficLogEntryLimit { get; set; }
+        public int LcuTrafficBodyLimitKb { get; set; }
         public bool AutoImportRunes { get; set; }
         public string RuneImportSource { get; set; }
         public string RuneImportRole { get; set; }

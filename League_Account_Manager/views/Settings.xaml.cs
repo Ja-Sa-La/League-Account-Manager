@@ -33,6 +33,11 @@ public partial class Settings : Page
         AutoUpdateRanks.IsChecked = Misc.Settings.settingsloaded.UpdateRanks;
         PersistentLoginMode.SelectedIndex = (int)Misc.Settings.settingsloaded.PersistentLoginMode;
         UseLegacyLogin.IsChecked = Misc.Settings.settingsloaded.UseLegacyLogin;
+        SkipFetchAfterLogin.IsChecked = Misc.Settings.settingsloaded.SkipFetchAfterLogin;
+        CloseAfterLogin.IsChecked = Misc.Settings.settingsloaded.CloseAfterLogin;
+        LimitLcuTrafficLog.IsChecked = Misc.Settings.settingsloaded.LimitLcuTrafficLog;
+        LcuTrafficLogEntryLimit.Text = Misc.Settings.settingsloaded.LcuTrafficLogEntryLimit.ToString();
+        LcuTrafficBodyLimitKb.Text = Misc.Settings.settingsloaded.LcuTrafficBodyLimitKb.ToString();
         AccountFileEncryption.IsChecked = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
         CurrentInstallLocation.Text = Path.GetFullPath(AppContext.BaseDirectory);
         _initializing = false;
@@ -199,6 +204,13 @@ public partial class Settings : Page
         Misc.Settings.settingsloaded.PersistentLoginMode =
             (PersistentLoginMode)System.Math.Max(0, System.Math.Min(2, PersistentLoginMode.SelectedIndex));
         Misc.Settings.settingsloaded.UseLegacyLogin = UseLegacyLogin.IsChecked == true;
+        Misc.Settings.settingsloaded.SkipFetchAfterLogin = SkipFetchAfterLogin.IsChecked == true;
+        Misc.Settings.settingsloaded.CloseAfterLogin = CloseAfterLogin.IsChecked == true;
+        Misc.Settings.settingsloaded.LimitLcuTrafficLog = LimitLcuTrafficLog.IsChecked == true;
+        if (int.TryParse(LcuTrafficLogEntryLimit.Text, out var entryLimit) && entryLimit > 0)
+            Misc.Settings.settingsloaded.LcuTrafficLogEntryLimit = entryLimit;
+        if (int.TryParse(LcuTrafficBodyLimitKb.Text, out var bodyLimitKb) && bodyLimitKb > 0)
+            Misc.Settings.settingsloaded.LcuTrafficBodyLimitKb = bodyLimitKb;
 
         // Persist update preferences before account-file migration can fail.
         Misc.Settings.Save();

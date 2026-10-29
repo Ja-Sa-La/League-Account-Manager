@@ -20,7 +20,10 @@ internal sealed record LcuRequestRecord(
 
 internal static partial class LcuRequestLog
 {
-    private const int MaximumBodyLength = 200_000;
+    // Every REST call and every LCU WebSocket event used to be kept forever with its full body,
+    // which grew the process to gigabytes. Unless the user turns the limit off, keep a bounded,
+    // truncated window instead. The size of that window comes from settings.
+    private const int UnlimitedBodyLength = 200_000;
     private static readonly Lock Sync = new();
     private static readonly List<LcuRequestRecord> Entries = [];
     private static long _nextId;
@@ -50,10 +53,10 @@ internal static partial class LcuRequestLog
             target,
             method.ToUpperInvariant(),
             endpoint,
-            requestBody ?? string.Empty,
+            Truncate(requestBody),
             statusCode,
             status,
-            responseBody ?? string.Empty,
+            Truncate(responseBody),
             durationMilliseconds,
             error,
             trafficType,
@@ -63,7 +66,10 @@ internal static partial class LcuRequestLog
             responseHeaders ?? string.Empty);
 
         lock (Sync)
+        {
             Entries.Add(entry);
+            TrimEntries();
+        }
 
         var handlers = RequestCompleted;
         if (handlers != null)
@@ -94,7 +100,7 @@ internal static partial class LcuRequestLog
             {
                 StatusCode = statusCode,
                 Status = status,
-                ResponseBody = responseBody ?? string.Empty,
+                ResponseBody = Truncate(responseBody),
                 DurationMilliseconds = durationMilliseconds,
                 Error = error,
                 ResponseHeaders = responseHeaders ?? string.Empty,
@@ -118,4 +124,29 @@ internal static partial class LcuRequestLog
         return entry;
     }
 
+    private static void TrimEntries()
+    {
+        if (!Settings.settingsloaded.LimitLcuTrafficLog)
+            return;
+
+        var maximumEntries = Settings.settingsloaded.LcuTrafficLogEntryLimit > 0
+            ? Settings.settingsloaded.LcuTrafficLogEntryLimit
+            : 300;
+        if (Entries.Count > maximumEntries)
+            Entries.RemoveRange(0, Entries.Count - maximumEntries);
+    }
+
+    private static string Truncate(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var bodyLimitKb = Settings.settingsloaded.LcuTrafficBodyLimitKb > 0
+            ? Settings.settingsloaded.LcuTrafficBodyLimitKb
+            : 16;
+        var maximumBodyLength = Settings.settingsloaded.LimitLcuTrafficLog
+            ? bodyLimitKb * 1024
+            : UnlimitedBodyLength;
+        return value.Length <= maximumBodyLength ? value : value[..maximumBodyLength] + "… (truncated)";
+    }
 }

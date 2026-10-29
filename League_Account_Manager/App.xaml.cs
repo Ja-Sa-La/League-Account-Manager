@@ -25,7 +25,23 @@ public partial class App : Application
         base.OnStartup(e);
         ProxyLoginTokenManager.RegisterLoginUriScheme();
         DebugTrafficCapture.Start();
-        LcuWebSocketMonitor.Start();
+        // The LCU WebSocket monitor is only needed by the request tracker page and debug login,
+        // which start it themselves; running it from startup recorded every client event.
+    }
+
+    /// <summary>
+    ///     Closes LAM once a login has handed off to the game client, so it does not sit in
+    ///     the background holding memory.
+    /// </summary>
+    internal static void ShutdownAfterLogin()
+    {
+        var dispatcher = Current?.Dispatcher;
+        if (!Settings.settingsloaded.CloseAfterLogin || dispatcher == null || dispatcher.HasShutdownStarted ||
+            dispatcher.HasShutdownFinished)
+            return;
+
+        DebugConsole.WriteLine("[Login] Login finished, closing League Account Manager.");
+        dispatcher.BeginInvoke(() => Current?.Shutdown());
     }
 
     protected override void OnExit(ExitEventArgs e)

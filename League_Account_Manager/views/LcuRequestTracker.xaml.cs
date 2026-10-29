@@ -66,6 +66,14 @@ public partial class LcuRequestTracker : Page
         }
 
         _rows.Add(new TrafficRow(record));
+        if (Misc.Settings.settingsloaded.LimitLcuTrafficLog)
+        {
+            var maximumRows = Misc.Settings.settingsloaded.LcuTrafficLogEntryLimit > 0
+                ? Misc.Settings.settingsloaded.LcuTrafficLogEntryLimit
+                : 300;
+            while (_rows.Count > maximumRows)
+                _rows.RemoveAt(0);
+        }
     }
 
     private bool FilterTraffic(object item)
