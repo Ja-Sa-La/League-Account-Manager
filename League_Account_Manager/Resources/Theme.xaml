@@ -379,6 +379,7 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="HasItems" Value="False">
+                            <Setter TargetName="PART_Popup" Property="MinWidth" Value="220" />
                             <Setter TargetName="PART_Popup" Property="MinHeight" Value="40" />
                         </Trigger>
                         <Trigger Property="IsEditable" Value="True">

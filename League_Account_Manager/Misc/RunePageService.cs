@@ -126,7 +126,8 @@ internal static class RunePageService
         CancellationToken cancellationToken)
     {
         var patch = await CurrentPatchAsync(cancellationToken);
-        var uggPatch = patch.Replace('.', '_');
+        // u.gg keys stats by major.minor. The full Data Dragon version, such as 16.21.1, returns 403.
+        var uggPatch = string.Join('_', patch.Split('.').Take(2));
         var url =
             $"https://stats2.u.gg/lol/1.5/overview/{uggPatch}/ranked_solo_5x5/{championKey}/1.5.0.json";
         var document = JObject.Parse(await GetTextAsync(url, cancellationToken, "https://u.gg/"));

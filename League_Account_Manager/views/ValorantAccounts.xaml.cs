@@ -1035,37 +1035,25 @@ public partial class ValorantAccounts : Page
                         var checkbox = riotcontent.FindFirstDescendant(cf => cf.ByControlType(ControlType.CheckBox));
                         if (checkbox == null) throw new Exception("Checkbox field not found");
 
-                        var siblings = riotcontent.FindAllChildren();
-                        if (checkbox.Parent == null) throw new Exception("Checkbox parent not found");
-                        var count = Array.IndexOf(siblings, checkbox) + 1;
-                        if (siblings.Length <= count) throw new Exception("Not enough siblings found for the checkbox");
-                        dynamic? signInElement = null;
-                        while (count < siblings.Length)
-                        {
-                            signInElement = siblings[count++].AsButton();
-
-                            if (signInElement.ControlType != ControlType.Button) continue;
-                            break;
-                        }
+                        var signInElement = FindLegacySignInButton(riotcontent, checkbox)
+                                            ?? throw new Exception("Sign-in button not found");
+                        DebugConsole.WriteLine(
+                            $"[ValorantAccounts] Sign-in button class='{signInElement.ClassName}', enabled={signInElement.IsEnabled}");
 
                         MarkLoginStepCompleted("Find login window");
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
-                        if (persist == true && checkbox.AsCheckBox() is { } rememberBox &&
-                            rememberBox.IsChecked != true)
-                        {
-                            rememberBox.Patterns.Toggle.Pattern.Toggle();
-                            DebugConsole.WriteLine("[ValorantAccounts] Enabled remember-me checkbox");
-                        }
+                        if (persist == true)
+                            SetLegacyChecked(checkbox, true, "[ValorantAccounts]");
                         if (signInElement != null)
                         {
                             for (var waitAttempt = 0; !signInElement.IsEnabled && waitAttempt < 150; waitAttempt++)
                                 await Task.Delay(200);
                             if (!signInElement.IsEnabled)
                                 throw new TimeoutException("Timed out waiting for the sign-in button.");
-                            DebugConsole.WriteLine("[ValorantAccounts] Sign-in button enabled, invoking login");
+                            DebugConsole.WriteLine("[ValorantAccounts] Sign-in button enabled, submitting login");
                             SetLoginStatus("Submitting credentials...");
-                            signInElement.Invoke();
+                            ActivateLegacySignIn(signInElement);
                             MarkLoginStepCompleted("Submit credentials");
                             SetLoginStatus("Waiting for Riot authentication...");
 
@@ -1245,6 +1233,70 @@ public partial class ValorantAccounts : Page
         }
 
         FinishLoginSteps(false);
+    }
+
+    /// <summary>
+    ///     Finds the sign-in button that follows the remember-me checkbox. The current client
+    ///     gives that button no name, while the social buttons before the checkbox do support Invoke.
+    /// </summary>
+    private static FlaUI.Core.AutomationElements.Button? FindLegacySignInButton(AutomationElement content, AutomationElement checkbox)
+    {
+        var parent = checkbox.Parent;
+        if (parent == null) return null;
+
+        var siblings = parent.FindAllChildren();
+        for (var index = Array.IndexOf(siblings, checkbox) + 1; index < siblings.Length; index++)
+        {
+            if (siblings[index].ControlType == ControlType.Button)
+                return siblings[index].AsButton();
+        }
+
+        return content.FindAllDescendants(cf => cf.ByControlType(ControlType.Button))
+            .Select(element => element.AsButton())
+            .LastOrDefault(button => button != null && string.IsNullOrWhiteSpace(button.Name) &&
+                                     !button.ClassName.Contains("social-auth-button", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     Activates the sign-in button. The current client supports Invoke, while older builds
+    ///     may only expose LegacyIAccessible.
+    /// </summary>
+    private static void ActivateLegacySignIn(FlaUI.Core.AutomationElements.Button signInButton)
+    {
+        if (signInButton.Patterns.Invoke.IsSupported)
+        {
+            signInButton.Invoke();
+            return;
+        }
+
+        if (signInButton.Patterns.LegacyIAccessible.IsSupported)
+        {
+            signInButton.Patterns.LegacyIAccessible.Pattern.DoDefaultAction();
+            return;
+        }
+
+        signInButton.Click();
+    }
+
+    /// <summary>
+    ///     Sets the remember-me checkbox. The current client exposes its state through the Value
+    ///     pattern and its action through LegacyIAccessible, not the Toggle pattern.
+    /// </summary>
+    private static void SetLegacyChecked(AutomationElement checkbox, bool isChecked, string logPrefix)
+    {
+        var desired = isChecked ? "true" : "false";
+        if (checkbox.Patterns.Value.IsSupported &&
+            string.Equals(checkbox.Patterns.Value.Pattern.Value.Value, desired, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (checkbox.Patterns.LegacyIAccessible.IsSupported)
+            checkbox.Patterns.LegacyIAccessible.Pattern.DoDefaultAction();
+        else if (checkbox.Patterns.Toggle.IsSupported)
+            checkbox.Patterns.Toggle.Pattern.Toggle();
+        else
+            checkbox.Click();
+
+        DebugConsole.WriteLine($"{logPrefix} Set remember-me checkbox to {desired}");
     }
 
     /// <summary>
