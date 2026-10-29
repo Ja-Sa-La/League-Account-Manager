@@ -1947,6 +1947,8 @@ public partial class Accounts : Page
                 return;
             }
 
+            DebugConsole.WriteLine(
+                $"[Accounts] Starting legacy window login ({clickedButton.Name}, forced={forceLegacyLogin}, setting={Misc.Settings.settingsloaded.UseLegacyLogin}).");
             StartAccountOperation(operationTitle,
                 new[]
                 {
@@ -2052,11 +2054,20 @@ public partial class Accounts : Page
 
                     using (var automation = new UIA3Automation())
                     {
-                        var window = app.GetMainWindow(automation) ??
-                                     throw new Exception("Riot window not found");
-                        var riotcontent =
-                            window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND")) ??
+                        var window = app.GetMainWindow(automation);
+                        if (window == null)
+                        {
+                            LogRiotWindowDiagnostics(riotval, null, "Legacy login: Riot window not found");
+                            throw new Exception("Riot window not found");
+                        }
+
+                        var riotcontent = FindLegacyLoginContent(window);
+                        if (riotcontent == null)
+                        {
+                            LogRiotWindowDiagnostics(riotval, window, "Legacy login: Riot content not found");
                             throw new Exception("Riot content not found");
+                        }
+
                         MarkTaskCompleted("Find login window");
 
 
@@ -2256,6 +2267,62 @@ public partial class Accounts : Page
         }
     }
 
+
+    /// <summary>
+    ///     Finds the element that contains the legacy login controls. Current Riot Client builds
+    ///     expose them directly in the window accessibility tree; older builds hosted them inside
+    ///     a Chrome render widget.
+    /// </summary>
+    private static AutomationElement? FindLegacyLoginContent(AutomationElement window)
+    {
+        if (window.FindFirstDescendant(cf => cf.ByAutomationId("username")) != null)
+            return window;
+
+        return window.FindFirstDescendant(cf => cf.ByClassName("Chrome_RenderWidgetHostHWND"));
+    }
+
+    /// <summary>
+    ///     Logs the attached Riot window and its immediate children when the legacy window
+    ///     login cannot find its content. The clientless login never reaches this path.
+    /// </summary>
+    private static void LogRiotWindowDiagnostics(string processName, AutomationElement? window, string reason)
+    {
+        try
+        {
+            var processes = Process.GetProcesses()
+                .Where(process => process.ProcessName.Contains("Riot", StringComparison.OrdinalIgnoreCase))
+                .Select(process =>
+                {
+                    var title = string.IsNullOrWhiteSpace(process.MainWindowTitle)
+                        ? "(no title)"
+                        : process.MainWindowTitle;
+                    return $"{process.ProcessName}#{process.Id}:{title}";
+                })
+                .ToArray();
+            DebugConsole.WriteLine(
+                $"[Accounts] {reason}. Attached process '{processName}'. Riot processes: {(processes.Length == 0 ? "(none)" : string.Join(", ", processes))}",
+                ConsoleColor.Yellow);
+
+            if (window == null) return;
+
+            DebugConsole.WriteLine(
+                $"[Accounts] Window name='{window.Name}', class='{window.ClassName}', controlType={window.ControlType}",
+                ConsoleColor.Yellow);
+            var children = window.FindAllChildren();
+            DebugConsole.WriteLine($"[Accounts] Window has {children.Length} immediate children.", ConsoleColor.Yellow);
+            foreach (var child in children.Take(25))
+                DebugConsole.WriteLine(
+                    $"[Accounts]   child name='{child.Name}', class='{child.ClassName}', controlType={child.ControlType}, automationId='{child.AutomationId}'",
+                    ConsoleColor.Yellow);
+            if (children.Length > 25)
+                DebugConsole.WriteLine($"[Accounts]   ... {children.Length - 25} more children omitted.",
+                    ConsoleColor.Yellow);
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[Accounts] Failed to describe Riot window: {ex.Message}", ConsoleColor.Yellow);
+        }
+    }
 
     /// <summary>
     ///     Waits until the Riot Client process is up, so its local API can be talked to.
