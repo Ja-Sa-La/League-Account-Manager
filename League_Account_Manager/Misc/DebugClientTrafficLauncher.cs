@@ -33,6 +33,7 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
     private readonly object _sync = new();
     private ConfigProxy? _configProxy;
     private DebugXmppTrafficProxy? _xmppProxy;
+    private DebugTelemetryProxy? _telemetryProxy;
     private bool _disposed;
 
     internal async Task<Process> LaunchAsync(string riotClientPath, string arguments,
@@ -44,6 +45,11 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         try
         {
             _xmppProxy = await DebugXmppTrafficProxy.CreateAsync(cancellationToken).ConfigureAwait(false);
+            if (Settings.settingsloaded.CaptureTelemetry)
+            {
+                _telemetryProxy = new DebugTelemetryProxy();
+                await _telemetryProxy.StartAsync(cancellationToken).ConfigureAwait(false);
+            }
             var configProxy = new ConfigProxy(this, _configHttpClient);
             await configProxy.StartAsync(cancellationToken).ConfigureAwait(false);
             lock (_sync)
@@ -59,7 +65,13 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
 
             DebugConsole.WriteLine($"[Debug Capture] Launch args: {startInfo.Arguments}");
             var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start Riot Client.");
-            DebugConsole.WriteLine($"[Debug Capture] Riot Client started with PID {process.Id}; HTTP, XMPP, RMS, and RTMP proxies are active.");
+            var captured = new List<string> { "HTTP", "XMPP", "RMS", "RTMP" };
+            if (Settings.settingsloaded.CaptureRiotCdn)
+                captured.Add("CDN");
+            if (Settings.settingsloaded.CaptureTelemetry)
+                captured.Add("telemetry");
+            DebugConsole.WriteLine(
+                $"[Debug Capture] Riot Client started with PID {process.Id}; {string.Join(", ", captured)} proxies are active.");
             return process;
         }
         catch
@@ -99,6 +111,8 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         _rtmpProxies.Clear();
         _xmppProxy?.Dispose();
         _xmppProxy = null;
+        _telemetryProxy?.Dispose();
+        _telemetryProxy = null;
     }
 
     internal string RewriteConfig(string content)
@@ -190,7 +204,8 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
         return origin.Equals(ClientConfigBaseUrl, StringComparison.OrdinalIgnoreCase) ||
                origin.Equals("https://auth.riotgames.com", StringComparison.OrdinalIgnoreCase) ||
                origin.Equals("https://authenticate.riotgames.com", StringComparison.OrdinalIgnoreCase) ||
-               origin.Contains("riotcdn", StringComparison.OrdinalIgnoreCase) ||
+               (!Settings.settingsloaded.CaptureRiotCdn &&
+                origin.Contains("riotcdn", StringComparison.OrdinalIgnoreCase)) ||
                origin.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
                origin.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
                origin.Contains("%1", StringComparison.OrdinalIgnoreCase);
@@ -395,8 +410,9 @@ internal sealed partial class DebugClientTrafficLauncher : IDisposable
                 var headers = string.Join(Environment.NewLine,
                     request.Headers.AllKeys.Where(key => key is not null).Select(key => $"{key}: {request.Headers[key]}"));
                 var requestBody = TrafficPayloadDecoder.Decode(body, outgoing.Content?.Headers);
+                var trafficType = _origin.Contains("riotcdn", StringComparison.OrdinalIgnoreCase) ? "CDN" : "HTTP";
                 requestRecord = LcuRequestLog.Add("league", request.HttpMethod, url, requestBody, null,
-                    "Pending", string.Empty, 0, trafficType: "HTTP", requestHeaders: headers, direction: "Outgoing");
+                    "Pending", string.Empty, 0, trafficType: trafficType, requestHeaders: headers, direction: "Outgoing");
                 using var response = await _httpClient.SendAsync(outgoing, HttpCompletionOption.ResponseContentRead,
                         cancellationToken).ConfigureAwait(false);
                 var responseBody = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);

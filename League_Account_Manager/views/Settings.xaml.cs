@@ -38,6 +38,8 @@ public partial class Settings : Page
         LimitLcuTrafficLog.IsChecked = Misc.Settings.settingsloaded.LimitLcuTrafficLog;
         LcuTrafficLogEntryLimit.Text = Misc.Settings.settingsloaded.LcuTrafficLogEntryLimit.ToString();
         LcuTrafficBodyLimitKb.Text = Misc.Settings.settingsloaded.LcuTrafficBodyLimitKb.ToString();
+        CaptureRiotCdn.IsChecked = Misc.Settings.settingsloaded.CaptureRiotCdn;
+        CaptureTelemetry.IsChecked = Misc.Settings.settingsloaded.CaptureTelemetry;
         AccountFileEncryption.IsChecked = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
         CurrentInstallLocation.Text = Path.GetFullPath(AppContext.BaseDirectory);
         _initializing = false;
@@ -211,6 +213,8 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.LcuTrafficLogEntryLimit = entryLimit;
         if (int.TryParse(LcuTrafficBodyLimitKb.Text, out var bodyLimitKb) && bodyLimitKb > 0)
             Misc.Settings.settingsloaded.LcuTrafficBodyLimitKb = bodyLimitKb;
+        Misc.Settings.settingsloaded.CaptureRiotCdn = CaptureRiotCdn.IsChecked == true;
+        Misc.Settings.settingsloaded.CaptureTelemetry = CaptureTelemetry.IsChecked == true;
 
         // Persist update preferences before account-file migration can fail.
         Misc.Settings.Save();

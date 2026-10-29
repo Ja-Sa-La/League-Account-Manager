@@ -1913,7 +1913,9 @@ public partial class Accounts : Page
 
             // Every button follows the "Use legacy login" setting: off runs the clientless
             // authenticator flow, on types into the client's own login window. Debug and
-            // stealth only change how the client is launched.
+            // stealth only change how the client is launched. The right-click "Login with
+            // legacy login" forces the window login for this one attempt.
+            var forceLegacyLogin = clickedButton.Tag is true;
             var operationTitle = clickedButton.Name switch
             {
                 "Stealthlogin" => "Stealth login",
@@ -1924,7 +1926,8 @@ public partial class Accounts : Page
             // Asked before the progress window opens, so the two never stack.
             var persist = await RiotLoginManager.PromptPersistLoginAsync();
 
-            if (clickedButton.Name is "Login" or "DebugLogin" or "Stealthlogin" &&
+            if (!forceLegacyLogin &&
+                clickedButton.Name is "Login" or "DebugLogin" or "Stealthlogin" &&
                 !Misc.Settings.settingsloaded.UseLegacyLogin)
             {
                 DebugConsole.WriteLine($"[Accounts][RsoLogin] Starting RSO login ({clickedButton.Name}).");
@@ -2825,6 +2828,7 @@ public partial class Accounts : Page
     }
 
     private void AccountsContextLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login" }, e);
+    private void AccountsContextLegacyLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login", Tag = true }, e);
     private void AccountsContextDebugLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "DebugLogin" }, e);
     private void AccountsContextStealthLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Stealthlogin" }, e);
     private void AccountsContextSecondClient_Click(object sender, RoutedEventArgs e) => OnSecondaryClientClick(sender, e);

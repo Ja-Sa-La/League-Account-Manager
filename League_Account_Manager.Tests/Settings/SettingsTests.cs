@@ -33,6 +33,8 @@ public class SettingsTests
         Assert.IsTrue(result.LimitLcuTrafficLog);
         Assert.AreEqual(300, result.LcuTrafficLogEntryLimit);
         Assert.AreEqual(16, result.LcuTrafficBodyLimitKb);
+        Assert.IsFalse(result.CaptureRiotCdn);
+        Assert.IsFalse(result.CaptureTelemetry);
         Assert.IsFalse(result.AutoImportRunes);
         Assert.IsTrue(result.AutoApplyProfile);
         Assert.AreEqual("ugg", result.RuneImportSource);

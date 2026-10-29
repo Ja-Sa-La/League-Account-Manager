@@ -44,6 +44,7 @@ public partial class ValorantAccounts : Page
     private bool _isActive;
     private bool _pendingReload;
     private bool Executing;
+    private bool _accountOperationRunning;
     private FileSystemWatcher? fileWatcher;
     private ScrollViewer? _valorantScrollViewer;
     private readonly Stopwatch _valorantScrollAnimationClock = new();
@@ -297,6 +298,7 @@ public partial class ValorantAccounts : Page
     }
 
     private void ValorantContextLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login" }, e);
+    private void ValorantContextLegacyLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "Login", Tag = true }, e);
     private void ValorantContextStealthLogin_Click(object sender, RoutedEventArgs e) => OnLoginClick(new Button { Name = "StealthLogin" }, e);
     private void ValorantContextGenerateToken_Click(object sender, RoutedEventArgs e) => GenerateLoginToken_OnClick(sender, e);
     private void ValorantContextUseToken_Click(object sender, RoutedEventArgs e) => UseLoginToken_OnClick(sender, e);
@@ -463,6 +465,110 @@ public partial class ValorantAccounts : Page
         await PullDataCoreAsync();
     }
 
+    private static readonly string[] LoginSteps =
+    {
+        "Start Riot client",
+        "Find login window",
+        "Submit credentials",
+        "Wait for authentication",
+        "Open VALORANT client",
+        "Fetch account data"
+    };
+
+    /// <summary>
+    ///     Shows the same step list the League page uses, so a Valorant login reports where it is.
+    /// </summary>
+    private void BeginLoginSteps(string title)
+    {
+        _accountOperationRunning = true;
+        Dispatcher.Invoke(() =>
+        {
+            AccountOperationTitle.Text = title;
+            AccountOperationStatus.Text = "Preparing...";
+            CancelAccountOperationButton.Content = "Close";
+            TaskListBox.Items.Clear();
+            foreach (var step in LoginSteps)
+                TaskListBox.Items.Add(new System.Windows.Controls.ListBoxItem
+                {
+                    Tag = step,
+                    Content = $"\u25a1 {step}",
+                    Foreground = (Brush)System.Windows.Application.Current.FindResource("TextPrimaryBrush")
+                });
+
+            const double itemHeight = 24.0;
+            const double itemVerticalMargin = 2.0;
+            TaskListBox.Height = LoginSteps.Length * (itemHeight + itemVerticalMargin) +
+                                 TaskListBox.Padding.Top + TaskListBox.Padding.Bottom;
+            Progressgrid.Visibility = Visibility.Visible;
+        });
+    }
+
+    private void SetLoginStatus(string status)
+    {
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        void Update()
+        {
+            AccountOperationStatus.Text = status;
+        }
+
+        if (Dispatcher.CheckAccess())
+            Update();
+        else
+            Dispatcher.Invoke(Update);
+    }
+
+    private void MarkLoginStepCompleted(string step)
+    {
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        void Update()
+        {
+            foreach (System.Windows.Controls.ListBoxItem item in TaskListBox.Items)
+                if (item.Tag as string == step)
+                {
+                    item.Content = $"\u2714 {step}";
+                    break;
+                }
+        }
+
+        if (Dispatcher.CheckAccess())
+            Update();
+        else
+            Dispatcher.Invoke(Update);
+    }
+
+    private void FinishLoginSteps(bool completed)
+    {
+        _accountOperationRunning = false;
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            return;
+
+        void Update()
+        {
+            if (completed)
+            {
+                Progressgrid.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            AccountOperationStatus.Text = "The login could not be completed.";
+            CancelAccountOperationButton.Content = "Close";
+        }
+
+        if (Dispatcher.CheckAccess())
+            Update();
+        else
+            Dispatcher.Invoke(Update);
+    }
+
+    private void CloseAccountOperation_Click(object sender, RoutedEventArgs e)
+    {
+        Progressgrid.Visibility = Visibility.Collapsed;
+    }
+
     private async Task PullDataCoreAsync()
     {
         try
@@ -596,14 +702,18 @@ public partial class ValorantAccounts : Page
     /// </summary>
     private async Task LoginClientlessAsync(bool stealth, bool? persist)
     {
+        var completed = false;
         try
         {
+            BeginLoginSteps(stealth ? "Stealth login" : "Logging in");
             DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Starting clientless authentication.");
+            SetLoginStatus("Starting authentication...");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
             var captchaToken = string.Empty;
             if (challenge.RequiresChallenge)
             {
                 DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Challenge required: {challenge.Type}");
+                SetLoginStatus("Solving challenge...");
                 var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
                     var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
@@ -621,12 +731,16 @@ public partial class ValorantAccounts : Page
                 captchaToken = challengeResult;
             }
 
+            MarkLoginStepCompleted("Find login window");
+            SetLoginStatus("Submitting credentials...");
             var result = await RsoLoginService.ClientlessCompleteAuthAsync(
                 SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+            MarkLoginStepCompleted("Submit credentials");
 
             if (result.Type == "multifactor")
             {
                 DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] MFA required, prompting for code.");
+                SetLoginStatus("Waiting for 2FA code...");
                 var otp = await Dispatcher.InvokeAsync(() =>
                 {
                     var win = new PasswordPrompt("Enter the 2FA code (email/authenticator):");
@@ -673,6 +787,7 @@ public partial class ValorantAccounts : Page
             }
 
             DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Launching Riot client.");
+            SetLoginStatus("Starting Riot client...");
             if (stealth)
                 await offlineLauncher.LaunchRiotOrLeagueOfflineAsync(Misc.Settings.settingsloaded.riotPath,
                     false, true);
@@ -693,7 +808,11 @@ public partial class ValorantAccounts : Page
                 await Task.Delay(200);
             }
 
+            MarkLoginStepCompleted("Start Riot client");
             DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Signing in to the Riot Client.");
+            SetLoginStatus(persist == true
+                ? "Signing in and saving remembered session..."
+                : "Waiting for Riot authentication...");
             // When remember-me was chosen this also mints a fresh token from the signed-in
             // session and writes the refresh token the client restores on its next launch.
             if (!await RiotLoginManager.RedeemRawLoginTokenOnRunningClientAsync(result.LoginToken,
@@ -721,10 +840,18 @@ public partial class ValorantAccounts : Page
                 }
             }
 
+            MarkLoginStepCompleted("Wait for authentication");
             DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Login accepted, launching Valorant product.");
+            SetLoginStatus("Opening VALORANT client...");
             await Lcu.Connector("riot", "post", "/product-launcher/v1/products/valorant/patchlines/live", "");
+            MarkLoginStepCompleted("Open VALORANT client");
             if (!Misc.Settings.settingsloaded.SkipFetchAfterLogin)
+            {
+                SetLoginStatus("Fetching account data...");
                 await PullDataCoreAsync();
+            }
+            MarkLoginStepCompleted("Fetch account data");
+            completed = true;
             // Stealth login keeps its offline proxy inside this process, so only a normal login closes LAM.
             if (!stealth)
                 App.ShutdownAfterLogin();
@@ -733,6 +860,10 @@ public partial class ValorantAccounts : Page
         {
             LogManager.GetCurrentClassLogger().Error(exception, "Error logging in to Valorant");
             DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Failed: {exception.Message}", ConsoleColor.Red);
+        }
+        finally
+        {
+            FinishLoginSteps(completed);
         }
     }
 
@@ -800,10 +931,19 @@ public partial class ValorantAccounts : Page
 
             // Asked before the client launches, so the prompt never stacks on the login window.
             var persist = await RiotLoginManager.PromptPersistLoginAsync();
+            // The clientless path opens its own step list, so only the window login starts one here.
+            if (!_accountOperationRunning)
+            {
+                BeginLoginSteps(clickedButton.Name == "StealthLogin" ? "Stealth login" : "Logging in");
+                SetLoginStatus("Starting Riot client...");
+            }
 
             // Same rule as the League page: "Use legacy login" picks the window login,
-            // otherwise the clientless flow is used. Stealth only changes the launch.
-            if (clickedButton.Name is "Login" or "StealthLogin" &&
+            // otherwise the clientless flow is used. Stealth only changes the launch. The
+            // right-click "Login with legacy login" forces the window login for this attempt.
+            var forceLegacyLogin = clickedButton.Tag is true;
+            if (!forceLegacyLogin &&
+                clickedButton.Name is "Login" or "StealthLogin" &&
                 !Misc.Settings.settingsloaded.UseLegacyLogin)
             {
                 await LoginClientlessAsync(clickedButton.Name == "StealthLogin", persist);
@@ -849,7 +989,9 @@ public partial class ValorantAccounts : Page
                 }
             }
 
+            MarkLoginStepCompleted("Start Riot client");
             DebugConsole.WriteLine($"[ValorantAccounts] Attached to process: {riotval}");
+            SetLoginStatus("Finding login controls...");
 
             var loginAttempts = 0;
 
@@ -896,6 +1038,7 @@ public partial class ValorantAccounts : Page
                             break;
                         }
 
+                        MarkLoginStepCompleted("Find login window");
                         usernameField.Text = SelectedUsername ?? throw new Exception("Username not selected");
                         passwordField.Text = SelectedPassword ?? throw new Exception("Password not selected");
                         if (persist == true && checkbox.AsCheckBox() is { } rememberBox &&
@@ -911,7 +1054,10 @@ public partial class ValorantAccounts : Page
                             if (!signInElement.IsEnabled)
                                 throw new TimeoutException("Timed out waiting for the sign-in button.");
                             DebugConsole.WriteLine("[ValorantAccounts] Sign-in button enabled, invoking login");
+                            SetLoginStatus("Submitting credentials...");
                             signInElement.Invoke();
+                            MarkLoginStepCompleted("Submit credentials");
+                            SetLoginStatus("Waiting for Riot authentication...");
 
                             // brief pause to allow any login error tooltip to appear
                             await Task.Delay(500);
@@ -1044,21 +1190,32 @@ public partial class ValorantAccounts : Page
                                 continue;
                             }
 
+                            MarkLoginStepCompleted("Wait for authentication");
                             // The client's own remember-me checkbox does not survive a restart, so
                             // save the session the same way the clientless login does.
-                            if (persist == true &&
-                                !await RiotLoginManager.PersistRememberedSessionAsync("Valorant"))
-                                return;
+                            if (persist == true)
+                            {
+                                SetLoginStatus("Saving remembered session...");
+                                if (!await RiotLoginManager.PersistRememberedSessionAsync("Valorant"))
+                                    return;
+                            }
 
                             DebugConsole.WriteLine("[ValorantAccounts] Login accepted, launching Valorant product");
+                            SetLoginStatus("Opening VALORANT client...");
                             await Lcu.Connector("riot", "post",
                                 "/product-launcher/v1/products/valorant/patchlines/live", "");
+                            MarkLoginStepCompleted("Open VALORANT client");
                             DebugConsole.WriteLine("[ValorantAccounts] Triggering Valorant account pull after login");
                             if (!Misc.Settings.settingsloaded.SkipFetchAfterLogin)
+                            {
+                                SetLoginStatus("Fetching account data...");
                                 await PullDataCoreAsync();
+                            }
+                            MarkLoginStepCompleted("Fetch account data");
+                            FinishLoginSteps(true);
                             if (clickedButton.Name == "Login")
                                 App.ShutdownAfterLogin();
-                            break;
+                            return;
                         }
 
                         await Task.Delay(500);
@@ -1076,6 +1233,8 @@ public partial class ValorantAccounts : Page
             LogManager.GetCurrentClassLogger().Error(exception, "Error Logging in to Valorant");
             DebugConsole.WriteLine($"[ValorantAccounts]Login failed: {exception.Message}", ConsoleColor.Red);
         }
+
+        FinishLoginSteps(false);
     }
 
     private async void ValorantAccounts_Loaded(object sender, RoutedEventArgs e)

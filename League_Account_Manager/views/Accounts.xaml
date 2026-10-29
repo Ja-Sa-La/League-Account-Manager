@@ -187,6 +187,7 @@
                             </MenuItem>
                             <Separator />
                             <MenuItem Header="Login" Click="AccountsContextLogin_Click" />
+                            <MenuItem Header="Login with legacy login" Click="AccountsContextLegacyLogin_Click" />
                             <MenuItem Header="Debug mode login" Click="AccountsContextDebugLogin_Click" />
                             <MenuItem Header="Stealth login" Click="AccountsContextStealthLogin_Click" />
                             <Separator />

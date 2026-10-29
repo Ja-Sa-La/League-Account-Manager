@@ -69,6 +69,12 @@
                                                         <TextBlock Text="Body limit (KB)" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="16,0,8,0" />
                                                         <ui:TextBox x:Name="LcuTrafficBodyLimitKb" Width="70" Text="16" />
                                                  </StackPanel>
+                                                 <CheckBox x:Name="CaptureRiotCdn" Content="Capture Riot CDN" Margin="0,0,0,7"
+                                                           ToolTip="During a debug login, also log Riot CDN downloads such as patcher bundles and theme assets. These are large, so a session logs considerably more."
+                                                           IsChecked="False" />
+                                                 <CheckBox x:Name="CaptureTelemetry" Content="Capture telemetry" Margin="0,0,0,7"
+                                                           ToolTip="During a debug login, also log the telemetry sent to data.riotgames.com, telemetry.sgp.pvp.net and ekg.riotgames.com. This edits the hosts file and installs a local root certificate, and both are removed when the capture stops."
+                                                           IsChecked="False" />
                                                  <CheckBox x:Name="AccountFileEncryption" Content="Encrypt the account file with a password"
                                                                  Checked="OnAccountFileEncryptionChecked" Unchecked="OnAccountFileEncryptionChecked" />
                                                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">

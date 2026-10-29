@@ -460,6 +460,8 @@ public static class Settings
             LimitLcuTrafficLog = true,
             LcuTrafficLogEntryLimit = 300,
             LcuTrafficBodyLimitKb = 16,
+            CaptureRiotCdn = false,
+            CaptureTelemetry = false,
             AutoImportRunes = false,
             AutoApplyProfile = true,
             RuneImportSource = "ugg",
@@ -697,6 +699,18 @@ public static class Settings
         public bool LimitLcuTrafficLog { get; set; }
         public int LcuTrafficLogEntryLimit { get; set; }
         public int LcuTrafficBodyLimitKb { get; set; }
+
+        /// <summary>
+        ///     During a debug login, also capture Riot CDN downloads. Off by default because the
+        ///     patcher downloads are large and would flood the traffic log.
+        /// </summary>
+        public bool CaptureRiotCdn { get; set; }
+
+        /// <summary>
+        ///     During a debug login, also capture the telemetry the client sends to its pinned hosts.
+        ///     Off by default because it edits the hosts file and installs a local root certificate.
+        /// </summary>
+        public bool CaptureTelemetry { get; set; }
         public bool AutoImportRunes { get; set; }
         public bool AutoApplyProfile { get; set; }
         public string RuneImportSource { get; set; }

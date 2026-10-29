@@ -144,6 +144,7 @@
                             </MenuItem>
                             <Separator />
                             <MenuItem Header="Login" Click="ValorantContextLogin_Click" />
+                            <MenuItem Header="Login with legacy login" Click="ValorantContextLegacyLogin_Click" />
                             <MenuItem Header="Stealth login" Click="ValorantContextStealthLogin_Click" />
                             <Separator />
                             <MenuItem Header="Generate login token" Click="ValorantContextGenerateToken_Click" />
@@ -220,6 +221,75 @@
 
                     </DataGrid.Resources>
                 </DataGrid>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="Progressgrid" Grid.RowSpan="2" Panel.ZIndex="20" Visibility="Collapsed"
+              Background="Transparent">
+            <Border Background="{StaticResource OverlayBrush}" />
+            <Border Width="480" MaxHeight="520" Style="{StaticResource ModalPanelStyle}" Padding="28,24"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1" CornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="ACCOUNT ACTIVITY" Foreground="{StaticResource SuccessBrush}" FontSize="10"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="AccountOperationTitle" Margin="0,6,0,0"
+                                   Text="Logging in" Foreground="{StaticResource TextPrimaryBrush}" FontSize="20"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="AccountOperationStatus" Margin="0,6,0,0"
+                                   Text="Preparing..." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" Height="48" Margin="0,20,0,16">
+                        <Canvas Width="40" Height="40" HorizontalAlignment="Center">
+                            <Ellipse Width="36" Height="36" Stroke="{StaticResource SuccessBrush}" StrokeThickness="3"
+                                     StrokeDashArray="3 2" RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform x:Name="SpinnerRotate" Angle="0" />
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="SpinnerRotate"
+                                                                 Storyboard.TargetProperty="Angle"
+                                                                 From="0" To="360" Duration="0:0:1.2" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                        </Canvas>
+                    </Grid>
+
+                    <Border Grid.Row="2" Padding="12,10" Background="{StaticResource SubtleOverlayBrush}" CornerRadius="6">
+                        <ListBox x:Name="TaskListBox" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 Padding="2" FontSize="12.5">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Height" Value="24" />
+                                    <Setter Property="Padding" Value="2,0" />
+                                    <Setter Property="Margin" Value="0,1" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Border>
+
+                    <ui:Button x:Name="CancelAccountOperationButton" Grid.Row="3" Content="Close"
+                               Click="CloseAccountOperation_Click" HorizontalAlignment="Right"
+                               MinWidth="100" Margin="0,20,0,0" Padding="12,8" />
+                </Grid>
             </Border>
         </Grid>
     </Grid>
