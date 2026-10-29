@@ -56,6 +56,67 @@ internal static class RsoLoginService
         public string? Error { get; init; }
         public string? LoginToken { get; init; }
         public ChallengeInfo Challenge { get; init; } = new();
+
+        /// <summary>
+        ///     The Riot Client's own reading of <see cref="Error"/>: the message it would show and
+        ///     whether the failure is the account's credentials rather than a transient problem.
+        /// </summary>
+        public LoginError Failure => LoginError.Describe(Error);
+    }
+
+    /// <summary>
+    ///     What a failed authenticator response means. The error codes are not decided by the client:
+    ///     the authenticator service returns them in the <c>error</c> field (the native client's
+    ///     <c>AuthenticateRiotIdentity</c> handler only forwards that string as its failure reason),
+    ///     and the client's renderer classifies them in <c>mapError</c> / <c>mapErrorString</c>.
+    /// </summary>
+    public readonly record struct LoginError(string Code, string Message, bool InvalidCredentials)
+    {
+        /// <summary>
+        ///     Same matching order as the client's <c>mapErrorString</c>: the first contained code
+        ///     wins. Only <c>auth_failure</c> means the username and password are wrong, so only that
+        ///     one should mark a saved account invalid.
+        /// </summary>
+        public static LoginError Describe(string? error)
+        {
+            if (string.IsNullOrWhiteSpace(error))
+                return new LoginError(string.Empty, "Login failed.", false);
+
+            var text = error.Trim();
+            foreach (var (code, message, invalidCredentials) in KnownErrors)
+            {
+                if (text.Contains(code, StringComparison.OrdinalIgnoreCase))
+                    return new LoginError(code, message, invalidCredentials);
+            }
+
+            return new LoginError(text, $"Login failed: {text}", false);
+        }
+
+        private static readonly (string Code, string Message, bool InvalidCredentials)[] KnownErrors =
+        [
+            ("invalid_request", "The sign-in request was rejected as invalid. Start the login again.", false),
+            ("unauthorized_client", "This app is not allowed to sign in with the method it used.", false),
+            ("invalid_scope", "The permissions requested for this sign-in were rejected.", false),
+            ("access_denied", "Sign-in was refused for this account.", false),
+            ("account_disabled", "This account is paused and can't sign in until Riot restores it.", false),
+            ("archived_account", "This account has been disabled.", false),
+            ("unknown_error", "The sign-in service returned an error it did not explain. Try again later.", false),
+            ("server_error", "Riot's sign-in service failed on its side. Try again later.", false),
+            ("temporarily_unavailable", "Riot's sign-in service is temporarily unavailable. Try again later.", false),
+            ("rate_limited", "Too many login attempts. Wait a while before trying again.", false),
+            ("auth_failure", "The username or password doesn't match an account.", true),
+            ("consent_required", "This account has to accept updated terms before it can sign in.", false),
+            ("pending_forget", "This account is locked because it is pending deletion.", false),
+            ("invalid_session_id", "The sign-in session is no longer valid. Start the login again.", false),
+            ("needs credentials", "The sign-in session ended before the username and password were accepted. Start the login again.", false),
+            ("needs password", "The sign-in session is missing the password. Start the login again.", false),
+            ("invalid auth state", "The sign-in session is on the wrong step. Start the login again.", false),
+            ("invalid_prompt", "The sign-in request asked for something the service rejected. Start the login again.", false),
+            ("needs mfa verification", "This account needs a two-factor code, and none was accepted.", false),
+            ("unknown authentication response", "The sign-in service returned a response this app doesn't recognize.", false),
+            ("auth_too_young", "This account is under the minimum age and can't sign in.", false),
+            ("confirm_age_too_young", "The age given for this account is under the minimum, so sign-in was refused.", false)
+        ];
     }
 
     /// <summary>

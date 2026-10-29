@@ -109,7 +109,7 @@
                             <ui:SymbolIcon Symbol="AppGeneric20" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
-                    <ui:NavigationViewItem Content="Chat" NavigationCacheMode="Required"
+                    <ui:NavigationViewItem Content="Chat / Profile" NavigationCacheMode="Required"
                                            TargetPageType="{x:Type Page:ProfileEditor}">
                         <ui:NavigationViewItem.Icon>
                             <ui:SymbolIcon Symbol="Chat20" />

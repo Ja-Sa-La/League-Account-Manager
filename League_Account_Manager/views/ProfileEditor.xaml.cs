@@ -33,6 +33,7 @@ public partial class ProfileEditor : Page
     private void LoadSavedProfileSettings()
     {
         var saved = Misc.Settings.settingsloaded;
+        AutoApplyProfile.IsChecked = saved.AutoApplyProfile;
         StatusMessageContainer.Text = saved.ProfileStatusMessage ?? string.Empty;
         Mode.SelectedItem = saved.ProfileQueue;
         Rank.SelectedItem = saved.ProfileRank;
@@ -48,6 +49,17 @@ public partial class ProfileEditor : Page
         settings.ProfileDivision = Division.SelectedItem?.ToString() ?? string.Empty;
         settings.ProfileIconId = SelectedIcon?.ID ?? settings.ProfileIconId;
         settings.ProfileBackgroundId = SelectedSkin?.ID ?? settings.ProfileBackgroundId;
+        Misc.Settings.settingsloaded = settings;
+        Misc.Settings.Save();
+    }
+
+    private void OnAutoApplyProfileChanged(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+            return;
+
+        var settings = Misc.Settings.settingsloaded;
+        settings.AutoApplyProfile = AutoApplyProfile.IsChecked == true;
         Misc.Settings.settingsloaded = settings;
         Misc.Settings.Save();
     }

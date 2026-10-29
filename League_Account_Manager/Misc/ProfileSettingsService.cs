@@ -7,6 +7,11 @@ namespace League_Account_Manager.Misc;
 
 internal static class ProfileSettingsService
 {
+    // The client resets the profile when it starts, so the saved settings are
+    // reapplied once per client launch and again only when they change.
+    private static int appliedProcessId;
+    private static string? appliedSignature;
+
     internal static async Task RunAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -16,8 +21,8 @@ internal static class ProfileSettingsService
                 var processes = Process.GetProcessesByName("LeagueClientUx");
                 try
                 {
-                    if (processes.Length > 0)
-                        await ApplyAsync(cancellationToken);
+                    if (Settings.settingsloaded.AutoApplyProfile)
+                        await ApplyIfNeededAsync(processes, cancellationToken);
                 }
                 finally
                 {
@@ -33,10 +38,30 @@ internal static class ProfileSettingsService
             }
             catch (Exception exception)
             {
+                // A rejected request must not be retried immediately: the client
+                // answers a repeated profile write with 429, and retrying at once
+                // turns the two requests into a flood.
                 LogManager.GetCurrentClassLogger().Error(exception, "Error applying saved profile settings");
+                await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken);
             }
         }
     }
+
+    private static async Task ApplyIfNeededAsync(Process[] processes, CancellationToken cancellationToken)
+    {
+        var processId = processes.Length > 0 ? processes[0].Id : 0;
+        var signature = ProfileSignature(Settings.settingsloaded);
+        if (processId != 0 && (processId != appliedProcessId || signature != appliedSignature))
+        {
+            await ApplyAsync(cancellationToken);
+            appliedProcessId = processId;
+            appliedSignature = signature;
+        }
+    }
+
+    private static string ProfileSignature(Settings.settings1 saved) =>
+        string.Join('\u001f', saved.ProfileStatusMessage, saved.ProfileQueue, saved.ProfileRank,
+            saved.ProfileDivision, saved.ProfileIconId, saved.ProfileBackgroundId);
 
     private static async Task ApplyAsync(CancellationToken cancellationToken)
     {

@@ -13,9 +13,12 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <StackPanel Margin="0,0,0,16">
-                <TextBlock Text="Chat and profile" Style="{StaticResource PageTitleStyle}" />
+                <TextBlock Text="Chat / Profile" Style="{StaticResource PageTitleStyle}" />
                 <TextBlock Text="Manage presence, status message, profile icon, background, and ranked identity."
                            Style="{StaticResource PageSubtitleStyle}" />
+                <CheckBox x:Name="AutoApplyProfile" Margin="0,12,0,0"
+                          Content="Automatically apply saved profile settings while the client is running"
+                          Checked="OnAutoApplyProfileChanged" Unchecked="OnAutoApplyProfileChanged" />
             </StackPanel>
             <Grid Grid.Row="1" Margin="0,0,0,14">
                 <Grid.ColumnDefinitions>

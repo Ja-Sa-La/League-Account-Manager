@@ -576,7 +576,7 @@ public partial class Accounts : Page
                 var item = new ListBoxItem
                 {
                     Tag = t,
-                    Content = $"??? {t}",
+                    Content = $"◻ {t}",
                     Foreground = (Brush)System.Windows.Application.Current.FindResource("TextPrimaryBrush")
                 };
                 box.Items.Add(item);
@@ -606,7 +606,7 @@ public partial class Accounts : Page
             foreach (ListBoxItem item in box.Items)
                 if (item.Tag as string == taskName)
                 {
-                    item.Content = $"??? {taskName}";
+                    item.Content = $"✔ {taskName}";
                     break;
                 }
         });
@@ -3193,7 +3193,7 @@ public partial class Accounts : Page
 
     private async void FavoriteCell_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "???" ||
+        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "★" ||
             cell.DataContext is not Utils.AccountList account)
             return;
 
@@ -3270,7 +3270,7 @@ public partial class Accounts : Page
             if (clickedButton == null) return;
 
             // Clientless flow: LAM talks directly to the public RSO authenticator, no Riot Client
-            // needed. Start ??? [Tabasco in WebView2] ??? credentials ??? (optional 2FA) ??? login token,
+            // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
             // which is copied to the clipboard in the same format as before.
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
@@ -3348,8 +3348,7 @@ public partial class Accounts : Page
 
                 case "error":
                 case "auth_failure":
-                    Notif.notificationManager.Show("Generate token",
-                        $"Login failed: {result.Error ?? result.Type}",
+                    Notif.notificationManager.Show("Generate token", result.Failure.Message,
                         NotificationType.Error);
                     break;
 
@@ -3394,8 +3393,8 @@ public partial class Accounts : Page
     }
 
     /// <summary>
-    ///     Default login: identical to the legacy login (kill client ??? start client ??? progress UI ???
-    ///     EULA ??? launch League ??? summoner readiness ??? pull account data). Only the credential
+    ///     Default login: identical to the legacy login (kill client → start client → progress UI →
+    ///     EULA → launch League → summoner readiness → pull account data). Only the credential
     ///     entry differs: instead of typing into the login window via UI automation, the RSO
     ///     authenticator flow runs clientless against the public authenticator (Tabasco in an
     ///     embedded WebView2 and 2FA supported) before the client is started. The returned login
@@ -3471,7 +3470,7 @@ public partial class Accounts : Page
                 }
 
                 // Same as the real client's "Remember this app for 30 days" checkbox on the
-                // 2FA screen ??? honour the persist decision so the trusted-device cookie is
+                // 2FA screen — honour the persist decision so the trusted-device cookie is
                 // written when the user chose to stay signed in.
                 result = await RsoLoginService.ClientlessSubmitMfaAsync(otp, rememberDevice: persist ?? false,
                     cancellationToken);
@@ -3563,9 +3562,11 @@ public partial class Accounts : Page
 
             switch (result.Type)
             {
-                case "error" when string.Equals(result.Error, "auth_failure", StringComparison.OrdinalIgnoreCase):
+                case "error" when result.Failure.InvalidCredentials:
                     // Same handling as the normal login's "credentials don't match" tooltip:
-                    // mark the account invalid and stop.
+                    // mark the account invalid and stop. Other failures (paused, disabled, rate
+                    // limited) are the account's state, not bad credentials, so they are reported
+                    // instead of marking it invalid.
                     DebugConsole.WriteLine("[Accounts][RsoLogin] Credentials rejected, marking account invalid.",
                         ConsoleColor.Red);
                     await MarkSelectedAccountInvalidAsync();
@@ -3573,9 +3574,9 @@ public partial class Accounts : Page
 
                 case "error":
                 case "auth_failure":
-                    Notif.notificationManager.Show("Login",
-                        $"Login failed: {result.Error ?? result.Type}",
-                        NotificationType.Error);
+                    DebugConsole.WriteLine($"[Accounts][RsoLogin] {result.Failure.Code}: {result.Failure.Message}",
+                        ConsoleColor.Red);
+                    Notif.notificationManager.Show("Login", result.Failure.Message, NotificationType.Error);
                     return false;
 
                 default:

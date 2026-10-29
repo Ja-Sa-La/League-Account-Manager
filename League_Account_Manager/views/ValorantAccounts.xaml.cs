@@ -646,7 +646,7 @@ public partial class ValorantAccounts : Page
 
             if (result.Type != "success")
             {
-                if (string.Equals(result.Error, "auth_failure", StringComparison.OrdinalIgnoreCase))
+                if (result.Failure.InvalidCredentials)
                 {
                     DebugConsole.WriteLine(
                         "[ValorantAccounts][RsoLogin] Credentials rejected, marking account invalid.",
@@ -655,8 +655,10 @@ public partial class ValorantAccounts : Page
                     return;
                 }
 
-                Notif.notificationManager.Show("Login",
-                    $"Login failed: {result.Error ?? result.Type}", NotificationType.Error);
+                DebugConsole.WriteLine(
+                    $"[ValorantAccounts][RsoLogin] {result.Failure.Code}: {result.Failure.Message}",
+                    ConsoleColor.Red);
+                Notif.notificationManager.Show("Login", result.Failure.Message, NotificationType.Error);
                 return;
             }
 
@@ -1378,7 +1380,7 @@ public partial class ValorantAccounts : Page
 
     private async void FavoriteCell_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "???" ||
+        if (sender is not DataGridCell cell || cell.Column?.Header?.ToString() != "★" ||
             cell.DataContext is not Utils.AccountList account)
             return;
 
@@ -2029,7 +2031,7 @@ public partial class ValorantAccounts : Page
             if (clickedButton == null) return;
 
             // Clientless flow: LAM talks directly to the public RSO authenticator, no Riot Client
-            // needed. Start ??? [Tabasco in WebView2] ??? credentials ??? (optional 2FA) ??? login token,
+            // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
             // which is copied to the clipboard in the same format as before.
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
@@ -2107,8 +2109,7 @@ public partial class ValorantAccounts : Page
 
                 case "error":
                 case "auth_failure":
-                    Notif.notificationManager.Show("Generate token",
-                        $"Login failed: {result.Error ?? result.Type}",
+                    Notif.notificationManager.Show("Generate token", result.Failure.Message,
                         NotificationType.Error);
                     break;
 

@@ -1,9 +1,10 @@
-using League_Account_Manager.Windows;
+﻿using League_Account_Manager.Windows;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -154,6 +155,10 @@ public static class Settings
     {
         if (string.IsNullOrWhiteSpace(settingsloaded.riotPath) || !File.Exists(settingsloaded.riotPath))
             settingsloaded.riotPath = FindRiot();
+
+        // Moving the Riot Client leaves riotclient://auth/v1/{token} pointing at the old
+        // RiotClientServices.exe, so token redemption opens nothing. Repoint it when it is stale.
+        EnsureRiotClientProtocolHandler(settingsloaded.riotPath);
 
         if (string.IsNullOrWhiteSpace(settingsloaded.LeaguePath) || !File.Exists(settingsloaded.LeaguePath))
             settingsloaded.LeaguePath = await FindLeagueAsync();
@@ -321,6 +326,99 @@ public static class Settings
             yield return Path.Combine(systemDrive, "Riot Games", "Riot Client", "RiotClientServices.exe");
     }
 
+    private const string RiotClientProtocolCommandKey =
+        @"Software\Classes\riotclient\shell\open\command";
+
+    /// <summary>
+    ///     Makes sure <c>riotclient://</c> opens the Riot Client that is actually installed. The
+    ///     handler is registered machine-wide, and moving the client does not update it, so a
+    ///     stale entry is rewritten. HKLM is only writable elevated, so the rewrite is offered
+    ///     through a UAC prompt and skipped when the user declines.
+    /// </summary>
+    private static void EnsureRiotClientProtocolHandler(string? riotClientPath)
+    {
+        if (string.IsNullOrWhiteSpace(riotClientPath) || !File.Exists(riotClientPath))
+            return;
+
+        var expected = $"\"{riotClientPath}\" --app-command=\"%1\"";
+        if (string.Equals(ReadRiotClientProtocolCommand(), expected, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        DebugConsole.WriteLine(
+            $"[Settings] riotclient:// points at a missing or different client. Repointing it at {riotClientPath}.");
+        try
+        {
+            using var machineKey = Registry.LocalMachine.OpenSubKey(RiotClientProtocolCommandKey, writable: true);
+            if (machineKey != null)
+            {
+                machineKey.SetValue(string.Empty, expected);
+                DebugConsole.WriteLine("[Settings] riotclient:// handler updated.");
+                return;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Not elevated; fall through to the UAC prompt.
+        }
+        catch (Exception ex)
+        {
+            DebugConsole.WriteLine($"[Settings] Failed to update the riotclient:// handler: {ex.Message}");
+            return;
+        }
+
+        var answer = AppMessageBox.Show(
+            "The riotclient:// link is registered to a Riot Client that is no longer there, so login tokens cannot be delivered. Update the registration to the current Riot Client? Windows will ask for administrator permission.",
+            "Riot Client link", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes)
+        {
+            DebugConsole.WriteLine("[Settings] riotclient:// repair declined.");
+            return;
+        }
+
+        try
+        {
+            // The command is base64-encoded so the quoted executable path and the %1 survive the
+            // elevation unchanged; passing it as a -Command string breaks on the nested quotes.
+            var script =
+                $"New-Item -Path 'HKLM:\\{RiotClientProtocolCommandKey}' -Force | Out-Null; " +
+                $"Set-ItemProperty -Path 'HKLM:\\{RiotClientProtocolCommandKey}' -Name '(default)' -Value '{expected.Replace("'", "''")}'";
+            var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+            var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -EncodedCommand " + encoded,
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            process?.WaitForExit();
+        }
+        catch (Exception ex)
+        {
+            // Declining the UAC prompt surfaces as a Win32Exception here.
+            DebugConsole.WriteLine($"[Settings] riotclient:// repair was not completed: {ex.Message}");
+            return;
+        }
+
+        DebugConsole.WriteLine(string.Equals(ReadRiotClientProtocolCommand(), expected,
+            StringComparison.OrdinalIgnoreCase)
+            ? "[Settings] riotclient:// handler updated."
+            : "[Settings] riotclient:// handler could not be verified after the update.");
+    }
+
+    private static string? ReadRiotClientProtocolCommand()
+    {
+        foreach (var hive in new[] { Registry.LocalMachine, Registry.CurrentUser })
+        {
+            using var key = hive.OpenSubKey(RiotClientProtocolCommandKey);
+            var command = key?.GetValue(string.Empty) as string;
+            if (!string.IsNullOrWhiteSpace(command))
+                return command;
+        }
+
+        return null;
+    }
+
     /// <summary>
     ///     Pulls the executable out of a registry command line. Riot quotes the path
     ///     ("C:\Riot Games\Riot Client\RiotClientServices.exe" --uninstall-product=...), but an
@@ -363,6 +461,7 @@ public static class Settings
             LcuTrafficLogEntryLimit = 300,
             LcuTrafficBodyLimitKb = 16,
             AutoImportRunes = false,
+            AutoApplyProfile = true,
             RuneImportSource = "ugg",
             RuneImportRole = "automatic"
         };
@@ -599,6 +698,7 @@ public static class Settings
         public int LcuTrafficLogEntryLimit { get; set; }
         public int LcuTrafficBodyLimitKb { get; set; }
         public bool AutoImportRunes { get; set; }
+        public bool AutoApplyProfile { get; set; }
         public string RuneImportSource { get; set; }
         public string RuneImportRole { get; set; }
     }

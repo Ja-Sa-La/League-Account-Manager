@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
@@ -50,6 +51,16 @@ internal class Lcu
                 {
                     Logger.Debug(ex, "Failed to retrieve Riot process command line for process {ProcessId}", ritoprocess.Id);
                 }
+
+            // The command line read opens the process and enumerates its modules, which fails with
+            // "Only part of a ReadProcessMemory request was completed" while the client is still
+            // starting. The lockfile carries the same port and token, so use it instead.
+            if (string.IsNullOrEmpty(riotPort) && TryReadRiotLockfile(out var lockfilePort, out var lockfileToken))
+            {
+                riotPort = lockfilePort;
+                riotToken = lockfileToken;
+                Logger.Debug("Riot connection details taken from the lockfile.");
+            }
         }
         else if (leagueClientProcess != null)
         {
@@ -101,18 +112,29 @@ internal class Lcu
 
             if (riotProcess.Length > 0)
             {
+                var connected = false;
                 foreach (var ritoprocess in riotProcess)
                     try
                     {
                         ProcessCommandLine.Retrieve(ritoprocess, out var value);
                         SetRiotValues(ritoprocess, value);
-                        if (Riot.port[1].ToString() != "2")
+                        if (Riot.port.Length > 1 && Riot.port[1].ToString() != "2")
+                        {
+                            connected = true;
                             break;
+                        }
                     }
                     catch (Exception ex)
                     {
                         Logger.Debug(ex, "Failed to retrieve Riot process command line in Connector for process {ProcessId}", ritoprocess.Id);
                     }
+
+                if (!connected && TryReadRiotLockfile(out var lockfilePort, out var lockfileToken))
+                {
+                    Riot.port = "--app-port=" + lockfilePort;
+                    Riot.token = "--remoting-auth-token=" + lockfileToken;
+                    Logger.Debug("Riot connection details taken from the lockfile.");
+                }
             }
             else if (leagueClientProcess != null)
             {
@@ -225,9 +247,11 @@ internal class Lcu
         Riot.port = showMatch(Riot.Value, isLeagueClient ? "--riotclient-app-port=(\\d*)" : "-app-port=(\\d*)");
         Riot.token = showMatch(Riot.Value,
             isLeagueClient ? "--riotclient-auth-token=([\\w-]*)" : "--remoting-auth-token=([\\w-]*)");
-        Riot.path = process.MainModule?.FileName ??
-                throw new InvalidOperationException("Unable to read the Riot client executable path.");
-        Riot.version = FileVersionInfo.GetVersionInfo(Riot.path);
+        // MainModule enumerates the process modules and throws Win32Exception (299) while the
+        // client is still loading them. The path is only needed for the version header, so a
+        // client that is still starting is not a reason to drop the connection details.
+        Riot.path = TryGetProcessPath(process);
+        Riot.version = Riot.path == null ? null : FileVersionInfo.GetVersionInfo(Riot.path);
     }
 
     private static void SetLeagueValues(Process process, string value)
@@ -235,9 +259,56 @@ internal class Lcu
         League.Value = value;
         League.port = showMatch(League.Value, "--app-port=(\\d*)");
         League.token = showMatch(League.Value, "--remoting-auth-token=([\\w-]*)");
-        League.path = process.MainModule?.FileName ??
-                      throw new InvalidOperationException("Unable to read the League client executable path.");
-        League.version = FileVersionInfo.GetVersionInfo(League.path);
+        League.path = TryGetProcessPath(process);
+        League.version = League.path == null ? null : FileVersionInfo.GetVersionInfo(League.path);
+    }
+
+    /// <summary>
+    ///     Reads the port and token from the Riot Client lockfile
+    ///     (<c>%LOCALAPPDATA%\Riot Games\Riot Client\Config\lockfile</c>,
+    ///     <c>name:pid:port:token:protocol</c>). This is the same information the command line
+    ///     carries, and it is readable while the process itself is still starting.
+    /// </summary>
+    private static bool TryReadRiotLockfile(out string port, out string token)
+    {
+        port = string.Empty;
+        token = string.Empty;
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Riot Games", "Riot Client", "Config", "lockfile");
+            if (!File.Exists(path))
+                return false;
+
+            // The client keeps the file open for writing, so it has to be read with sharing.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            var fields = reader.ReadToEnd().Trim().Split(':');
+            if (fields.Length < 5 || string.IsNullOrWhiteSpace(fields[2]) || string.IsNullOrWhiteSpace(fields[3]))
+                return false;
+
+            port = fields[2];
+            token = fields[3];
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Logger.Debug(ex, "Failed to read the Riot Client lockfile.");
+            return false;
+        }
+    }
+
+    private static string? TryGetProcessPath(Process process)
+    {
+        try
+        {
+            return process.MainModule?.FileName;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Logger.Debug(ex, "Failed to read the executable path for process {ProcessId}", process.Id);
+            return null;
+        }
     }
 
     private static bool TryGetConnectionDetails(Vals values, out string port, out string token, out string version)
@@ -385,7 +456,7 @@ internal class Lcu
         public string Value { get; set; }
         public string port { get; set; }
         public string token { get; set; }
-        public string path { get; set; }
+        public string? path { get; set; }
         public FileVersionInfo? version { get; set; }
     }
 }
