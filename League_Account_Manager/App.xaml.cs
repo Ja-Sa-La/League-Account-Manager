@@ -11,6 +11,7 @@ public partial class App : Application
 {
     private CancellationTokenSource? profileSettingsCts;
     private CancellationTokenSource? runeImportCts;
+    private CancellationTokenSource? valorantLoadoutCts;
     public static string[]? StartupArgs { get; private set; }
     internal static AuthRouteLauncher AuthLauncher { get; } = new();
     internal static OfflineLauncher OfflineLauncher { get; } = new();
@@ -51,6 +52,8 @@ public partial class App : Application
         profileSettingsCts?.Dispose();
         runeImportCts?.Cancel();
         runeImportCts?.Dispose();
+        valorantLoadoutCts?.Cancel();
+        valorantLoadoutCts?.Dispose();
         LcuWebSocketMonitor.Stop();
         DebugClientTrafficLauncher.Dispose();
         DebugTrafficCapture.Dispose();
@@ -67,5 +70,11 @@ public partial class App : Application
     {
         runeImportCts ??= new CancellationTokenSource();
         _ = RuneAutoImportService.RunAsync(runeImportCts.Token);
+    }
+
+    internal void StartValorantLoadoutLoop()
+    {
+        valorantLoadoutCts ??= new CancellationTokenSource();
+        _ = ValorantLoadoutAutoApplyService.RunAsync(valorantLoadoutCts.Token);
     }
 }

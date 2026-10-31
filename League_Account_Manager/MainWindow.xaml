@@ -9,7 +9,7 @@
     xmlns:shell="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:notifications="clr-namespace:Notification.Wpf"
     mc:Ignorable="d"
-    Title="League Account Manager" Height="860" Width="1520" MinHeight="680" MinWidth="1080"
+    Title="League Account Manager" Height="980" Width="1520" MinHeight="860" MinWidth="1080"
     AllowsTransparency="True" ResizeMode="CanResize"
     xmlns:Page="clr-namespace:League_Account_Manager.views"
     Background="{StaticResource AppBackgroundBrush}">
@@ -63,6 +63,12 @@
                         <ui:NavigationViewItem.Icon>
                             <ui:ImageIcon Width="20" Height="20"
                                           Source="pack://application:,,,/Assests/Navigation Icons/Valorant.png" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
+                    <ui:NavigationViewItem NavigationCacheMode="Required" Content="Valorant loadout"
+                                           TargetPageType="{x:Type Page:ValorantLoadout}">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:SymbolIcon Symbol="Color24" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Add accounts" TargetPageType="{x:Type Page:AddAccounts}">

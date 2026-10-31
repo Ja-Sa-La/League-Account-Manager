@@ -37,6 +37,7 @@ public class SettingsTests
         Assert.IsFalse(result.CaptureTelemetry);
         Assert.IsFalse(result.AutoImportRunes);
         Assert.IsTrue(result.AutoApplyProfile);
+        Assert.IsTrue(result.AutoApplyValorantLoadout);
         Assert.AreEqual("ugg", result.RuneImportSource);
         Assert.AreEqual("automatic", result.RuneImportRole);
     }

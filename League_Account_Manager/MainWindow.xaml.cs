@@ -165,6 +165,7 @@ public partial class MainWindow : Window
 
             await ProxyLoginTokenManager.TryHandleLoginUriAsync(App.StartupArgs);
             ((App)Application.Current).StartRuneImportLoop();
+            ((App)Application.Current).StartValorantLoadoutLoop();
             await Dispatcher.InvokeAsync(OfferCloudSync, DispatcherPriority.ContextIdle);
         }
         catch (Exception e)

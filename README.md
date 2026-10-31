@@ -14,11 +14,11 @@ For support, join the [Discord server](https://discord.gg/tjQVcc9SGP).
 
 | Channel | Version | Download |
 | --- | --- | --- |
-| Stable | [2.7.0.14](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.14) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
-| Beta | [2.7.0.16-beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.16-beta) | [Download latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.16-beta) |
+| Stable | [2.7.0.24](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.24) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
+| Beta | [2.7.0.29-beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.29-beta) | [Download latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.29-beta) |
 
 Beta builds contain the newest features and may be less stable. The current
-beta adds the plugin platform described below.
+beta adds the Valorant loadout manager described below.
 
 ## Features
 
@@ -31,7 +31,10 @@ beta adds the plugin platform described below.
 - **Profile and social tools:** Profile editor, Riot ID changer, friend manager,
   bulk friend removal, and log cleanup.
 - **Game workflow tools:** Champion select assistance, player stats where Riot
-  permits them, and an improved report tool.
+  permits them, rune pages, and an improved report tool.
+- **Valorant:** Account list, inventory, and a loadout manager that equips owned
+  skins, chromas, and the highest owned skin level. Saved sets can apply
+  automatically when an agent is selected.
 - **Diagnostics:** LCU traffic viewer, request logging, debug mode, and utility
   tools for inspecting client data.
 - **Extensibility:** Trusted plugins can add navigation pages, XAML-based WPF
@@ -47,7 +50,7 @@ the application with native WPF pages. Plugins are regular .NET class
 libraries, can use normal XAML and code-behind, and receive host-mediated LCU
 and storefront clients through `IPluginContext`.
 
-- [Plugin development guide](docs/pages/plugins.md)
+- [Plugin development guide](docs/pages/plu29ns.md)
 - [Example plugin source](Examples/ExamplePlugin)
 - [Plugin contract](League_Account_Manager.PluginContract)
 - [Beta release notes](docs/releases/2.7.0.16-beta.md)
@@ -58,38 +61,63 @@ automatically; restart the application after adding or updating a plugin.
 
 ## Screenshots
 
-### Dashboard
-<img src="https://github.com/user-attachments/assets/887ab552-7969-4eed-92d8-0537e7634a7e" width="100%" />
+### Accounts
+<img src="docs/Img/accounts.png" width="100%" />
 
-### Add Accounts
-<img src="https://github.com/user-attachments/assets/94bb1a3f-4a85-4b20-8865-670b8f5841a5" width="100%" />
+### Account data
+<img src="docs/Img/accounts-data.png" width="100%" />
 
-### Champion Select
-<img src="https://github.com/user-attachments/assets/c08c7d11-c83d-4e8f-99d7-925a77bf7382" width="100%" />
+### Add accounts
+<img src="docs/Img/add-accounts.png" width="100%" />
 
-### Auto Champion Select
-<img src="https://github.com/user-attachments/assets/811edfbf-7416-4f84-8832-c02bc475642f" width="100%" />
+### Valorant accounts
+<img src="docs/Img/valorant-accounts.png" width="100%" />
 
-### Champion Buyer
-<img src="https://github.com/user-attachments/assets/b0ebfad5-9201-4c9d-a269-18406e18b959" width="100%" />
+### Valorant inventory
+<img src="docs/Img/valorant-inventory.png" width="100%" />
 
-### Report Manager
-<img src="https://github.com/user-attachments/assets/50584ce8-41bb-4eb7-8dd1-985d4d7d6955" width="100%" />
+### Valorant loadout
+<img src="docs/Img/valorant-loadout.png" width="100%" />
 
-### Misc Tools
-<img src="https://github.com/user-attachments/assets/59061b09-a74a-4e21-ac21-cf97dce94d98" width="100%" />
+### Champion select
+<img src="docs/Img/champion-select.png" width="100%" />
 
-### Profile Editor
-<img src="https://github.com/user-attachments/assets/fdde3f73-743c-4e11-8a6f-1ffb139c1627" width="100%" />
+### Auto champion select
+<img src="docs/Img/auto-champion-select.png" width="100%" />
 
-### Disenchanter
-<img src="https://github.com/user-attachments/assets/0c016f75-086b-4542-9c2f-efd0d2f0cdaa" width="100%" />
+### Runes
+<img src="docs/Img/runes.png" width="100%" />
 
-### Settings Manager
-<img src="https://github.com/user-attachments/assets/2903b900-9881-43f3-a21e-f37db8920b4e" width="100%" />
+### Champion buyer
+<img src="docs/Img/champion-buyer.png" width="100%" />
 
-### Change Riot ID
-<img src="https://github.com/user-attachments/assets/357fdd3b-59d7-46f1-88fa-c4369778df0b" width="600" />
+### Report tool
+<img src="docs/Img/report-tool.png" width="100%" />
+
+### LCU traffic
+<img src="docs/Img/lcu-traffic.png" width="100%" />
+
+##Accounts list and search
+- Valorant accounts and loadout manager
+- Add accounts
+- Champion select and auto champion select
+- Runes
+- Champion buyer
+- Disenchanter / Loot manager
+- Report tool
+- LCU traffic
+- Misc tools (log cleanup, queue helpers, loot value, etc.)
+- Profile editor (icon/status/background)
+- Friend manager (bulk remove)
+- In-game settings
+### Loot
+<img src="docs/Img/loot.png" width="100%" />
+
+### In-game settings
+<img src="docs/Img/ingame-settings.png" width="100%" />
+
+### Settings
+<img src="docs/Img/settings.png" width="100%" />
 
 
 ## UI Pages / Tools

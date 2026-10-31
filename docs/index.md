@@ -23,44 +23,66 @@ This site documents the app, its features, and the WPF pages in the UI.
 
 ## Screenshots
 
-### Dashboard
-<img src="https://github.com/user-attachments/assets/887ab552-7969-4eed-92d8-0537e7634a7e" width="100%" />
+### Accounts
+<img src="Img/accounts.png" width="100%" />
 
-### Add Accounts
-<img src="https://github.com/user-attachments/assets/94bb1a3f-4a85-4b20-8865-670b8f5841a5" width="100%" />
+### Account data
+<img src="Img/accounts-data.png" width="100%" />
 
-### Champion Select
-<img src="https://github.com/user-attachments/assets/c08c7d11-c83d-4e8f-99d7-925a77bf7382" width="100%" />
+### Add accounts
+<img src="Img/add-accounts.png" width="100%" />
 
-### Auto Champion Select
-<img src="https://github.com/user-attachments/assets/811edfbf-7416-4f84-8832-c02bc475642f" width="100%" />
+### Valorant accounts
+<img src="Img/valorant-accounts.png" width="100%" />
 
-### Champion Buyer
-<img src="https://github.com/user-attachments/assets/b0ebfad5-9201-4c9d-a269-18406e18b959" width="100%" />
+### Valorant inventory
+<img src="Img/valorant-inventory.png" width="100%" />
 
-### Report Manager
-<img src="https://github.com/user-attachments/assets/50584ce8-41bb-4eb7-8dd1-985d4d7d6955" width="100%" />
+### Valorant loadout
+<img src="Img/valorant-loadout.png" width="100%" />
 
-### Misc Tools
-<img src="https://github.com/user-attachments/assets/59061b09-a74a-4e21-ac21-cf97dce94d98" width="100%" />
+### Champion select
+<img src="Img/champion-select.png" width="100%" />
 
-### Profile Editor
-<img src="https://github.com/user-attachments/assets/fdde3f73-743c-4e11-8a6f-1ffb139c1627" width="100%" />
+### Auto champion select
+<img src="Img/auto-champion-select.png" width="100%" />
 
-### Disenchanter
-<img src="https://github.com/user-attachments/assets/0c016f75-086b-4542-9c2f-efd0d2f0cdaa" width="100%" />
+### Runes
+<img src="Img/runes.png" width="100%" />
 
-### Settings Manager
-<img src="https://github.com/user-attachments/assets/2903b900-9881-43f3-a21e-f37db8920b4e" width="100%" />
+### Champion buyer
+<img src="Img/champion-buyer.png" width="100%" />
 
-### Change Riot ID
-<img src="https://github.com/user-attachments/assets/357fdd3b-59d7-46f1-88fa-c4369778df0b" width="600" />
+### Report tool
+<img src="Img/report-tool.png" width="100%" />
+
+### LCU traffic
+<img src="Img/lcu-traffic.png" width="100%" />
+
+### Misc tools
+<img src="Img/misc-tools.png" width="100%" />
+
+### Profile editor
+<img src="Img/profile-editor.png" width="100%" />
+
+### Friend manager
+<img src="Img/friend-manager.png" width="100%" />
+
+### Loot
+<img src="Img/loot.png" width="100%" />
+
+### In-game settings
+<img src="Img/ingame-settings.png" width="100%" />
+
+### Settings
+<img src="Img/settings.png" width="100%" />
 
 ## Pages
 
 - [Plugin Development](pages/plugins.md)
 - [Main Window](pages/main-window.md)
 - [Accounts](pages/accounts.md)
+- [Valorant Loadout](pages/valorant-loadout.md)
 - [Add Accounts](pages/add-accounts.md)
 - [Autolobby](pages/autolobby.md)
 - [Champion Buyer](pages/champion-buyer.md)

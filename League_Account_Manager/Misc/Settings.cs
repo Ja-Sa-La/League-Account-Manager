@@ -464,6 +464,7 @@ public static class Settings
             CaptureTelemetry = false,
             AutoImportRunes = false,
             AutoApplyProfile = true,
+            AutoApplyValorantLoadout = true,
             RuneImportSource = "ugg",
             RuneImportRole = "automatic"
         };
@@ -713,6 +714,11 @@ public static class Settings
         public bool CaptureTelemetry { get; set; }
         public bool AutoImportRunes { get; set; }
         public bool AutoApplyProfile { get; set; }
+
+        /// <summary>
+        ///     Equips the skins saved for an agent when that agent is selected in Valorant.
+        /// </summary>
+        public bool AutoApplyValorantLoadout { get; set; }
         public string RuneImportSource { get; set; }
         public string RuneImportRole { get; set; }
     }
