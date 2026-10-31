@@ -771,6 +771,9 @@ internal static class ValorantLoadoutService
         public bool OwnsSkin(string skinId, IReadOnlySet<string> ownedIds) =>
             HighestOwnedLevel(skinId, ownedIds) != null || ownedIds.Contains(skinId);
 
+        public bool IsStandardSkin(string skinId) =>
+            skinsById.TryGetValue(skinId, out var skin) && skin.IsStandard;
+
         /// <summary>
         ///     The last owned level in catalog order. Valorant lists levels from the base skin
         ///     up to the fully upgraded variant, and entitlements store those level ids.

@@ -70,10 +70,13 @@ internal static class ValorantLoadoutAutoApplyService
         var catalog = await ValorantLoadoutService.GetCatalogAsync(cancellationToken).ConfigureAwait(false);
         var saved = await ValorantLoadoutService.FindAgentLoadoutAsync(session.Puuid, agentId, cancellationToken)
             .ConfigureAwait(false);
-        var guns = saved is { Guns.Count: > 0 } ? saved.Guns : catalog.StandardGuns();
+        // A base skin means "leave the equipped skin alone", so an agent whose saved loadout
+        // is only standard skins is not applied and does not replace the current loadout.
+        var guns = saved?.Guns.Where(gun => !catalog.IsStandardSkin(gun.SkinId)).ToList() ?? [];
         if (guns.Count == 0)
         {
-            DebugConsole.WriteLine($"[ValorantLoadout] No saved loadout for agent {agentId}.");
+            DebugConsole.WriteLine(
+                $"[ValorantLoadout] {catalog.AgentName(agentId)} has no agent-specific skins. The equipped loadout was left unchanged.");
             return agentId;
         }
 
@@ -88,10 +91,9 @@ internal static class ValorantLoadoutAutoApplyService
 
         var applied = await ValorantLoadoutService.ApplyGunsAsync(session, guns, cancellationToken)
             .ConfigureAwait(false);
-        var usingStandard = saved is not { Guns.Count: > 0 };
         DebugConsole.WriteLine(applied
-            ? $"[ValorantLoadout] Equipped the {(usingStandard ? "standard" : "saved")} loadout for {catalog.AgentName(agentId)}."
-            : $"[ValorantLoadout] The {(usingStandard ? "standard" : "saved")} loadout for {catalog.AgentName(agentId)} was already equipped.");
+            ? $"[ValorantLoadout] Equipped the agent-specific skins for {catalog.AgentName(agentId)}."
+            : $"[ValorantLoadout] The agent-specific skins for {catalog.AgentName(agentId)} were already equipped.");
 
         return agentId;
     }

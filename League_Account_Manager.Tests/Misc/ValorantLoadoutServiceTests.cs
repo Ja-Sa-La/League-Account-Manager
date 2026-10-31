@@ -150,6 +150,10 @@ public class ValorantLoadoutServiceTests
         var catalog = ValorantLoadoutService.WeaponCatalog.Parse(weapons, skins, agents);
         var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "prime-level-1", "prime-level-2" };
 
+        Assert.IsTrue(catalog.IsStandardSkin("standard"));
+        Assert.IsFalse(catalog.IsStandardSkin("prime"));
+        Assert.IsFalse(catalog.IsStandardSkin("random"));
+
         var options = catalog.OwnedOptions("vandal", owned);
 
         CollectionAssert.AreEquivalent(

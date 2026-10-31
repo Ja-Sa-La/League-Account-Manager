@@ -118,8 +118,13 @@
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid>
-                                    <Image Stretch="UniformToFill" Source="{Binding Portrait}" />
+                                <Grid ClipToBounds="True">
+                                    <Image Stretch="Uniform" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" Source="{Binding Portrait}">
+                                        <Image.RenderTransform>
+                                            <TranslateTransform X="-6" />
+                                        </Image.RenderTransform>
+                                    </Image>
                                     <Viewbox Width="46" Height="46" Visibility="{Binding RandomMarkVisibility}">
                                         <Canvas Width="64" Height="64">
                                             <Rectangle Canvas.Left="6" Canvas.Top="6" Width="52" Height="52" RadiusX="8" RadiusY="8"

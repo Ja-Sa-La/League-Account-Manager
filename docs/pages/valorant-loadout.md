@@ -14,8 +14,8 @@ Shows the weapon skins equipped on the Valorant account currently signed in to t
 - Named sets belong to the signed-in account. Apply only equips skins and chromas that account owns.
 - Chromas the account does not own are not shown. The base chroma of an owned skin is still shown.
 - Equipping a skin uses the highest upgrade level that account owns, not the fully upgraded level.
-- An agent with no saved loadout uses the standard skin on every weapon until one is saved.
-- Applies a saved agent loadout automatically when that agent is selected. Before that change, the current loadout is stored as the account's Default set. When the match loads, Default is equipped again so the account loadout is not left on the agent set. Named sets are not applied automatically.
+- An agent with no saved loadout shows the standard skin on every weapon until one is saved. That preview is not equipped automatically.
+- Applies a saved agent loadout automatically when that agent is selected, but only the weapons that use a skin other than the standard skin. A standard skin leaves the skin already equipped on that weapon. An agent whose saved loadout is only standard skins is not applied. Before the first change, the current loadout is stored as the account's Default set. When the match loads, Default is equipped again so the account loadout is not left on the agent set. Named sets are not applied automatically.
 
 ## Options
 

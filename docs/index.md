@@ -17,6 +17,7 @@ This site documents the app, its features, and the WPF pages in the UI.
 - Misc tools: log remover, loot value checker, queue helpers, etc.
 - Stealth login (launch/login without showing yourself online)
 - Debug mode login and LCU traffic inspection
+- Valorant account list, inventory, and a loadout manager for owned skins, chromas, and agent-specific sets
 - Automatic update checks and optional beta releases
 - Optional cloud account and settings synchronization with encrypted payloads
 - OPAQUE-based cloud authentication with sessions protected for the current Windows user
