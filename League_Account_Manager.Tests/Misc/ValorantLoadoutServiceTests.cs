@@ -1,3 +1,4 @@
+using System.Net;
 using League_Account_Manager.Misc;
 
 namespace League_Account_Manager.Tests.Misc;
@@ -31,6 +32,23 @@ public class ValorantLoadoutServiceTests
         Assert.AreEqual("eu", ValorantLoadoutService.RegionFromAccessToken(token));
         Assert.IsNull(ValorantLoadoutService.RegionFromAccessToken("not-a-jwt"));
         Assert.IsNull(ValorantLoadoutService.RegionFromAccessToken(null));
+    }
+
+    [TestMethod]
+    public void TokenWasRejected_RefreshesExpiredRsoTokens()
+    {
+        const string badClaims = """
+            {"httpStatus":400,"errorCode":"BAD_CLAIMS","message":"Failure validating/decoding RSO Access Token"}
+            """;
+
+        Assert.IsTrue(ValorantLoadoutService.TokenWasRejected(HttpStatusCode.BadRequest, badClaims));
+        Assert.IsTrue(ValorantLoadoutService.TokenWasRejected(HttpStatusCode.Unauthorized, null));
+        Assert.IsTrue(ValorantLoadoutService.TokenWasRejected(HttpStatusCode.Forbidden, string.Empty));
+        Assert.IsFalse(ValorantLoadoutService.TokenWasRejected(HttpStatusCode.BadRequest, """
+            {"httpStatus":400,"errorCode":"BAD_REQUEST","message":"Invalid queue"}
+            """));
+        Assert.IsFalse(ValorantLoadoutService.TokenWasRejected(HttpStatusCode.InternalServerError, badClaims));
+        Assert.IsFalse(ValorantLoadoutService.TokenWasRejected(HttpStatusCode.OK, badClaims));
     }
 
     [TestMethod]

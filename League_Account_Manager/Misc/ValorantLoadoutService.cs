@@ -236,7 +236,7 @@ internal static class ValorantLoadoutService
     /// </summary>
     internal static bool IsInAgentSelect() => ReadGamePhase() == GamePhase.AgentSelect;
 
-    private static string? ReadLogTail()
+    internal static string? ReadLogTail()
     {
         try
         {
@@ -593,6 +593,25 @@ internal static class ValorantLoadoutService
         return body ?? throw new InvalidOperationException("Valorant did not return the loadout.");
     }
 
+    internal static Task<string?> GetRawAsync(ValorantSession session, string url, string? body,
+        CancellationToken cancellationToken)
+    {
+        if (body == null)
+            return TryGetStringAsync(session, url, cancellationToken);
+
+        return PostRawAsync(session, url, body, cancellationToken);
+    }
+
+    private static async Task<string?> PostRawAsync(ValorantSession session, string url, string body,
+        CancellationToken cancellationToken)
+    {
+        using var content = new StringContent(body, Encoding.UTF8, "application/json");
+        using var response = await SendAsync(session, HttpMethod.Post, url, content, body, cancellationToken)
+            .ConfigureAwait(false);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? responseBody : null;
+    }
+
     private static async Task<string?> TryGetStringAsync(ValorantSession session, string url,
         CancellationToken cancellationToken)
     {
@@ -607,7 +626,7 @@ internal static class ValorantLoadoutService
     {
         var response = await SendAsync(session.Client, method, url, content, requestBody, cancellationToken)
             .ConfigureAwait(false);
-        if (response.IsSuccessStatusCode || !ShouldRefresh(response.StatusCode))
+        if (response.IsSuccessStatusCode || !await TokenWasRejectedAsync(response, cancellationToken).ConfigureAwait(false))
             return response;
 
         response.Dispose();
@@ -630,8 +649,35 @@ internal static class ValorantLoadoutService
             .ConfigureAwait(false);
     }
 
-    private static bool ShouldRefresh(HttpStatusCode status) =>
-        status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+    /// <summary>
+    ///     Riot answers an expired or replaced access token with 401/403, and also with 400
+    ///     BAD_CLAIMS ("Failure validating/decoding RSO Access Token"). Either one means the
+    ///     cached Riot Client token has to be replaced before the request is retried.
+    /// </summary>
+    internal static bool TokenWasRejected(HttpStatusCode status, string? body)
+    {
+        if (status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            return true;
+        if (status != HttpStatusCode.BadRequest || string.IsNullOrWhiteSpace(body))
+            return false;
+
+        return body.Contains("BAD_CLAIMS", StringComparison.OrdinalIgnoreCase) ||
+               body.Contains("RSO Access Token", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> TokenWasRejectedAsync(HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+            return false;
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            return true;
+
+        var body = response.Content == null
+            ? null
+            : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return TokenWasRejected(response.StatusCode, body);
+    }
 
     /// <summary>
     ///     Sends a Valorant request and records it in the LCU traffic view, including requests

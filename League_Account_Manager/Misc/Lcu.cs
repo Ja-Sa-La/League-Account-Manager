@@ -223,8 +223,12 @@ internal class Lcu
             throw new InvalidOperationException("Missing PUUID or id token.");
 
         using var versionClient = new HttpClient();
+        var versionRecord = LcuRequestLog.Add("cdn", "GET", "https://valorant-api.com/v1/version", string.Empty,
+            null, "Pending", string.Empty, 0, trafficType: "CDN", direction: "Outgoing");
+        var versionStopwatch = Stopwatch.StartNew();
         var versionBody = await versionClient.GetStringAsync("https://valorant-api.com/v1/version")
             .ConfigureAwait(false);
+        LcuRequestLog.Update(versionRecord.Id, 200, "OK", versionBody, versionStopwatch.ElapsedMilliseconds);
         var versionJson = JObject.Parse(versionBody);
         var clientVersion = versionJson["data"]?["version"]?.ToString();
         if (string.IsNullOrWhiteSpace(clientVersion))

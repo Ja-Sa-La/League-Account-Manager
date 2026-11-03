@@ -72,6 +72,9 @@
                                                  <CheckBox x:Name="CaptureRiotCdn" Content="Capture Riot CDN" Margin="0,0,0,7"
                                                            ToolTip="During a debug login, also log Riot CDN downloads such as patcher bundles and theme assets. These are large, so a session logs considerably more."
                                                            IsChecked="False" />
+                                                 <CheckBox x:Name="DiscordRichPresence" Content="Show the current game on Discord" Margin="0,0,0,7"
+                                                           ToolTip="Choose the match details and optional account stats on the Discord page. Passwords are never included."
+                                                           IsChecked="False" />
                                                  <CheckBox x:Name="CaptureTelemetry" Content="Capture telemetry" Margin="0,0,0,7"
                                                            ToolTip="During a debug login, also log the telemetry sent to data.riotgames.com, telemetry.sgp.pvp.net and ekg.riotgames.com. This edits the hosts file and installs a local root certificate, and both are removed when the capture stops."
                                                            IsChecked="False" />

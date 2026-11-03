@@ -93,6 +93,7 @@ This site documents the app, its features, and the WPF pages in the UI.
 - [Profile Editor](pages/profile-editor.md)
 - [Report Tool](pages/report-tool.md)
 - [LCU Traffic](pages/lcu-traffic.md)
+- [Discord](pages/discord.md)
 - [Settings](pages/settings.md)
 - [Settings Editor](pages/settings-editor.md)
 - [Change Name](pages/change-name.md)

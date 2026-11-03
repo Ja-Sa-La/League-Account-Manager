@@ -14,8 +14,8 @@ For support, join the [Discord server](https://discord.gg/tjQVcc9SGP).
 
 | Channel | Version | Download |
 | --- | --- | --- |
-| Stable | [2.7.0.30](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.30) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
-| Beta | [2.7.0.29-beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.29-beta) | [Download latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.29-beta) |
+| Stable | [2.7.0.31](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.31) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
+| Beta | [2.7.0.32-beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.32-beta) | [Download latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.32-beta) |
 
 Beta builds contain the newest features and may be less stable. The current
 stable release includes the Valorant loadout manager described below.
@@ -35,6 +35,9 @@ stable release includes the Valorant loadout manager described below.
 - **Valorant:** Account list, inventory, and a loadout manager that equips owned
   skins, chromas, and the highest owned skin level. Saved sets can apply
   automatically when an agent is selected.
+- **Discord:** Optional League and Valorant rich presence with lobby and match
+  details, account statistics, and an automatically created Valorant party join
+  button.
 - **Diagnostics:** LCU traffic viewer, request logging, debug mode, and utility
   tools for inspecting client data.
 - **Extensibility:** Trusted plugins can add navigation pages, XAML-based WPF

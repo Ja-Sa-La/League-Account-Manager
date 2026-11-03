@@ -161,6 +161,13 @@
                             </TextBlock>
                         </ui:NavigationViewItem.Content>
                     </ui:NavigationViewItem>
+                    <ui:NavigationViewItem Content="Discord" NavigationCacheMode="Required"
+                                           TargetPageType="{x:Type Page:DiscordPresence}">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:ImageIcon Width="20" Height="20"
+                                          Source="pack://application:,,,/Assests/Navigation%20Icons/Discord.png" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
                     <ui:NavigationViewItem Content="Settings" TargetPageType="{x:Type Page:Settings}">
                         <ui:NavigationViewItem.Icon>
                             <ui:SymbolIcon Symbol="Settings24" />

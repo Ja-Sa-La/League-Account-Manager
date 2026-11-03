@@ -166,6 +166,7 @@ public partial class MainWindow : Window
             await ProxyLoginTokenManager.TryHandleLoginUriAsync(App.StartupArgs);
             ((App)Application.Current).StartRuneImportLoop();
             ((App)Application.Current).StartValorantLoadoutLoop();
+            ((App)Application.Current).StartDiscordPresenceLoop();
             await Dispatcher.InvokeAsync(OfferCloudSync, DispatcherPriority.ContextIdle);
         }
         catch (Exception e)

@@ -708,7 +708,8 @@ public partial class ValorantAccounts : Page
             BeginLoginSteps(stealth ? "Stealth login" : "Logging in");
             DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Starting clientless authentication.");
             SetLoginStatus("Starting authentication...");
-            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false,
+                "valorant");
             var captchaToken = string.Empty;
             if (challenge.RequiresChallenge)
             {
@@ -2313,7 +2314,8 @@ public partial class ValorantAccounts : Page
             // needed. Start → [Tabasco in WebView2] → credentials → (optional 2FA) → login token,
             // which is copied to the clipboard in the same format as before.
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
-            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
+            var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false,
+                "valorant");
             var captchaToken = string.Empty;
 
             if (challenge.RequiresChallenge)

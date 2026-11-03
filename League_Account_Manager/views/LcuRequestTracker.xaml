@@ -43,6 +43,7 @@
                 <ComboBoxItem Content="RTMP" Tag="RTMP" />
                 <ComboBoxItem Content="CDN" Tag="CDN" />
                 <ComboBoxItem Content="Telemetry" Tag="Telemetry" />
+                <ComboBoxItem Content="Discord" Tag="Discord" />
             </ComboBox>
             <ComboBox Grid.Column="3" x:Name="DirectionFilter" SelectionChanged="DirectionFilter_OnSelectionChanged"
                       SelectedIndex="0" Margin="6,0" VerticalContentAlignment="Center">

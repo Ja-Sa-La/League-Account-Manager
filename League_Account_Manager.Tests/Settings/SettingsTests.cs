@@ -38,6 +38,17 @@ public class SettingsTests
         Assert.IsFalse(result.AutoImportRunes);
         Assert.IsTrue(result.AutoApplyProfile);
         Assert.IsTrue(result.AutoApplyValorantLoadout);
+        Assert.IsFalse(result.DiscordRichPresence);
+        Assert.IsFalse(result.DiscordShowRiotId);
+        Assert.IsFalse(result.DiscordShowLevel);
+        Assert.IsFalse(result.DiscordShowRegion);
+        Assert.IsFalse(result.DiscordShowRank);
+        Assert.IsFalse(result.DiscordShowCurrency);
+        Assert.IsFalse(result.DiscordShowCollection);
+        Assert.IsTrue(result.DiscordShowMatch);
+        Assert.IsTrue(result.DiscordShowScore);
+        Assert.IsTrue(result.DiscordShowKd);
+        Assert.IsFalse(result.DiscordShowPartyJoin);
         Assert.AreEqual("ugg", result.RuneImportSource);
         Assert.AreEqual("automatic", result.RuneImportRole);
     }

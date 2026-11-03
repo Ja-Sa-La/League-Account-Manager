@@ -22,9 +22,15 @@ internal static class RsoLoginService
 
     private const string AuthBaseUrl = "https://auth.riotgames.com";
     private const string AuthenticatorBaseUrl = "https://authenticate.riotgames.com";
-    private const string RiotAuthUserAgent = "RiotClient/70.0.0.247.1382 rso-auth (Windows;10;;Professional, x64)";
+
+    // The authenticator rejects sessions that don't look like the current client. Captured from
+    // a working Riot Client (26.10.1): the SDK build is sent both as the user-agent and as the
+    // sdkVersion field of the session body.
+    private const string RiotClientSdkVersion = "26.10.1.9c322b6e9287857a25f91202eeab72501390fd33";
+    private const string RiotAuthUserAgent =
+        "RiotGamesApi/" + RiotClientSdkVersion + " rso-auth (Windows;10;;Professional, x64) riot_client/0";
     private const string RiotAuthenticatorUserAgent =
-        "RiotClient/70.0.0.247.1382 rso-authenticator (Windows;10;;Professional, x64)";
+        "RiotGamesApi/" + RiotClientSdkVersion + " rso-authenticator (Windows;10;;Professional, x64) riot_client/0";
 
     /// <summary>
     ///     Origin the Tabasco widget is bound to in the clientless flow (the public web
@@ -264,17 +270,27 @@ internal static class RsoLoginService
     ///     sitekey + rqdata. Requires no running Riot Client.
     ///     <paramref name="remember"/> is the remember-me choice and is sent on this start request
     ///     as well as the later complete PUT, matching the real client.
+    ///     <paramref name="productId"/> is the client's <c>intendedProductId</c>
+    ///     (<c>league_of_legends</c> or <c>valorant</c>).
     /// </summary>
     public static Task<ChallengeInfo> ClientlessStartSessionAsync(CancellationToken cancellationToken = default)
-        => ClientlessStartSessionAsync(remember: false, cancellationToken);
+        => ClientlessStartSessionAsync(remember: false, cancellationToken: cancellationToken);
 
-    /// <inheritdoc cref="ClientlessStartSessionAsync(bool, CancellationToken)"/>
-    public static async Task<ChallengeInfo> ClientlessStartSessionAsync(bool remember,
+    /// <inheritdoc cref="ClientlessStartSessionAsync(bool, string, CancellationToken)"/>
+    public static Task<ChallengeInfo> ClientlessStartSessionAsync(bool remember,
+        CancellationToken cancellationToken = default)
+        => ClientlessStartSessionAsync(remember, "league_of_legends", cancellationToken);
+
+    /// <inheritdoc cref="ClientlessStartSessionAsync(bool, string, CancellationToken)"/>
+    public static async Task<ChallengeInfo> ClientlessStartSessionAsync(bool remember, string productId,
         CancellationToken cancellationToken = default)
     {
         await ClientlessRequestAsync(HttpMethod.Delete, "/api/v1/login", null, cancellationToken)
             .ConfigureAwait(false);
 
+        // Full session envelope as the current client sends it. The older shape (empty
+        // sdkVersion, language inside riot_identity) is what the authenticator answers with
+        // invalid_request / 40005700 once the account needs a second factor.
         var body = JsonSerializer.Serialize(new
         {
             apple = (object?)null,
@@ -284,25 +300,29 @@ internal static class RsoLoginService
             facebook = (object?)null,
             gamecenter = (object?)null,
             google = (object?)null,
-            language = "",
+            intendedProductId = productId,
+            keypair = (object?)null,
+            language = "en_US",
+            mockDeviceId = (object?)null,
+            mockPlatform = (object?)null,
+            msdk = (object?)null,
             multifactor = (object?)null,
             nintendo = (object?)null,
+            parental_consent = (object?)null,
             platform = "windows",
             playstation = (object?)null,
-            remember = (bool?)remember,
+            qrcode = (object?)null,
+            remember,
             riot_identity = new
             {
-                campaign = (object?)null,
                 captcha = (string?)null,
-                language = "en_US",
                 password = (string?)null,
-                remember = (bool?)remember,
                 state = "auth",
                 username = (string?)null
             },
             riot_identity_signup = (object?)null,
             rso = (object?)null,
-            sdkVersion = "",
+            sdkVersion = RiotClientSdkVersion,
             type = "auth",
             xbox = (object?)null
         }, JsonOptions);
@@ -349,21 +369,41 @@ internal static class RsoLoginService
     public static async Task<AuthResult> ClientlessSubmitMfaAsync(string otp, bool rememberDevice,
         CancellationToken cancellationToken = default)
     {
-        // Wire shape mirrors the real client's reduced envelope (same pattern as the captured
-        // complete request): top-level campaign/language/remember/type + the active method block.
+        // The client resends the whole session envelope for the second factor, not a reduced
+        // one: every method block is present and null except multifactor, which carries the code.
         var body = JsonSerializer.Serialize(new
         {
+            apple = (object?)null,
             campaign = (object?)null,
-            language = "en_US",
-            remember = rememberDevice,
+            clientId = "riot-client",
+            code = (object?)null,
+            facebook = (object?)null,
+            gamecenter = (object?)null,
+            google = (object?)null,
+            keypair = (object?)null,
+            language = "",
+            mockDeviceId = (object?)null,
+            mockPlatform = (object?)null,
+            msdk = (object?)null,
             multifactor = new
             {
                 action = (string?)null,
+                method = (string?)null,
                 otp,
                 rememberDevice
             },
+            nintendo = (object?)null,
+            parental_consent = (object?)null,
+            platform = "windows",
+            playstation = (object?)null,
+            qrcode = (object?)null,
+            remember = false,
             riot_identity = (object?)null,
-            type = "multifactor"
+            riot_identity_signup = (object?)null,
+            rso = (object?)null,
+            sdkVersion = RiotClientSdkVersion,
+            type = "multifactor",
+            xbox = (object?)null
         }, JsonOptions);
 
         var text = await ClientlessRequestAsync(HttpMethod.Put, "/api/v1/login", body, cancellationToken)

@@ -85,6 +85,17 @@ public static class Settings
         settingsloaded.LeagueDefaultSortDescending = incoming.LeagueDefaultSortDescending;
         settingsloaded.ValorantDefaultSortColumn = incoming.ValorantDefaultSortColumn;
         settingsloaded.ValorantDefaultSortDescending = incoming.ValorantDefaultSortDescending;
+        settingsloaded.DiscordRichPresence = incoming.DiscordRichPresence;
+        settingsloaded.DiscordShowRiotId = incoming.DiscordShowRiotId;
+        settingsloaded.DiscordShowLevel = incoming.DiscordShowLevel;
+        settingsloaded.DiscordShowRegion = incoming.DiscordShowRegion;
+        settingsloaded.DiscordShowRank = incoming.DiscordShowRank;
+        settingsloaded.DiscordShowCurrency = incoming.DiscordShowCurrency;
+        settingsloaded.DiscordShowCollection = incoming.DiscordShowCollection;
+        settingsloaded.DiscordShowMatch = incoming.DiscordShowMatch;
+        settingsloaded.DiscordShowScore = incoming.DiscordShowScore;
+        settingsloaded.DiscordShowKd = incoming.DiscordShowKd;
+        settingsloaded.DiscordShowPartyJoin = incoming.DiscordShowPartyJoin;
         Save();
     }
 
@@ -465,6 +476,17 @@ public static class Settings
             AutoImportRunes = false,
             AutoApplyProfile = true,
             AutoApplyValorantLoadout = true,
+            DiscordRichPresence = false,
+            DiscordShowRiotId = false,
+            DiscordShowLevel = false,
+            DiscordShowRegion = false,
+            DiscordShowRank = false,
+            DiscordShowCurrency = false,
+            DiscordShowCollection = false,
+            DiscordShowMatch = true,
+            DiscordShowScore = true,
+            DiscordShowKd = true,
+            DiscordShowPartyJoin = false,
             RuneImportSource = "ugg",
             RuneImportRole = "automatic"
         };
@@ -719,6 +741,25 @@ public static class Settings
         ///     Equips the skins saved for an agent when that agent is selected in Valorant.
         /// </summary>
         public bool AutoApplyValorantLoadout { get; set; }
+
+        /// <summary>
+        ///     Shows the signed-in League or Valorant account, and the live game, on Discord.
+        /// </summary>
+        public bool DiscordRichPresence { get; set; }
+        public bool DiscordShowRiotId { get; set; }
+        public bool DiscordShowLevel { get; set; }
+        public bool DiscordShowRegion { get; set; }
+        public bool DiscordShowRank { get; set; }
+        public bool DiscordShowCurrency { get; set; }
+        public bool DiscordShowCollection { get; set; }
+        public bool DiscordShowMatch { get; set; }
+        public bool DiscordShowScore { get; set; }
+        public bool DiscordShowKd { get; set; }
+
+        /// <summary>
+        ///     Creates a Valorant party link and shows it as a Discord join button.
+        /// </summary>
+        public bool DiscordShowPartyJoin { get; set; }
         public string RuneImportSource { get; set; }
         public string RuneImportRole { get; set; }
     }

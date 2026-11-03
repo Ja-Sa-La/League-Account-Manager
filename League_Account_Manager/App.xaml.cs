@@ -12,6 +12,7 @@ public partial class App : Application
     private CancellationTokenSource? profileSettingsCts;
     private CancellationTokenSource? runeImportCts;
     private CancellationTokenSource? valorantLoadoutCts;
+    private CancellationTokenSource? discordPresenceCts;
     public static string[]? StartupArgs { get; private set; }
     internal static AuthRouteLauncher AuthLauncher { get; } = new();
     internal static OfflineLauncher OfflineLauncher { get; } = new();
@@ -54,6 +55,9 @@ public partial class App : Application
         runeImportCts?.Dispose();
         valorantLoadoutCts?.Cancel();
         valorantLoadoutCts?.Dispose();
+        discordPresenceCts?.Cancel();
+        discordPresenceCts?.Dispose();
+        DiscordPresenceService.Clear();
         LcuWebSocketMonitor.Stop();
         DebugClientTrafficLauncher.Dispose();
         DebugTrafficCapture.Dispose();
@@ -76,5 +80,11 @@ public partial class App : Application
     {
         valorantLoadoutCts ??= new CancellationTokenSource();
         _ = ValorantLoadoutAutoApplyService.RunAsync(valorantLoadoutCts.Token);
+    }
+
+    internal void StartDiscordPresenceLoop()
+    {
+        discordPresenceCts ??= new CancellationTokenSource();
+        _ = DiscordPresenceService.RunAsync(discordPresenceCts.Token);
     }
 }
