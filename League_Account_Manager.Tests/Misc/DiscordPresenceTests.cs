@@ -9,6 +9,10 @@ public class DiscordPresenceTests
     [TestMethod]
     public void Presence_KeepsStatsInsideDiscordFieldLimits()
     {
+        Settings.settingsloaded.DiscordShowTracker = true;
+        Settings.settingsloaded.DiscordShowGitHub = true;
+        Settings.settingsloaded.DiscordShowPartyJoin = true;
+        Settings.settingsloaded.DiscordShowAlongsideGame = false;
         var presence = new DiscordPresenceService.Presence(
             DiscordPresenceService.ApplicationId,
             "League of Legends",
@@ -44,6 +48,33 @@ public class DiscordPresenceTests
         Assert.AreEqual("Join party", (string)joinButtons[0]!["label"]!);
         Assert.AreEqual("https://gg.riotgames.com/VAL?joinCode=HdGR-GWyw-xUAh", (string)joinButtons[0]!["url"]!);
         Assert.AreEqual("Tracker", (string)joinButtons[1]!["label"]!);
+
+        Settings.settingsloaded.DiscordShowTracker = false;
+        Settings.settingsloaded.DiscordShowGitHub = false;
+        Settings.settingsloaded.DiscordShowPartyJoin = false;
+        try
+        {
+            var hidden = new DiscordPresenceService.Presence(
+                DiscordPresenceService.ApplicationId, "League of Legends", DiscordPresenceService.LeagueImage, null,
+                "In lobby", "https://tracker.gg/lol/profile/riot/Player%23TAG",
+                "https://gg.riotgames.com/VAL?joinCode=HdGR-GWyw-xUAh");
+            Assert.IsNull(hidden.ToPayload()["args"]!["activity"]!["buttons"]);
+
+            Settings.settingsloaded.DiscordShowGitHub = true;
+            var githubOnly = (JArray)hidden.ToPayload()["args"]!["activity"]!["buttons"]!;
+            Assert.AreEqual(1, githubOnly.Count);
+            Assert.AreEqual("GitHub", (string)githubOnly[0]!["label"]!);
+        }
+        finally
+        {
+            Settings.settingsloaded.DiscordShowTracker = true;
+            Settings.settingsloaded.DiscordShowGitHub = true;
+            Settings.settingsloaded.DiscordShowPartyJoin = true;
+        }
+
+        Settings.settingsloaded.DiscordShowAlongsideGame = true;
+        Assert.AreEqual(3, (int)presence.ToPayload()["args"]!["activity"]!["type"]!);
+        Settings.settingsloaded.DiscordShowAlongsideGame = false;
     }
 
     [TestMethod]
@@ -65,6 +96,26 @@ public class DiscordPresenceTests
         Assert.AreEqual(DiscordPresenceService.ValorantImage,
             (string)valorant.ToPayload()["args"]!["activity"]!["assets"]!["small_image"]!);
         Assert.AreEqual("kay-o", DiscordPresenceService.AgentImageKey("KAY/O"));
+    }
+
+    [TestMethod]
+    public void DiscordPipeNames_KeepsOneSlotPerRunningClient()
+    {
+        var names = DiscordPresenceService.DiscordPipeNames([
+            "discord-ipc-0",
+            @"\\.\pipe\discord-ipc-1",
+            "discord-ipc-9",
+            "discord-ipc-10",
+            "discord-ipc-",
+            "discord-ipc-a",
+            "Discord-IPC-0",
+            "discord-system-helper-keybinds-sender-1",
+            null,
+            string.Empty
+        ]);
+
+        CollectionAssert.AreEquivalent(new[] { "discord-ipc-0", "discord-ipc-1", "discord-ipc-9" },
+            names.ToArray());
     }
 
     [TestMethod]
@@ -101,17 +152,41 @@ public class DiscordPresenceTests
             Settings.settingsloaded.DiscordShowRank = false;
 
             Settings.settingsloaded.DiscordShowKd = true;
+            Settings.settingsloaded.DiscordShowTeam = true;
+            Settings.settingsloaded.DiscordShowPlayers = true;
+            Settings.settingsloaded.DiscordShowPartySize = true;
             var preview = DiscordPresenceService.Preview("In game", "Swiftplay · Pearl · Tejo", "4-3", "12/4",
-                "Player#EU", 176, "EU", "Immortal 2", "776 VP", "20 agents");
+                "Player#EU", 176, "EU", "Immortal 2", "776 VP", "20 agents", "Red", "10 players", "1/5");
 
             Assert.IsTrue(preview.StartsWith("In game\n", StringComparison.Ordinal));
             Assert.IsTrue(preview.Contains("Swiftplay · Pearl · Tejo", StringComparison.Ordinal));
+            Assert.IsTrue(preview.Contains("Red", StringComparison.Ordinal));
+            Assert.IsTrue(preview.Contains("10 players", StringComparison.Ordinal));
+            Assert.IsTrue(preview.Contains("1/5", StringComparison.Ordinal));
             Assert.IsTrue(preview.Contains("Score 4-3", StringComparison.Ordinal));
             Assert.IsTrue(preview.Contains("K/D 12/4", StringComparison.Ordinal));
             Assert.IsTrue(preview.Contains("Lv 176", StringComparison.Ordinal));
             Assert.IsFalse(preview.Contains("Player#EU", StringComparison.Ordinal));
             Assert.IsFalse(preview.Contains("Immortal", StringComparison.Ordinal));
             Assert.IsFalse(preview.Contains("776 VP", StringComparison.Ordinal));
+
+            Settings.settingsloaded.DiscordShowTeam = false;
+            Settings.settingsloaded.DiscordShowPlayers = false;
+            Settings.settingsloaded.DiscordShowPartySize = false;
+            var hiddenStats = DiscordPresenceService.Preview("In game", "Swiftplay · Pearl · Tejo", null, null,
+                null, null, null, null, null, null, "Red", "10 players", "1/5");
+            Assert.IsFalse(hiddenStats.Contains("Red", StringComparison.Ordinal));
+            Assert.IsFalse(hiddenStats.Contains("10 players", StringComparison.Ordinal));
+            Assert.IsFalse(hiddenStats.Contains("1/5", StringComparison.Ordinal));
+
+            Settings.settingsloaded.DiscordShowPartySize = true;
+            var lobbyOnly = DiscordPresenceService.Preview("In lobby", "Swiftplay", null, null, null, null, null,
+                null, null, null, null, "10 players", "1/5");
+            Assert.IsTrue(lobbyOnly.Contains("1/5", StringComparison.Ordinal));
+            Assert.IsFalse(lobbyOnly.Contains("10 players", StringComparison.Ordinal));
+            Assert.AreEqual("Blue", DiscordPresenceService.ValorantTeamName("Blue"));
+            Assert.AreEqual("Red", DiscordPresenceService.ValorantTeamName("red"));
+            Assert.IsNull(DiscordPresenceService.ValorantTeamName("TeamOne"));
         }
         finally
         {
@@ -176,7 +251,7 @@ public class DiscordPresenceTests
 
             Assert.IsNotNull(party);
             Assert.AreEqual("In lobby", party.Label);
-            Assert.AreEqual("Swiftplay · 1/5", party.Details);
+            Assert.AreEqual("Swiftplay", party.Details);
             Assert.AreEqual("1/5", party.Size);
             Assert.AreEqual("11111111-1111-1111-1111-111111111111", party.PartyId);
             Assert.IsNull(party.Score);

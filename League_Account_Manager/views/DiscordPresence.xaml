@@ -14,89 +14,130 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,16">
-            <TextBlock Text="Discord" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock Text="Discord Presence" Style="{StaticResource PageTitleStyle}" />
             <TextBlock Text="Choose the live match details and optional account stats shown while League or Valorant is open."
                        Style="{StaticResource PageSubtitleStyle}" />
         </StackPanel>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.2*" />
+                    <ColumnDefinition Width="1.35*" />
                     <ColumnDefinition Width="14" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,0,14">
                         <StackPanel>
                             <TextBlock Text="Presence" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
                             <CheckBox x:Name="Enabled" Content="Show League and Valorant on Discord"
-                                                                  Click="OnSettingChanged" Margin="0,0,0,8" />
+                                      Click="OnSettingChanged" Margin="0,0,0,10" />
+                            <CheckBox x:Name="ShowAlongsideGame" Content="Show beside the official game activity"
+                                      ToolTip="Uses Discord's Watching slot, so this stays visible while the official game activity is also on. Discord labels it Watching instead of Playing."
+                                      Click="OnSettingChanged" Margin="0,0,0,10" />
                             <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"
-                                       Text="Both games can appear at the same time. Discord must stay open, and each activity remains visible only while this application stays open. Passwords are never included." />
+                                       Text="Both games can appear at the same time. Discord must stay open, and each activity remains visible only while this application stays open." />
                         </StackPanel>
                     </Border>
+                    <UniformGrid Columns="2">
+                        <Border Style="{StaticResource SurfacePanelStyle}" Margin="0,0,7,14">
+                            <StackPanel>
+                                <TextBlock Text="Match" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
+                                <TextBlock Text="Live game" Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="12" Margin="0,0,0,12" />
+                                <CheckBox x:Name="ShowMatch" Content="Queue, map, and champion or agent" Margin="0,0,0,8"
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowTeam" Content="Team" Margin="0,0,0,8"
+                                          ToolTip="Blue or Red for the signed-in player."
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowPartySize" Content="Lobby size" Margin="0,0,0,8"
+                                          ToolTip="Party size before the match starts, such as 1/5."
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowPlayers" Content="Players in game" Margin="0,0,0,8"
+                                          ToolTip="Players in the live match, such as 10 players."
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowScore" Content="Round score" Margin="0,0,0,8"
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowKd" Content="K/D" ToolTip="League only. Valorant does not expose this."
+                                          Click="OnSettingChanged" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SurfacePanelStyle}" Margin="7,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="Account" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
+                                <TextBlock Text="Off unless you turn one on" Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="12" Margin="0,0,0,12" />
+                                <CheckBox x:Name="ShowRiotId" Content="Riot ID" Margin="0,0,0,8" Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowLevel" Content="Account level" Margin="0,0,0,8" Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowRegion" Content="Region" Margin="0,0,0,8" Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowRank" Content="Rank" Margin="0,0,0,8" Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowCurrency" Content="Currencies" Margin="0,0,0,8" Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowCollection" Content="Collection counts" Click="OnSettingChanged" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
                     <Border Style="{StaticResource SurfacePanelStyle}">
                         <StackPanel>
-                            <TextBlock Text="Visible details" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,12" />
-                            <CheckBox x:Name="ShowMatch" Content="Queue, map, and selected champion or agent" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowScore" Content="Round score" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowKd" Content="K/D" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowPartyJoin" Content="Valorant party join button" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowRiotId" Content="Riot ID" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowLevel" Content="Account level" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowRegion" Content="Region" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowRank" Content="Rank" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowCurrency" Content="Currencies" Margin="0,0,0,8"
-                                                                  Click="OnSettingChanged" />
-                            <CheckBox x:Name="ShowCollection" Content="Collection counts" Margin="0,0,0,12"
-                                                                  Click="OnSettingChanged" />
-                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"
-                                       Text="The situation is always shown first. Optional stats appear after the match details. Passwords are never included." />
+                            <TextBlock Text="Buttons" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
+                            <TextBlock Text="Discord shows the first two that are on" Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontSize="12" Margin="0,0,0,12" />
+                            <UniformGrid Columns="3">
+                                <CheckBox x:Name="ShowPartyJoin" Content="Join party" Margin="0,0,8,0"
+                                          ToolTip="Creates the Valorant party link. Off by default."
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowTracker" Content="Tracker" Margin="0,0,8,0"
+                                          Click="OnSettingChanged" />
+                                <CheckBox x:Name="ShowGitHub" Content="GitHub" Click="OnSettingChanged" />
+                            </UniformGrid>
                         </StackPanel>
                     </Border>
                 </StackPanel>
                 <Border Grid.Column="2" Style="{StaticResource SurfacePanelStyle}" VerticalAlignment="Top">
                     <StackPanel>
-                        <TextBlock Text="Preview" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,14" />
-                        <Border Background="#1E2124" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                        <TextBlock Text="Preview" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,4" />
+                        <TextBlock Text="Uses the options selected on the left." Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" Margin="0,0,0,14" />
+                        <Border Background="#111214" BorderBrush="#1E1F22" BorderThickness="1" CornerRadius="10"
+                                Padding="12" Margin="0,0,0,12">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border Width="68" Height="68" CornerRadius="8" Background="#0A1220" Margin="0,0,12,0">
+                                <Border Width="64" Height="64" CornerRadius="8" Background="#0A1220" Margin="0,0,12,0">
                                     <TextBlock Text="LoL" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                FontWeight="SemiBold" Foreground="#C8AA6E" />
                                 </Border>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="League of Legends" FontWeight="SemiBold" Foreground="White" />
-                                    <TextBlock x:Name="LeaguePreview" TextWrapping="Wrap" Margin="0,4,0,0"
-                                               Foreground="#B9BBBE" />
+                                    <TextBlock Text="League of Legends" FontWeight="SemiBold" Foreground="#F2F3F5" />
+                                    <TextBlock x:Name="LeagueDetails" TextWrapping="Wrap" Margin="0,2,0,0"
+                                               Foreground="#DBDEE1" FontSize="13" />
+                                    <TextBlock x:Name="LeagueState" TextWrapping="Wrap" Margin="0,1,0,0"
+                                               Foreground="#B5BAC1" FontSize="12" />
+                                    <TextBlock x:Name="LeagueElapsed" Text="00:12 elapsed" Margin="0,2,0,8"
+                                               Foreground="#B5BAC1" FontSize="12" />
+                                    <WrapPanel x:Name="LeagueButtons" />
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <Border Background="#1E2124" CornerRadius="8" Padding="14">
+                        <Border Background="#111214" BorderBrush="#1E1F22" BorderThickness="1" CornerRadius="10" Padding="12">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border Width="68" Height="68" CornerRadius="8" Background="#120C10" Margin="0,0,12,0">
+                                <Border Width="64" Height="64" CornerRadius="8" Background="#120C10" Margin="0,0,12,0">
                                     <TextBlock Text="VAL" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                FontWeight="SemiBold" Foreground="#FF4655" />
                                 </Border>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="VALORANT" FontWeight="SemiBold" Foreground="White" />
-                                    <TextBlock x:Name="ValorantPreview" TextWrapping="Wrap" Margin="0,4,0,0"
-                                               Foreground="#B9BBBE" />
+                                    <TextBlock Text="VALORANT" FontWeight="SemiBold" Foreground="#F2F3F5" />
+                                    <TextBlock x:Name="ValorantDetails" TextWrapping="Wrap" Margin="0,2,0,0"
+                                               Foreground="#DBDEE1" FontSize="13" />
+                                    <TextBlock x:Name="ValorantState" TextWrapping="Wrap" Margin="0,1,0,0"
+                                               Foreground="#B5BAC1" FontSize="12" />
+                                    <TextBlock x:Name="ValorantElapsed" Text="00:12 elapsed" Margin="0,2,0,8"
+                                               Foreground="#B5BAC1" FontSize="12" />
+                                    <WrapPanel x:Name="ValorantButtons" />
                                 </StackPanel>
                             </Grid>
                         </Border>

@@ -14,7 +14,7 @@ For support, join the [Discord server](https://discord.gg/tjQVcc9SGP).
 
 | Channel | Version | Download |
 | --- | --- | --- |
-| Stable | [2.7.0.31](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.31) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
+| Stable | [2.7.0.33](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.33) | [Download latest stable](https://github.com/Ja-Sa-La/League-Account-Manager/releases/latest) |
 | Beta | [2.7.0.32-beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.32-beta) | [Download latest beta](https://github.com/Ja-Sa-La/League-Account-Manager/releases/tag/v2.7.0.32-beta) |
 
 Beta builds contain the newest features and may be less stable. The current

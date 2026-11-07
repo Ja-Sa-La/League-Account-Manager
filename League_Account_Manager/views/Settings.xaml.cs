@@ -40,7 +40,6 @@ public partial class Settings : Page
         LcuTrafficBodyLimitKb.Text = Misc.Settings.settingsloaded.LcuTrafficBodyLimitKb.ToString();
         CaptureRiotCdn.IsChecked = Misc.Settings.settingsloaded.CaptureRiotCdn;
         CaptureTelemetry.IsChecked = Misc.Settings.settingsloaded.CaptureTelemetry;
-        DiscordRichPresence.IsChecked = Misc.Settings.settingsloaded.DiscordRichPresence;
         AccountFileEncryption.IsChecked = Misc.Settings.settingsloaded.AccountFileEncryptionEnabled;
         CurrentInstallLocation.Text = Path.GetFullPath(AppContext.BaseDirectory);
         _initializing = false;
@@ -216,7 +215,6 @@ public partial class Settings : Page
             Misc.Settings.settingsloaded.LcuTrafficBodyLimitKb = bodyLimitKb;
         Misc.Settings.settingsloaded.CaptureRiotCdn = CaptureRiotCdn.IsChecked == true;
         Misc.Settings.settingsloaded.CaptureTelemetry = CaptureTelemetry.IsChecked == true;
-        Misc.Settings.settingsloaded.DiscordRichPresence = DiscordRichPresence.IsChecked == true;
 
         // Persist update preferences before account-file migration can fail.
         Misc.Settings.Save();
@@ -374,6 +372,17 @@ public partial class Settings : Page
         };
         var result = prompt.ShowDialog();
         return result == true ? prompt.Password : null;
+    }
+
+    private void OnResetLoginChallengeClick(object sender, RoutedEventArgs e)
+    {
+        var deleted = ChallengeWindow.TryDeleteUserData();
+        AppMessageBox.Show(
+            deleted
+                ? "The login challenge profile was deleted. The next sign-in creates a new one."
+                : "Part of the login challenge profile is still open, so it could not be fully deleted. Close the challenge window and try again.",
+            "Reset login challenge", MessageBoxButton.OK,
+            deleted ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
     private void OnMoveInstallationClick(object sender, RoutedEventArgs e)

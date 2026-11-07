@@ -18,8 +18,8 @@ The settings page displays application settings and saves preferences.
 - `Release channel`: choose Stable (tested releases only) or Beta (early access; may contain bugs).
 - `Display password in the accounts tab`: show/hide passwords in the accounts grid.
 - `Update Ranks automatically on startup`: auto-refresh rank data.
-- `Show the current game on Discord`: enables the activities configured on the Discord page. Discord must be running, and each activity stays visible only while League Account Manager stays open. Passwords are never sent.
 - `Encrypt account file with a password`: enable account file encryption.
+- `Reset login challenge`: deletes the WebView2 profile at `%LOCALAPPDATA%\League Account Manager\WebView2`. The next sign-in creates a new one. Two failed sign-ins in a row also delete this profile automatically.
 - `Save settings`: persist the selected options.
 
 ## Cloud synchronization

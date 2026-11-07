@@ -10,8 +10,8 @@ namespace League_Account_Manager.Misc;
 
 /// <summary>
 ///     Publishes the signed-in League and Valorant accounts, including live matches, to the
-///     local Discord client. Discord allows one activity per application, so each game uses its
-///     own application identity and keeps its IPC connection open.
+///     local Discord clients. Discord allows one activity per application, so each game uses its
+///     own application identity. The same activity is sent to every running Discord client.
 /// </summary>
 internal static class DiscordPresenceService
 {
@@ -38,8 +38,9 @@ internal static class DiscordPresenceService
     private static Dictionary<int, string>? championNames;
     private static Dictionary<string, string>? mapNames;
     private static Dictionary<string, (string Name, string ImageKey)>? agents;
+    private const int DiscordClientSlots = 10;
     private static readonly object ConnectionLock = new();
-    private static readonly Dictionary<string, NamedPipeClientStream> Connections = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, List<DiscordClient>> Connections = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, string> Published = new(StringComparer.Ordinal);
     private static readonly Dictionary<string, Presence> LastPresences = new(StringComparer.Ordinal);
     private static string? lastValorantJoinUrl;
@@ -214,8 +215,9 @@ internal static class DiscordPresenceService
                 account?.level ?? summoner?["summonerLevel"]?.ToObject<int?>(),
                 First(account?.server, region?["region"]?.ToString()), ShortRank(solo),
                 Join(" · ", blueEssence == null ? null : $"{blueEssence:N0} BE",
-                    riotPoints == null ? null : $"{riotPoints:N0} RP"), collection),
-            TrackerUrl(riotId, "lol"));
+                    riotPoints == null ? null : $"{riotPoints:N0} RP"), collection, activity.Team,
+                activity.Players, activity.Party),
+            settings.DiscordShowTracker ? TrackerUrl(riotId, "lol") : null);
     }
 
     private static async Task<Presence?> ReadValorantAsync(CancellationToken cancellationToken)
@@ -270,11 +272,13 @@ internal static class DiscordPresenceService
                     kingdomCredits == null ? null : $"{kingdomCredits:N0} KC"),
                 Join(" · ",
                     account?.ValorantAgentsCount > 0 ? $"{account.ValorantAgentsCount} agents" : null,
-                    account?.ValorantSkinsCount > 0 ? $"{account.ValorantSkinsCount} skins" : null)),
-            TrackerUrl(riotId, "valorant"), joinUrl);
+                    account?.ValorantSkinsCount > 0 ? $"{account.ValorantSkinsCount} skins" : null),
+                match.Team, match.Players, match.Party),
+            settings.DiscordShowTracker ? TrackerUrl(riotId, "valorant") : null, joinUrl);
     }
 
-    private static async Task<(string Label, string? Details, string? Score, string Image)> ReadValorantMatchAsync(
+    private static async Task<(string Label, string? Details, string? Score, string Image, string? Team,
+        string? Players, string? Party)> ReadValorantMatchAsync(
         ValorantLoadoutService.ValorantSession session, ValorantLoadoutService.GamePhase phase,
         ValorantParty? party, CancellationToken cancellationToken)
     {
@@ -286,8 +290,8 @@ internal static class DiscordPresenceService
                             : ValorantLoadoutService.GamePhase.AgentSelect;
                     else
                         return party == null
-                            ? ("Client open", null, null, ValorantImage)
-                            : (party.Label, party.Details, null, ValorantImage);
+                            ? ("Client open", null, null, ValorantImage, null, null, null)
+                            : (party.Label, party.Details, null, ValorantImage, null, null, party.Size);
                 }
 
         var root = phase == ValorantLoadoutService.GamePhase.InGame ? "core-game" : "pregame";
@@ -300,7 +304,8 @@ internal static class DiscordPresenceService
                         phase == ValorantLoadoutService.GamePhase.InGame
                             ? Join(" · ", party?.Queue, party?.Map) is { Length: > 0 } live ? live : "Live match"
                             : "Selecting an agent",
-                        Settings.settingsloaded.DiscordShowScore ? party?.Score : null, ValorantImage);
+                        Settings.settingsloaded.DiscordShowScore ? party?.Score : null, ValorantImage, null, null,
+                        phase == ValorantLoadoutService.GamePhase.InGame ? null : party?.Size);
 
         var matchBody = await TryValorantAsync(session,
             $"https://glz-{session.Region}-1.{session.Shard}.a.pvp.net/{root}/v1/matches/{matchId}", null,
@@ -318,24 +323,27 @@ internal static class DiscordPresenceService
         var me = players?.FirstOrDefault(player =>
             string.Equals(player?["Subject"]?.ToString(), session.Puuid, StringComparison.OrdinalIgnoreCase));
         var agent = await AgentAsync(me?["CharacterID"]?.ToString(), cancellationToken).ConfigureAwait(false);
-        var team = me?["TeamID"]?.ToString();
-                var label = phase == ValorantLoadoutService.GamePhase.InGame ? "In game" : "Agent select";
+        var label = phase == ValorantLoadoutService.GamePhase.InGame ? "In game" : "Agent select";
                 var image = string.IsNullOrWhiteSpace(agent?.ImageKey) ? ValorantImage : agent.Value.ImageKey;
                 var details = Settings.settingsloaded.DiscordShowMatch
-                    ? Join(" · ", First(queue, mode, party?.Queue), First(map, party?.Map), agent?.Name,
-                        team == null ? null : $"Team {team}", PlayerCount(players))
+                    ? Join(" · ", First(queue, mode, party?.Queue), First(map, party?.Map), agent?.Name)
                     : null;
                 var score = Settings.settingsloaded.DiscordShowScore ? party?.Score : null;
-                return (label, string.IsNullOrWhiteSpace(details) ? null : details, score, image);
+                var inMatch = phase == ValorantLoadoutService.GamePhase.InGame;
+                return (label, string.IsNullOrWhiteSpace(details) ? null : details, score, image,
+                    ValorantTeamName(me?["TeamID"]?.ToString()),
+                    inMatch ? PlayerCount(players) : null,
+                    inMatch ? null : party?.Size);
     }
 
-    private static (string Label, string? Details, string Image) LiveLeagueActivity(
-        (string Label, string? Details, string Image) described)
+    private static (string Label, string? Details, string Image, string? Team, string? Players, string? Party)
+        LiveLeagueActivity(
+        (string Label, string? Details, string Image, string? Team, string? Players, string? Party) described)
     {
         lock (ConnectionLock)
         {
             if (!LastPresences.TryGetValue(ApplicationId, out var previous))
-                return ("In game", null, LeagueImage);
+                return ("In game", null, LeagueImage, described.Team, described.Players, null);
 
             var lines = previous.Text.Split('\n', 2);
             var details = lines.Length == 2 ? lines[1] : null;
@@ -346,12 +354,13 @@ internal static class DiscordPresenceService
                     details = details![..index];
             }
             return ("In game", string.IsNullOrWhiteSpace(details) || details == lines[0] ? null : details,
-                previous.Image);
+                previous.Image, described.Team, described.Players, null);
         }
     }
 
-    private static (string Label, string? Details, string Image) DescribeLeague(string phase, JToken? session,
-        long? summonerId)
+    private static (string Label, string? Details, string Image, string? Team, string? Players, string? Party)
+        DescribeLeague(
+        string phase, JToken? session, long? summonerId)
     {
         var game = session?["gameData"] ?? session;
         var queueId = game?["queue"]?["id"]?.ToObject<int?>() ?? game?["gameConfig"]?["queueId"]?.ToObject<int?>();
@@ -377,21 +386,45 @@ internal static class DiscordPresenceService
         var party = partySize is > 0 && partyCapacity is > 0 ? $"{partySize}/{partyCapacity}" : null;
         var teamSize = teamOne.Count;
         var enemySize = teamTwo.Count;
+        var players = teamSize > 0 && enemySize > 0 ? $"{teamSize + enemySize} players" : null;
+        var team = LeagueTeamName(player, teamOne, teamTwo, session?["myTeam"] as JArray, summonerId);
         var image = championId is > 0 ? ChampionImageKey(championId.Value) : LeagueImage;
 
         var showMatch = Settings.settingsloaded.DiscordShowMatch;
         return phase switch
         {
             "ChampSelect" => ("Champion select", showMatch ? Join(" · ", queue, map,
-                champion ?? "Picking a champion", session?["timer"]?["phase"]?.ToString(), party) : null, image),
+                champion ?? "Picking a champion", session?["timer"]?["phase"]?.ToString()) : null, image, team,
+                null, party),
             "InProgress" or "PreEndOfGame" or "WaitingForStats" or "EndOfGame" => (
-                "In game", showMatch ? Join(" · ", queue, map, champion,
-                    teamSize > 0 && enemySize > 0 ? $"{teamSize}v{enemySize}" : null) : null, image),
-            "Lobby" => ("In lobby", showMatch ? Join(" · ", queue, map, party) : null, LeagueImage),
+                "In game", showMatch ? Join(" · ", queue, map, champion) : null, image, team, players, null),
+            "Lobby" => ("In lobby", showMatch ? Join(" · ", queue, map) : null, LeagueImage, null, null, party),
             "Matchmaking" or "ReadyCheck" or "CheckedIntoTournament" => (
                 phase == "ReadyCheck" ? "Ready check" : "In queue",
-                showMatch ? Join(" · ", queue, map, party) : null, LeagueImage),
-            _ => ("Client open", null, LeagueImage)
+                showMatch ? Join(" · ", queue, map) : null, LeagueImage, null, null, party),
+            _ => ("Client open", null, LeagueImage, null, null, null)
+        };
+    }
+
+    private static string? LeagueTeamName(JToken? player, JArray teamOne, JArray teamTwo, JArray? myTeam,
+        long? summonerId)
+    {
+        if (summonerId == null)
+            return null;
+
+        if (teamOne.Any(item => item?["summonerId"]?.ToObject<long?>() == summonerId))
+            return "Blue";
+        if (teamTwo.Any(item => item?["summonerId"]?.ToObject<long?>() == summonerId))
+            return "Red";
+
+        var teamId = player?["teamId"]?.ToString() ??
+                     myTeam?.FirstOrDefault(item => item?["summonerId"]?.ToObject<long?>() == summonerId)?["teamId"]
+                         ?.ToString();
+        return teamId switch
+        {
+            "100" => "Blue",
+            "200" => "Red",
+            _ => null
         };
     }
 
@@ -561,7 +594,7 @@ internal static class DiscordPresenceService
                             _ => "In lobby"
                         };
                         return new ValorantParty(label, Settings.settingsloaded.DiscordShowMatch
-                            ? Join(" · ", queue, label == "In lobby" || label == "In queue" ? size : map)
+                            ? Join(" · ", queue, label == "In lobby" || label == "In queue" ? null : map)
                             : null, size, Guid.TryParse(partyId, out _) ? partyId : null, score, queue, map,
                             token?["queueId"]?.ToString());
         }
@@ -1221,6 +1254,14 @@ internal static class DiscordPresenceService
     private static string? PlayerCount(JArray? players) =>
         players == null || players.Count == 0 ? null : $"{players.Count} players";
 
+    internal static string? ValorantTeamName(string? teamId) => teamId?.ToLowerInvariant() switch
+    {
+        null or "" => null,
+        "blue" => "Blue",
+        "red" => "Red",
+        _ => null
+    };
+
     private static IEnumerable<JToken> ExpandTeams(JToken? teams) =>
         teams is JArray array ? array : teams == null ? [] : [teams];
 
@@ -1270,7 +1311,7 @@ internal static class DiscordPresenceService
         lock (ConnectionLock)
         {
             if (Published.TryGetValue(presence.ApplicationId, out var previous) && previous == serialized &&
-                Connections.TryGetValue(presence.ApplicationId, out var existing) && existing.IsConnected)
+                ConnectedCount(presence.ApplicationId) == OpenDiscordPipeNames().Count)
                 return;
         }
 
@@ -1288,19 +1329,25 @@ internal static class DiscordPresenceService
 
     private static void ClearApplication(string applicationId)
     {
-        try
+        if (Connections.TryGetValue(applicationId, out var pipes))
         {
-            if (Connections.TryGetValue(applicationId, out var pipe) && pipe.IsConnected)
-                WriteActivity(pipe, new JObject
+            foreach (var client in pipes.ToArray())
+            {
+                try
                 {
-                    ["cmd"] = "SET_ACTIVITY",
-                    ["args"] = new JObject { ["pid"] = Environment.ProcessId }
-                });
-        }
-        catch (Exception exception) when (exception is IOException or TimeoutException or
-                                              UnauthorizedAccessException or InvalidOperationException)
-        {
-            DebugConsole.WriteLine($"[Discord] Presence could not be cleared: {exception.Message}");
+                    if (client.Pipe.IsConnected)
+                        WriteActivity(client.Pipe, new JObject
+                        {
+                            ["cmd"] = "SET_ACTIVITY",
+                            ["args"] = new JObject { ["pid"] = Environment.ProcessId }
+                        });
+                }
+                catch (Exception exception) when (exception is IOException or TimeoutException or
+                                                      UnauthorizedAccessException or InvalidOperationException)
+                {
+                    DebugConsole.WriteLine($"[Discord] Presence could not be cleared: {exception.Message}");
+                }
+            }
         }
 
         CloseConnection(applicationId);
@@ -1309,7 +1356,29 @@ internal static class DiscordPresenceService
     private static void Send(JObject payload, string applicationId)
     {
         lock (ConnectionLock)
-            WriteActivity(EnsureConnected(applicationId), payload);
+        {
+            var sent = 0;
+            foreach (var client in EnsureConnected(applicationId))
+            {
+                try
+                {
+                    WriteActivity(client.Pipe, (JObject)payload.DeepClone());
+                    sent++;
+                }
+                catch (Exception exception) when (exception is IOException or TimeoutException or
+                                                      UnauthorizedAccessException or InvalidOperationException)
+                {
+                    DebugConsole.WriteLine(
+                        $"[Discord] {applicationId} update failed on {client.PipeName}: {exception.Message}");
+                    client.Pipe.Dispose();
+                }
+            }
+
+            if (Connections.TryGetValue(applicationId, out var clients))
+                clients.RemoveAll(client => !client.Pipe.IsConnected);
+            if (sent == 0)
+                throw new IOException("Discord is not running.");
+        }
     }
 
     private static void WriteActivity(NamedPipeClientStream pipe, JObject payload)
@@ -1328,17 +1397,27 @@ internal static class DiscordPresenceService
             throw new InvalidOperationException(ErrorMessage(response));
     }
 
-    private static NamedPipeClientStream EnsureConnected(string applicationId)
+    private static IReadOnlyList<DiscordClient> EnsureConnected(string applicationId)
     {
-        if (Connections.TryGetValue(applicationId, out var connection) && connection.IsConnected)
-            return connection;
-
-        CloseConnection(applicationId);
-        Exception? lastError = null;
-        for (var index = 0; index < 10; index++)
+        var open = OpenDiscordPipeNames();
+        if (!Connections.TryGetValue(applicationId, out var clients))
         {
-            var pipe = new NamedPipeClientStream(".", $"discord-ipc-{index}", PipeDirection.InOut,
-                PipeOptions.Asynchronous);
+            clients = [];
+            Connections[applicationId] = clients;
+        }
+
+        foreach (var client in clients.Where(client => !client.Pipe.IsConnected || !open.Contains(client.PipeName))
+                     .ToArray())
+        {
+            clients.Remove(client);
+            client.Pipe.Dispose();
+        }
+
+        Exception? lastError = null;
+        foreach (var name in open.Where(name => clients.All(client =>
+                     !string.Equals(client.PipeName, name, StringComparison.OrdinalIgnoreCase))))
+        {
+            var pipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
             try
             {
                 pipe.Connect(750);
@@ -1347,9 +1426,8 @@ internal static class DiscordPresenceService
                 if (IsError(handshake))
                     throw new InvalidOperationException(ErrorMessage(handshake));
 
-                Connections[applicationId] = pipe;
-                DebugConsole.WriteLine($"[Discord] Connected {applicationId} on discord-ipc-{index}.");
-                return pipe;
+                clients.Add(new DiscordClient(name, pipe));
+                DebugConsole.WriteLine($"[Discord] Connected {applicationId} on {name}.");
             }
             catch (Exception exception) when (exception is IOException or TimeoutException or
                                                   UnauthorizedAccessException or InvalidOperationException)
@@ -1359,17 +1437,72 @@ internal static class DiscordPresenceService
             }
         }
 
-        throw lastError ?? new IOException("Discord is not running.");
+        if (clients.Count == 0)
+            throw lastError ?? new IOException("Discord is not running.");
+        return clients;
+    }
+
+    private static int ConnectedCount(string applicationId) =>
+        Connections.TryGetValue(applicationId, out var clients)
+            ? clients.Count(client => client.Pipe.IsConnected)
+            : 0;
+
+    /// <summary>
+    ///     Every running Discord client owns one of discord-ipc-0 through discord-ipc-9. A user can
+    ///     have several clients open, and each one only shows presence sent on its own pipe.
+    /// </summary>
+    private static HashSet<string> OpenDiscordPipeNames() =>
+        DiscordPipeNames(EnumeratePipeNames());
+
+    /// <summary>
+    ///     The pipe root only exists to <see cref="Directory" /> when the path ends with a separator.
+    ///     <c>\\.\pipe</c> reports as missing, which used to skip every running Discord client.
+    /// </summary>
+    private static IEnumerable<string> EnumeratePipeNames()
+    {
+        const string pipeRoot = @"\\.\pipe\";
+        if (!Directory.Exists(pipeRoot))
+            return [];
+
+        try
+        {
+            return Directory.EnumerateFiles(pipeRoot).Select(Path.GetFileName)!;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    internal static HashSet<string> DiscordPipeNames(IEnumerable<string?> names)
+    {
+        var open = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in names)
+        {
+            var name = string.IsNullOrWhiteSpace(candidate) ? null : Path.GetFileName(candidate);
+            if (string.IsNullOrWhiteSpace(name) ||
+                !name.StartsWith("discord-ipc-", StringComparison.OrdinalIgnoreCase) ||
+                !int.TryParse(name["discord-ipc-".Length..], out var index) ||
+                index is < 0 or >= DiscordClientSlots)
+                continue;
+
+            open.Add(name);
+        }
+
+        return open;
     }
 
     private static void CloseConnection(string applicationId)
     {
-        if (!Connections.Remove(applicationId, out var connection))
+        if (!Connections.Remove(applicationId, out var clients))
             return;
 
-        connection.Dispose();
+        foreach (var client in clients)
+            client.Pipe.Dispose();
         Published.Remove(applicationId);
     }
+
+    private sealed record DiscordClient(string PipeName, NamedPipeClientStream Pipe);
 
     private static bool IsError(string response)
     {
@@ -1405,11 +1538,15 @@ internal static class DiscordPresenceService
     }
 
     internal static string Preview(string label, string? match, string? score, string? kd, string? riotId,
-        int? level, string? region, string? rank, string? currency, string? collection)
+        int? level, string? region, string? rank, string? currency, string? collection, string? team = null,
+        string? players = null, string? party = null)
     {
         var settings = Settings.settingsloaded;
         var line = Join(" · ",
             settings.DiscordShowMatch ? match : null,
+            settings.DiscordShowTeam ? team : null,
+            settings.DiscordShowPartySize ? party : null,
+            settings.DiscordShowPlayers ? players : null,
             settings.DiscordShowScore && !string.IsNullOrWhiteSpace(score) ? $"Score {score}" : null,
             settings.DiscordShowKd && !string.IsNullOrWhiteSpace(kd) ? $"K/D {kd}" : null,
             settings.DiscordShowRiotId ? riotId : null,
@@ -1474,7 +1611,7 @@ internal static class DiscordPresenceService
 
             var activity = new JObject
             {
-                ["type"] = 0,
+                ["type"] = Settings.settingsloaded.DiscordShowAlongsideGame ? 3 : 0,
                 ["name"] = Fit(Name, DetailsLimit),
                 ["details"] = Fit(lines[0], DetailsLimit),
                 ["state"] = Fit(lines.Length == 2 ? lines[1] : Name, StateLimit),
@@ -1482,13 +1619,16 @@ internal static class DiscordPresenceService
                 ["assets"] = assets,
                 ["instance"] = false
             };
+            var settings = Settings.settingsloaded;
             var buttons = new JArray();
-            if (Uri.TryCreate(JoinUrl, UriKind.Absolute, out var joinUrl) && joinUrl.Scheme == Uri.UriSchemeHttps)
+            if (settings.DiscordShowPartyJoin &&
+                Uri.TryCreate(JoinUrl, UriKind.Absolute, out var joinUrl) && joinUrl.Scheme == Uri.UriSchemeHttps)
                 buttons.Add(new JObject { ["label"] = "Join party", ["url"] = joinUrl.ToString() });
-            if (Uri.TryCreate(AccountUrl, UriKind.Absolute, out var accountUrl) &&
+            if (settings.DiscordShowTracker &&
+                Uri.TryCreate(AccountUrl, UriKind.Absolute, out var accountUrl) &&
                 accountUrl.Scheme == Uri.UriSchemeHttps)
                 buttons.Add(new JObject { ["label"] = "Tracker", ["url"] = accountUrl.ToString() });
-            if (buttons.Count < 2)
+            if (settings.DiscordShowGitHub && buttons.Count < 2)
                 buttons.Add(new JObject
                 {
                     ["label"] = "GitHub",

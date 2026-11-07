@@ -3398,16 +3398,19 @@ public partial class Accounts : Page
             if (challenge.RequiresChallenge)
             {
                 DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
+                ChallengeWindow? challengeWindow = null;
                 var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
                         RsoLoginService.ClientlessHost);
-                    win.ShowDialog();
-                    return win.Token;
+                    challengeWindow.ShowDialog();
+                    return challengeWindow.Token;
                 });
 
                 if (string.IsNullOrWhiteSpace(challengeResult))
                 {
+                    if (challengeWindow?.ChallengeFailed == true)
+                        NoteFailedLogin("GenerateToken");
                     DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
                         ConsoleColor.Yellow);
                     return;
@@ -3445,6 +3448,7 @@ public partial class Accounts : Page
             switch (result.Type)
             {
                 case "success" when !string.IsNullOrWhiteSpace(result.LoginToken):
+                    ChallengeWindow.NoteLoginSucceeded();
                     DebugConsole.WriteLine("[Accounts][GenerateToken] Login token acquired, copying to clipboard.");
                     await ProxyLoginTokenManager.CaptureLoginTokenAsync(
                         new JObject
@@ -3467,6 +3471,7 @@ public partial class Accounts : Page
 
                 case "error":
                 case "auth_failure":
+                    NoteFailedLogin("GenerateToken");
                     Notif.notificationManager.Show("Generate token", result.Failure.Message,
                         NotificationType.Error);
                     break;
@@ -3545,16 +3550,19 @@ public partial class Accounts : Page
             {
                 SetAccountOperationStatus("Solving challenge...");
                 DebugConsole.WriteLine($"[Accounts][RsoLogin] Challenge required: {challenge.Type}");
+                ChallengeWindow? challengeWindow = null;
                 var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
                         RsoLoginService.ClientlessHost);
-                    win.ShowDialog();
-                    return win.Token;
+                    challengeWindow.ShowDialog();
+                    return challengeWindow.Token;
                 });
 
                 if (string.IsNullOrWhiteSpace(challengeResult))
                 {
+                    if (challengeWindow?.ChallengeFailed == true)
+                        NoteFailedLogin("RsoLogin");
                     DebugConsole.WriteLine("[Accounts][RsoLogin] Challenge cancelled by user.", ConsoleColor.Yellow);
                     return false;
                 }
@@ -3597,6 +3605,7 @@ public partial class Accounts : Page
 
             if (result.Type == "success")
             {
+                ChallengeWindow.NoteLoginSucceeded();
                 // The clientless login token is what signs the client in. It is single use, so the
                 // remembered session is built afterwards from a second token minted out of the
                 // session that login created.
@@ -3682,6 +3691,7 @@ public partial class Accounts : Page
             switch (result.Type)
             {
                 case "error" when result.Failure.InvalidCredentials:
+                    NoteFailedLogin("RsoLogin");
                     // Same handling as the normal login's "credentials don't match" tooltip:
                     // mark the account invalid and stop. Other failures (paused, disabled, rate
                     // limited) are the account's state, not bad credentials, so they are reported
@@ -3693,6 +3703,7 @@ public partial class Accounts : Page
 
                 case "error":
                 case "auth_failure":
+                    NoteFailedLogin("RsoLogin");
                     DebugConsole.WriteLine($"[Accounts][RsoLogin] {result.Failure.Code}: {result.Failure.Message}",
                         ConsoleColor.Red);
                     Notif.notificationManager.Show("Login", result.Failure.Message, NotificationType.Error);
@@ -3716,6 +3727,20 @@ public partial class Accounts : Page
             DebugConsole.WriteLine($"[Accounts][RsoLogin] Failed: {exception.Message}", ConsoleColor.Red);
             return false;
         }
+    }
+
+    /// <summary>Counts a failed sign-in and deletes the challenge profile after two in a row.</summary>
+    private static void NoteFailedLogin(string operation)
+    {
+        if (!ChallengeWindow.NoteLoginFailed())
+            return;
+
+        DebugConsole.WriteLine(
+            $"[Accounts][{operation}] Sign-in failed again. The login challenge profile was reset.",
+            ConsoleColor.Yellow);
+        Notif.notificationManager.Show("Login",
+            "Sign-in failed again, so the login challenge profile was reset. Try signing in again.",
+            NotificationType.Warning);
     }
 
     /// <summary>

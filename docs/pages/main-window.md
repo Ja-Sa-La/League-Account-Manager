@@ -12,8 +12,8 @@ The main window is the shell of the app and provides navigation to all other pag
 
 ## Options
 
-- Navigation items: League accounts, Valorant accounts, Valorant loadout, Add accounts, Champion select, Auto Champ select, Buy champions, Report tool, LCU traffic, Misc, Chat, Loot, and Ingame settings.
-- Footer: Settings, version label, credits, and Discord support link.
+- Navigation items: League accounts, Valorant accounts, Valorant loadout, Add accounts, Champion select, Auto Champ select, Buy champions, Report tool, LCU traffic, Misc, Chat, Loot, Ingame settings, and Discord Presence.
+- Footer: Settings, version label, credits, and the Join Discord for Support link. That link opens the support server and is not the presence page.
 - Title bar: window controls and app title.
 
 ## Tutorial

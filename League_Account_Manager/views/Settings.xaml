@@ -72,9 +72,6 @@
                                                  <CheckBox x:Name="CaptureRiotCdn" Content="Capture Riot CDN" Margin="0,0,0,7"
                                                            ToolTip="During a debug login, also log Riot CDN downloads such as patcher bundles and theme assets. These are large, so a session logs considerably more."
                                                            IsChecked="False" />
-                                                 <CheckBox x:Name="DiscordRichPresence" Content="Show the current game on Discord" Margin="0,0,0,7"
-                                                           ToolTip="Choose the match details and optional account stats on the Discord page. Passwords are never included."
-                                                           IsChecked="False" />
                                                  <CheckBox x:Name="CaptureTelemetry" Content="Capture telemetry" Margin="0,0,0,7"
                                                            ToolTip="During a debug login, also log the telemetry sent to data.riotgames.com, telemetry.sgp.pvp.net and ekg.riotgames.com. This edits the hosts file and installs a local root certificate, and both are removed when the capture stops."
                                                            IsChecked="False" />
@@ -96,6 +93,13 @@
                                                          BorderBrush="{StaticResource StrokeBrush}" Foreground="{StaticResource TextPrimaryBrush}" />
                                           <ui:Button Content="Move installation" Margin="0,14,0,0" HorizontalAlignment="Left"
                                                            Click="OnMoveInstallationClick" />
+                                          <Separator Margin="0,20,0,16" />
+                                          <TextBlock Text="Login challenge" Style="{StaticResource SectionTitleStyle}" />
+                                          <TextBlock TextWrapping="Wrap" Margin="0,10,0,10"
+                                                     Foreground="{StaticResource TextSecondaryBrush}"
+                                                     Text="The sign-in challenge keeps its browser profile in AppData. If sign-in keeps failing, delete the profile and the next login creates a new one. Two failed sign-ins in a row also delete it automatically." />
+                                          <ui:Button Content="Reset login challenge" HorizontalAlignment="Left"
+                                                     Click="OnResetLoginChallengeClick" />
                                           <Separator Margin="0,20,0,16" />
                                           <TextBlock Text="Cloud account sync" Style="{StaticResource SectionTitleStyle}" />
                                           <TextBlock x:Name="CloudStatus" Text="Not signed in" TextWrapping="Wrap" Margin="0,10,0,10" Foreground="{StaticResource TextSecondaryBrush}" />

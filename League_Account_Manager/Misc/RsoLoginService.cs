@@ -76,7 +76,8 @@ internal static class RsoLoginService
     ///     <c>AuthenticateRiotIdentity</c> handler only forwards that string as its failure reason),
     ///     and the client's renderer classifies them in <c>mapError</c> / <c>mapErrorString</c>.
     /// </summary>
-    public readonly record struct LoginError(string Code, string Message, bool InvalidCredentials)
+    public readonly record struct LoginError(string Code, string Message, bool InvalidCredentials,
+        bool BurnedCaptchaProfile = false)
     {
         /// <summary>
         ///     Same matching order as the client's <c>mapErrorString</c>: the first contained code
@@ -92,11 +93,19 @@ internal static class RsoLoginService
             foreach (var (code, message, invalidCredentials) in KnownErrors)
             {
                 if (text.Contains(code, StringComparison.OrdinalIgnoreCase))
-                    return new LoginError(code, message, invalidCredentials);
+                    return new LoginError(code, message, invalidCredentials, IsBurnedCaptchaProfile(text));
             }
 
-            return new LoginError(text, $"Login failed: {text}", false);
+            return new LoginError(text, $"Login failed: {text}", false, IsBurnedCaptchaProfile(text));
         }
+
+        /// <summary>
+        ///     The sign-in challenge stores reputation in the WebView2 profile and eventually rejects
+        ///     every solve from it. Those rejections come back as a challenge error rather than bad
+        ///     credentials, so the profile has to be deleted before the next attempt can succeed.
+        /// </summary>
+        private static bool IsBurnedCaptchaProfile(string error) =>
+            error.Contains("captcha", StringComparison.OrdinalIgnoreCase);
 
         private static readonly (string Code, string Message, bool InvalidCredentials)[] KnownErrors =
         [

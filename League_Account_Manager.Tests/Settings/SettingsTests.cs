@@ -49,6 +49,12 @@ public class SettingsTests
         Assert.IsTrue(result.DiscordShowScore);
         Assert.IsTrue(result.DiscordShowKd);
         Assert.IsFalse(result.DiscordShowPartyJoin);
+        Assert.IsTrue(result.DiscordShowTracker);
+        Assert.IsTrue(result.DiscordShowGitHub);
+        Assert.IsTrue(result.DiscordShowTeam);
+        Assert.IsTrue(result.DiscordShowPlayers);
+        Assert.IsTrue(result.DiscordShowPartySize);
+        Assert.IsTrue(result.DiscordShowAlongsideGame);
         Assert.AreEqual("ugg", result.RuneImportSource);
         Assert.AreEqual("automatic", result.RuneImportRole);
     }

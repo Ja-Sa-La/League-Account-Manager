@@ -39,6 +39,101 @@ public partial class ChallengeWindow : Window
     /// <summary>Solved challenge token, or null if the user cancelled / closed the window.</summary>
     public string? Token { get; private set; }
 
+    /// <summary>
+    ///     True when the sign-in challenge itself failed or rejected the solve. A burned browser
+    ///     profile is the usual cause, so the caller deletes the profile before the next attempt.
+    ///     Closing the window or solving the challenge does not set this.
+    /// </summary>
+    public bool ChallengeFailed { get; private set; }
+
+    /// <summary>
+    ///     The one profile every challenge window shares. WebView2 would otherwise create
+    ///     "&lt;exe name&gt;.WebView2" beside the executable, so a renamed copy grows a new folder
+    ///     on every login.
+    /// </summary>
+    public static string UserDataFolder => UserDataFolderOverride ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "League Account Manager", "WebView2");
+
+    /// <summary>Test hook. Production leaves this null and uses <see cref="UserDataFolder"/>.</summary>
+    internal static string? UserDataFolderOverride { get; set; }
+
+    private static int _consecutiveLoginFailures;
+
+    /// <summary>A completed sign-in, so the next failure starts the count again.</summary>
+    public static void NoteLoginSucceeded() => _consecutiveLoginFailures = 0;
+
+    /// <summary>
+    ///     Counts a failed sign-in. The second failure in a row deletes the challenge profile,
+    ///     because a profile the challenge provider has rejected keeps failing until it is replaced.
+    ///     Returns true when the profile was deleted.
+    /// </summary>
+    public static bool NoteLoginFailed()
+    {
+        _consecutiveLoginFailures++;
+        if (_consecutiveLoginFailures < 2)
+            return false;
+
+        _consecutiveLoginFailures = 0;
+        return TryDeleteUserData();
+    }
+
+    /// <summary>
+    ///     Deletes the shared WebView2 profile so the next challenge starts from a clean browser.
+    ///     The challenge provider keeps reputation in that profile and eventually refuses to solve
+    ///     for it. Files still locked by an open challenge window are left in place; the rest is
+    ///     removed.
+    /// </summary>
+    public static bool TryDeleteUserData()
+    {
+        var folder = UserDataFolder;
+        if (!Directory.Exists(folder))
+            return true;
+
+        try
+        {
+            Directory.Delete(folder, recursive: true);
+            DebugConsole.WriteLine($"[ChallengeWindow] Deleted WebView2 profile: {folder}");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            var removed = 0;
+            var locked = 0;
+            foreach (var entry in Directory.EnumerateFileSystemEntries(folder, "*", SearchOption.AllDirectories)
+                         .OrderByDescending(path => path.Length))
+            {
+                try
+                {
+                    if (Directory.Exists(entry))
+                        Directory.Delete(entry, recursive: false);
+                    else
+                        File.Delete(entry);
+                    removed++;
+                }
+                catch (Exception lockedEx) when (lockedEx is IOException or UnauthorizedAccessException)
+                {
+                    locked++;
+                }
+            }
+
+            try
+            {
+                if (!Directory.EnumerateFileSystemEntries(folder).Any())
+                    Directory.Delete(folder, recursive: false);
+            }
+            catch (Exception leftoverEx) when (leftoverEx is IOException or UnauthorizedAccessException)
+            {
+                locked++;
+            }
+
+            DebugConsole.WriteLine(
+                $"[ChallengeWindow] WebView2 profile reset removed {removed} entries; {locked} were still in use. {ex.Message}",
+                locked == 0 ? ConsoleColor.Gray : ConsoleColor.Yellow);
+            return locked == 0;
+        }
+    }
+
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         try
@@ -48,12 +143,7 @@ public partial class ChallengeWindow : Window
                 DefaultBackgroundColor = Color.Transparent
             };
             WebViewHost.Child = _webView;
-            // Without an explicit folder WebView2 creates "<exe name>.WebView2" beside the
-            // executable, so a renamed copy (e.g. a browser's " (1)" download) grows a new folder
-            // on every login. Keep the profile in one fixed place instead.
-            var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "League Account Manager", "WebView2");
+            var userDataFolder = UserDataFolder;
             Directory.CreateDirectory(userDataFolder);
             var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
             await _webView.EnsureCoreWebView2Async(environment);
@@ -185,7 +275,9 @@ public partial class ChallengeWindow : Window
             else if (type == "tabasco_error")
             {
                 var err = node?["error"]?.GetValue<string>();
+                ChallengeFailed = true;
                 DebugConsole.WriteLine($"[ChallengeWindow] Challenge error: {err}", ConsoleColor.Yellow);
+                DialogResult = false;
             }
         }
         catch (Exception ex)

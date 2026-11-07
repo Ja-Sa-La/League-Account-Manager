@@ -715,16 +715,19 @@ public partial class ValorantAccounts : Page
             {
                 DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Challenge required: {challenge.Type}");
                 SetLoginStatus("Solving challenge...");
+                ChallengeWindow? challengeWindow = null;
                 var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
                         RsoLoginService.ClientlessHost);
-                    win.ShowDialog();
-                    return win.Token;
+                    challengeWindow.ShowDialog();
+                    return challengeWindow.Token;
                 });
 
                 if (string.IsNullOrWhiteSpace(challengeResult))
                 {
+                    if (challengeWindow?.ChallengeFailed == true)
+                        NoteFailedLogin("RsoLogin");
                     DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Challenge cancelled by user.",
                         ConsoleColor.Yellow);
                     return;
@@ -761,6 +764,7 @@ public partial class ValorantAccounts : Page
 
             if (result.Type != "success")
             {
+                NoteFailedLogin("RsoLogin");
                 if (result.Failure.InvalidCredentials)
                 {
                     DebugConsole.WriteLine(
@@ -777,6 +781,7 @@ public partial class ValorantAccounts : Page
                 return;
             }
 
+            ChallengeWindow.NoteLoginSucceeded();
             // The clientless login token signs the client in and is single use, so remember-me is
             // done afterwards with a fresh token minted from the session that login created.
             if (string.IsNullOrWhiteSpace(result.LoginToken))
@@ -866,6 +871,20 @@ public partial class ValorantAccounts : Page
         {
             FinishLoginSteps(completed);
         }
+    }
+
+    /// <summary>Counts a failed sign-in and deletes the challenge profile after two in a row.</summary>
+    private static void NoteFailedLogin(string operation)
+    {
+        if (!ChallengeWindow.NoteLoginFailed())
+            return;
+
+        DebugConsole.WriteLine(
+            $"[ValorantAccounts][{operation}] Sign-in failed again. The login challenge profile was reset.",
+            ConsoleColor.Yellow);
+        Notif.notificationManager.Show("Login",
+            "Sign-in failed again, so the login challenge profile was reset. Try signing in again.",
+            NotificationType.Warning);
     }
 
     /// <summary>
@@ -2321,16 +2340,19 @@ public partial class ValorantAccounts : Page
             if (challenge.RequiresChallenge)
             {
                 DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
+                ChallengeWindow? challengeWindow = null;
                 var challengeResult = await Dispatcher.InvokeAsync(() =>
                 {
-                    var win = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
+                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
                         RsoLoginService.ClientlessHost);
-                    win.ShowDialog();
-                    return win.Token;
+                    challengeWindow.ShowDialog();
+                    return challengeWindow.Token;
                 });
 
                 if (string.IsNullOrWhiteSpace(challengeResult))
                 {
+                    if (challengeWindow?.ChallengeFailed == true)
+                        NoteFailedLogin("GenerateToken");
                     DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
                         ConsoleColor.Yellow);
                     return;
@@ -2368,6 +2390,7 @@ public partial class ValorantAccounts : Page
             switch (result.Type)
             {
                 case "success" when !string.IsNullOrWhiteSpace(result.LoginToken):
+                    ChallengeWindow.NoteLoginSucceeded();
                     DebugConsole.WriteLine("[Accounts][GenerateToken] Login token acquired, copying to clipboard.");
                     await ProxyLoginTokenManager.CaptureLoginTokenAsync(
                         new JObject
@@ -2390,6 +2413,7 @@ public partial class ValorantAccounts : Page
 
                 case "error":
                 case "auth_failure":
+                    NoteFailedLogin("GenerateToken");
                     Notif.notificationManager.Show("Generate token", result.Failure.Message,
                         NotificationType.Error);
                     break;

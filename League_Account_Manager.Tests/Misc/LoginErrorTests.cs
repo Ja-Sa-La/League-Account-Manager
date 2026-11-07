@@ -1,4 +1,6 @@
+using System.IO;
 using League_Account_Manager.Misc;
+using League_Account_Manager.Windows;
 
 namespace League_Account_Manager.Tests.Misc;
 
@@ -36,6 +38,53 @@ public class LoginErrorTests
 
         Assert.AreEqual("invalid_request", error.Code);
         Assert.IsFalse(error.InvalidCredentials);
+    }
+
+    [TestMethod]
+    public void Describe_CaptchaRejectionMarksTheBrowserProfileBurned()
+    {
+        foreach (var code in new[] { "captcha_not_allowed", "invalid_captcha", "captcha token rejected" })
+        {
+            var error = RsoLoginService.LoginError.Describe(code);
+
+            Assert.IsTrue(error.BurnedCaptchaProfile, code);
+            Assert.IsFalse(error.InvalidCredentials, code);
+        }
+    }
+
+    [TestMethod]
+    public void Describe_CredentialFailureDoesNotResetTheChallengeProfile()
+    {
+        var error = RsoLoginService.LoginError.Describe("auth_failure");
+
+        Assert.IsFalse(error.BurnedCaptchaProfile);
+    }
+
+    [TestMethod]
+    public void TryDeleteUserData_RemovesTheChallengeProfile()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "lam-webview-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(folder, "EBWebView"));
+        File.WriteAllText(Path.Combine(folder, "EBWebView", "Cookies"), "burned");
+        ChallengeWindow.UserDataFolderOverride = folder;
+        try
+        {
+            Assert.IsTrue(ChallengeWindow.TryDeleteUserData());
+            Assert.IsFalse(Directory.Exists(folder));
+
+            Directory.CreateDirectory(folder);
+            Assert.IsFalse(ChallengeWindow.NoteLoginFailed());
+            Assert.IsTrue(Directory.Exists(folder));
+            Assert.IsTrue(ChallengeWindow.NoteLoginFailed());
+            Assert.IsFalse(Directory.Exists(folder));
+            ChallengeWindow.NoteLoginSucceeded();
+        }
+        finally
+        {
+            ChallengeWindow.UserDataFolderOverride = null;
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
     }
 
     [TestMethod]

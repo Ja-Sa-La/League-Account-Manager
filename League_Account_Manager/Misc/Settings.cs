@@ -96,6 +96,12 @@ public static class Settings
         settingsloaded.DiscordShowScore = incoming.DiscordShowScore;
         settingsloaded.DiscordShowKd = incoming.DiscordShowKd;
         settingsloaded.DiscordShowPartyJoin = incoming.DiscordShowPartyJoin;
+        settingsloaded.DiscordShowTracker = incoming.DiscordShowTracker;
+        settingsloaded.DiscordShowGitHub = incoming.DiscordShowGitHub;
+        settingsloaded.DiscordShowTeam = incoming.DiscordShowTeam;
+        settingsloaded.DiscordShowPlayers = incoming.DiscordShowPlayers;
+        settingsloaded.DiscordShowPartySize = incoming.DiscordShowPartySize;
+        settingsloaded.DiscordShowAlongsideGame = incoming.DiscordShowAlongsideGame;
         Save();
     }
 
@@ -487,6 +493,12 @@ public static class Settings
             DiscordShowScore = true,
             DiscordShowKd = true,
             DiscordShowPartyJoin = false,
+            DiscordShowTracker = true,
+            DiscordShowGitHub = true,
+            DiscordShowTeam = true,
+            DiscordShowPlayers = true,
+            DiscordShowPartySize = true,
+            DiscordShowAlongsideGame = true,
             RuneImportSource = "ugg",
             RuneImportRole = "automatic"
         };
@@ -760,6 +772,27 @@ public static class Settings
         ///     Creates a Valorant party link and shows it as a Discord join button.
         /// </summary>
         public bool DiscordShowPartyJoin { get; set; }
+
+        /// <summary>Shows a Tracker.gg button for the signed-in account when its Riot ID is known.</summary>
+        public bool DiscordShowTracker { get; set; }
+
+        /// <summary>Shows a button that opens this project's GitHub page.</summary>
+        public bool DiscordShowGitHub { get; set; }
+
+        /// <summary>Shows which side the signed-in player is on during a live match.</summary>
+        public bool DiscordShowTeam { get; set; }
+
+        /// <summary>Shows how many players are in the current live match, such as 10 players.</summary>
+        public bool DiscordShowPlayers { get; set; }
+
+        /// <summary>Shows the lobby party size, such as 1/5, before the match starts.</summary>
+        public bool DiscordShowPartySize { get; set; }
+
+        /// <summary>
+        ///     Uses a separate Discord activity type so this presence stays visible beside the
+        ///     official game activity, the same way music stays visible beside a game.
+        /// </summary>
+        public bool DiscordShowAlongsideGame { get; set; }
         public string RuneImportSource { get; set; }
         public string RuneImportRole { get; set; }
     }
