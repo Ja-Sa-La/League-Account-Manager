@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace League_Account_Manager.Misc;
@@ -148,5 +149,124 @@ internal static class ApiResponseParser
         {
             return null;
         }
+    }
+
+    /// <summary>
+    ///     A product restriction the login queue returns instead of a session. Riot sign-in can
+    ///     succeed and the client still stays on the unknown-player screen because this refusal
+    ///     happens afterwards.
+    /// </summary>
+    public readonly record struct AccountRestriction(string Status, string Reason, string Duration, string Detail);
+
+    /// <summary>
+    ///     Reads a ban or suspension from a League login session or a login-queue error. The queue
+    ///     answers <c>{"errorCode":"Player Banned","restrictions":[{"type":"PERMANENT_BAN",
+    ///     "reason":"GENERIC","scope":"lol","expirationMillis":...}]}</c>. A live session carries
+    ///     the same restriction under <c>restrictions</c> or <c>ban</c>.
+    /// </summary>
+    public static AccountRestriction? ParseAccountRestriction(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return null;
+
+        try
+        {
+            var node = JToken.Parse(content);
+            var restriction = FindRestriction(node);
+            if (restriction == null)
+                return null;
+
+            var type = restriction["type"]?.ToString()
+                       ?? restriction["restrictionType"]?.ToString()
+                       ?? node["errorCode"]?.ToString();
+            if (string.IsNullOrWhiteSpace(type) ||
+                !type.Contains("ban", StringComparison.OrdinalIgnoreCase) &&
+                !type.Contains("suspend", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var reason = HumanizeToken(FirstText(restriction, "reason", "restrictionReason", "description"));
+            var scope = FirstText(restriction, "scope");
+            var duration = FormatDuration(restriction);
+            var detail = string.Join(", ",
+                new[] { reason, scope, duration }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+            return new AccountRestriction(HumanizeToken(type), reason, duration, detail);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static JToken? FindRestriction(JToken node)
+    {
+        if (node is JArray array)
+            return array.Select(FindRestriction).FirstOrDefault(item => item != null);
+
+        if (node is not JObject obj)
+            return null;
+
+        foreach (var name in new[] { "restrictions", "ban", "penalty" })
+        {
+            if (obj[name] is JArray list && list.Count > 0)
+                return list[0];
+            if (obj[name] is JObject child)
+                return child;
+        }
+
+        if (obj["errorCode"]?.ToString()?.Contains("ban", StringComparison.OrdinalIgnoreCase) == true ||
+            obj["errorCode"]?.ToString()?.Contains("suspend", StringComparison.OrdinalIgnoreCase) == true)
+            return obj;
+
+        return null;
+    }
+
+    private static string? FirstText(JToken node, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var value = node[name]?.ToString();
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static string FormatDuration(JToken restriction)
+    {
+        var type = restriction["type"]?.ToString() ?? restriction["restrictionType"]?.ToString() ?? string.Empty;
+        if (type.Contains("PERMANENT", StringComparison.OrdinalIgnoreCase))
+            return "Permanent";
+
+        var expiry = restriction["expirationMillis"] ?? restriction["expirationDate"] ?? restriction["expiry"];
+        if (expiry != null && expiry.Type != JTokenType.Null &&
+            long.TryParse(expiry.ToString(), out var millis) && millis > 0)
+        {
+            var until = DateTimeOffset.FromUnixTimeMilliseconds(millis).LocalDateTime.ToString("g");
+            var remaining = DateTimeOffset.FromUnixTimeMilliseconds(millis) - DateTimeOffset.Now;
+            if (remaining <= TimeSpan.Zero)
+                return "until " + until;
+
+            var days = (int)remaining.TotalDays;
+            var span = days >= 1 ? $"{days}d {remaining.Hours}h" : $"{(int)remaining.TotalHours}h {remaining.Minutes}m";
+            return $"{span} (until {until})";
+        }
+
+        var gameData = restriction["dat"]?["gameData"] ?? restriction["gameData"];
+        var length = gameData?["banLength"] ?? gameData?["duration"] ?? restriction["duration"];
+        if (length != null && long.TryParse(length.ToString(), out var seconds) && seconds > 0)
+            return TimeSpan.FromSeconds(seconds).ToString(@"d\d\ h\h");
+
+        return string.Empty;
+    }
+
+    private static string HumanizeToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return string.Empty;
+
+        var words = token.Replace('_', ' ').Trim().ToLowerInvariant();
+        return char.ToUpperInvariant(words[0]) + words[1..];
     }
 }

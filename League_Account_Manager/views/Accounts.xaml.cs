@@ -674,6 +674,8 @@ public partial class Accounts : Page
         {
             if (titleControl != null) titleControl.Text = title;
             if (statusControl != null) statusControl.Text = "Preparing...";
+            var spinner = FindName("AccountOperationSpinner") as UIElement;
+            if (spinner != null) spinner.Visibility = Visibility.Visible;
             if (operationButton != null)
             {
                 operationButton.Content = "Cancel";
@@ -712,7 +714,7 @@ public partial class Accounts : Page
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-            SetAccountOperationStatus("Cancelled.");
+            SetAccountOperationStatus("Login cancelled.", "Login cancelled");
         }
         catch (Exception ex)
         {
@@ -798,7 +800,7 @@ public partial class Accounts : Page
             Dispatcher.Invoke(Hide);
     }
 
-    private void SetAccountOperationStatus(string status)
+    private void SetAccountOperationStatus(string status, string? title = null)
     {
         if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
             return;
@@ -807,6 +809,13 @@ public partial class Accounts : Page
         {
             var statusControl = GetAccountOperationStatusControl();
             if (statusControl != null) statusControl.Text = status;
+            if (title != null)
+            {
+                var titleControl = GetAccountOperationTitleControl();
+                if (titleControl != null) titleControl.Text = title;
+                var spinner = FindName("AccountOperationSpinner") as UIElement;
+                if (spinner != null) spinner.Visibility = Visibility.Collapsed;
+            }
             if (_backgroundOperationStatus != null) _backgroundOperationStatus.StatusText.Text = status;
         }
 
@@ -2407,6 +2416,20 @@ public partial class Accounts : Page
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var restriction = await ReadLeagueRestrictionAsync(cancellationToken);
+                if (restriction != null)
+                {
+                    DebugConsole.WriteLine(
+                        $"[Accounts] League refused the session: {restriction.Value.Status} ({restriction.Value.Detail}).",
+                        ConsoleColor.Red);
+                    SetAccountOperationStatus($"{restriction.Value.Status}: {restriction.Value.Detail}");
+                    await MarkSelectedAccountRestrictedAsync(restriction.Value);
+                    Notif.notificationManager.Show("Login",
+                        $"{restriction.Value.Status}. {restriction.Value.Detail}".Trim(),
+                        NotificationType.Error);
+                    return false;
+                }
+
                 using var resp = await Lcu.Connector("league", "get", "/lol-player-behavior/v3/reform-cards", "",
                         cancellationToken)
                     as HttpResponseMessage;
@@ -2432,6 +2455,30 @@ public partial class Accounts : Page
 
             await Task.Delay(1000, cancellationToken); // retry every 1 second
         }
+    }
+
+    /// <summary>
+    ///     Riot sign-in can succeed while League still refuses the account. The login session and
+    ///     the login queue both carry that refusal, including the ban type and reason.
+    /// </summary>
+    private static async Task<ApiResponseParser.AccountRestriction?> ReadLeagueRestrictionAsync(
+        CancellationToken cancellationToken)
+    {
+        foreach (var endpoint in new[] { "/lol-login/v1/session", "/lol-login/v1/login-queue-state" })
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var response = await Lcu.Connector("league", "get", endpoint, "", cancellationToken)
+                as HttpResponseMessage;
+            if (response == null)
+                continue;
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var restriction = ApiResponseParser.ParseAccountRestriction(body);
+            if (restriction != null)
+                return restriction;
+        }
+
+        return null;
     }
 
     public async Task UpdateAllRanks()
@@ -3393,37 +3440,42 @@ public partial class Accounts : Page
             // which is copied to the clipboard in the same format as before.
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false);
-            var captchaToken = string.Empty;
-
-            if (challenge.RequiresChallenge)
+            RsoLoginService.AuthResult result;
+            while (true)
             {
-                DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
-                ChallengeWindow? challengeWindow = null;
-                var challengeResult = await Dispatcher.InvokeAsync(() =>
+                var captchaToken = string.Empty;
+                if (challenge.RequiresChallenge)
                 {
-                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
-                        RsoLoginService.ClientlessHost);
-                    challengeWindow.ShowDialog();
-                    return challengeWindow.Token;
-                });
+                    DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
+                    var challengeOutcome = await Dispatcher.InvokeAsync(() =>
+                        ChallengeWindow.Solve(challenge.SiteKey!, challenge.RqData, RsoLoginService.ClientlessHost));
+                    var challengeResult = challengeOutcome.Token;
 
-                if (string.IsNullOrWhiteSpace(challengeResult))
-                {
-                    if (challengeWindow?.ChallengeFailed == true)
-                        NoteFailedLogin("GenerateToken");
-                    DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
-                        ConsoleColor.Yellow);
-                    return;
+                    if (string.IsNullOrWhiteSpace(challengeResult))
+                    {
+                        if (challengeOutcome.ChallengeFailed)
+                            NoteFailedLogin("GenerateToken");
+                        DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
+                            ConsoleColor.Yellow);
+                        return;
+                    }
+                    captchaToken = challengeResult;
                 }
-                captchaToken = challengeResult;
-            }
-            else
-            {
-                DebugConsole.WriteLine("[Accounts][GenerateToken] No challenge required.");
-            }
+                else
+                {
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] No challenge required.");
+                }
 
-            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+                result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                    SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+                if (!result.NeedsAnotherChallenge)
+                    break;
+
+                DebugConsole.WriteLine(
+                    "[Accounts][GenerateToken] Challenge rejected. Solving the replacement challenge.",
+                    ConsoleColor.Yellow);
+                challenge = result.Challenge;
+            }
 
             if (result.Type == "multifactor")
             {
@@ -3469,8 +3521,7 @@ public partial class Accounts : Page
                         NotificationType.Error);
                     break;
 
-                case "error":
-                case "auth_failure":
+                case not "success" when !string.IsNullOrWhiteSpace(result.Error):
                     NoteFailedLogin("GenerateToken");
                     Notif.notificationManager.Show("Generate token", result.Failure.Message,
                         NotificationType.Error);
@@ -3545,38 +3596,55 @@ public partial class Accounts : Page
             SetAccountOperationStatus("Starting authentication...");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false,
                 cancellationToken);
-            var captchaToken = string.Empty;
-            if (challenge.RequiresChallenge)
+            RsoLoginService.AuthResult result;
+            var credentialsSubmitted = false;
+            while (true)
             {
-                SetAccountOperationStatus("Solving challenge...");
-                DebugConsole.WriteLine($"[Accounts][RsoLogin] Challenge required: {challenge.Type}");
-                ChallengeWindow? challengeWindow = null;
-                var challengeResult = await Dispatcher.InvokeAsync(() =>
+                cancellationToken.ThrowIfCancellationRequested();
+                var captchaToken = string.Empty;
+                if (challenge.RequiresChallenge)
                 {
-                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
-                        RsoLoginService.ClientlessHost);
-                    challengeWindow.ShowDialog();
-                    return challengeWindow.Token;
-                });
+                    SetAccountOperationStatus("Solving challenge...");
+                    DebugConsole.WriteLine($"[Accounts][RsoLogin] Challenge required: {challenge.Type}");
+                    var challengeOutcome = await Dispatcher.InvokeAsync(() =>
+                        ChallengeWindow.Solve(challenge.SiteKey!, challenge.RqData, RsoLoginService.ClientlessHost));
+                    var challengeResult = challengeOutcome.Token;
 
-                if (string.IsNullOrWhiteSpace(challengeResult))
-                {
-                    if (challengeWindow?.ChallengeFailed == true)
-                        NoteFailedLogin("RsoLogin");
-                    DebugConsole.WriteLine("[Accounts][RsoLogin] Challenge cancelled by user.", ConsoleColor.Yellow);
-                    return false;
+                    if (string.IsNullOrWhiteSpace(challengeResult))
+                    {
+                        if (challengeOutcome.ChallengeFailed)
+                            NoteFailedLogin("RsoLogin");
+                        DebugConsole.WriteLine("[Accounts][RsoLogin] Challenge cancelled by user.", ConsoleColor.Yellow);
+                        return false;
+                    }
+                    captchaToken = challengeResult;
                 }
-                captchaToken = challengeResult;
-            }
-            else
-            {
-                DebugConsole.WriteLine("[Accounts][RsoLogin] No challenge required.");
-            }
-            MarkTaskCompleted("Find login window");
+                else
+                {
+                    DebugConsole.WriteLine("[Accounts][RsoLogin] No challenge required.");
+                }
 
-            SetAccountOperationStatus("Submitting credentials...");
-            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken, cancellationToken);
+                if (!credentialsSubmitted)
+                {
+                    MarkTaskCompleted("Find login window");
+                    SetAccountOperationStatus("Submitting credentials...");
+                }
+                else
+                {
+                    SetAccountOperationStatus("Retrying challenge...");
+                }
+
+                result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                    SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken, cancellationToken);
+                credentialsSubmitted = true;
+                if (!result.NeedsAnotherChallenge)
+                    break;
+
+                DebugConsole.WriteLine(
+                    "[Accounts][RsoLogin] Challenge rejected. Solving the replacement challenge.",
+                    ConsoleColor.Yellow);
+                challenge = result.Challenge;
+            }
             MarkTaskCompleted("Submit credentials");
 
             if (result.Type == "multifactor")
@@ -3690,19 +3758,19 @@ public partial class Accounts : Page
 
             switch (result.Type)
             {
-                case "error" when result.Failure.InvalidCredentials:
+                case not "success" when result.Failure.InvalidCredentials:
                     NoteFailedLogin("RsoLogin");
                     // Same handling as the normal login's "credentials don't match" tooltip:
                     // mark the account invalid and stop. Other failures (paused, disabled, rate
                     // limited) are the account's state, not bad credentials, so they are reported
-                    // instead of marking it invalid.
+                    // instead of marking it invalid. A rejected solve that includes a replacement
+                    // challenge never reaches this point.
                     DebugConsole.WriteLine("[Accounts][RsoLogin] Credentials rejected, marking account invalid.",
                         ConsoleColor.Red);
                     await MarkSelectedAccountInvalidAsync();
                     return false;
 
-                case "error":
-                case "auth_failure":
+                case not "success" when !string.IsNullOrWhiteSpace(result.Error):
                     NoteFailedLogin("RsoLogin");
                     DebugConsole.WriteLine($"[Accounts][RsoLogin] {result.Failure.Code}: {result.Failure.Message}",
                         ConsoleColor.Red);
@@ -3787,6 +3855,57 @@ public partial class Accounts : Page
         });
     }
 
+    /// <summary>
+    ///     Records a League ban or suspension on the selected account without discarding the data
+    ///     already collected for it. The rank columns show the ban and its reason.
+    /// </summary>
+    private async Task MarkSelectedAccountRestrictedAsync(ApiResponseParser.AccountRestriction restriction)
+    {
+        var existing = ActualAccountlists.FindLast(x =>
+            x.username == SelectedUsername && x.password == SelectedPassword);
+        if (existing == null)
+            return;
+
+        existing.rank = restriction.Status;
+        existing.rank2 = string.IsNullOrWhiteSpace(restriction.Detail) ? restriction.Status : restriction.Detail;
+        var banNote = BuildBanNote(restriction);
+        existing.note = ReplaceBanNote(existing.note, banNote);
+
+        await AccountFileStore.SaveAsync(AccountFileStore.GetAccountsFilePath(), ActualAccountlists, config);
+        Dispatcher.Invoke(() =>
+        {
+            AccountsDataGrid.ItemsSource = null;
+            AccountsDataGrid.ItemsSource = ActualAccountlists;
+            ApplyLeagueSortToGrid();
+            AccountsDataGrid.Items.Refresh();
+        });
+    }
+
+    /// <summary>Ban reason and duration are stored on their own lines so a later login can refresh them.</summary>
+    private static string BuildBanNote(ApiResponseParser.AccountRestriction restriction)
+    {
+        var lines = new List<string> { restriction.Status };
+        if (!string.IsNullOrWhiteSpace(restriction.Reason))
+            lines.Add("Ban reason: " + restriction.Reason);
+        lines.Add("Duration: " + (string.IsNullOrWhiteSpace(restriction.Duration) ? "Unknown" : restriction.Duration));
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string ReplaceBanNote(string? existing, string banNote)
+    {
+        if (string.IsNullOrWhiteSpace(existing))
+            return banNote;
+
+        var kept = existing.Replace("\r\n", "\n").Split('\n')
+            .Where(line => !line.StartsWith("Ban reason:", StringComparison.OrdinalIgnoreCase) &&
+                           !line.StartsWith("Duration:", StringComparison.OrdinalIgnoreCase) &&
+                           !line.Trim().EndsWith(" ban", StringComparison.OrdinalIgnoreCase))
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0);
+        var userNote = string.Join(Environment.NewLine, kept);
+        return string.IsNullOrWhiteSpace(userNote) ? banNote : userNote + Environment.NewLine + banNote;
+    }
+
     private static JObject? DecodeJwtPayload(string token)
     {
         var parts = token.Split('.');
@@ -3852,6 +3971,9 @@ public sealed class RankIconConverter : IValueConverter
     {
         var rank = value?.ToString();
         var tier = GetTier(rank);
+        if (tier == null)
+            return null!;
+
         if (RankImages.TryGetValue(tier, out var cachedImage))
             return cachedImage;
 
@@ -3870,12 +3992,19 @@ public sealed class RankIconConverter : IValueConverter
         return Binding.DoNothing;
     }
 
-    private static string GetTier(string? rank)
+    private static string? GetTier(string? rank)
     {
         var normalized = rank?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (normalized.Length == 0 || normalized == "invalid login")
+            return "unranked";
+
         foreach (var tier in new[] { "iron", "bronze", "silver", "gold", "platinum", "emerald", "diamond", "master", "grandmaster", "challenger" })
             if (normalized.StartsWith(tier, StringComparison.Ordinal))
                 return tier;
+
+        // A ban or suspension is stored in the rank column, and it is not a rank icon.
+        if (normalized.Contains("ban") || normalized.Contains("suspend"))
+            return null;
 
         return "unranked";
     }

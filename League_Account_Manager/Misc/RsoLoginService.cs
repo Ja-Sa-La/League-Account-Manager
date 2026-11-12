@@ -24,9 +24,9 @@ internal static class RsoLoginService
     private const string AuthenticatorBaseUrl = "https://authenticate.riotgames.com";
 
     // The authenticator rejects sessions that don't look like the current client. Captured from
-    // a working Riot Client (26.10.1): the SDK build is sent both as the user-agent and as the
+    // a working Riot Client (26.10.3): the SDK build is sent both as the user-agent and as the
     // sdkVersion field of the session body.
-    private const string RiotClientSdkVersion = "26.10.1.9c322b6e9287857a25f91202eeab72501390fd33";
+    private const string RiotClientSdkVersion = "26.10.3.d551693130f30c3ab42ce626b95a9712ff06832e";
     private const string RiotAuthUserAgent =
         "RiotGamesApi/" + RiotClientSdkVersion + " rso-auth (Windows;10;;Professional, x64) riot_client/0";
     private const string RiotAuthenticatorUserAgent =
@@ -62,6 +62,17 @@ internal static class RsoLoginService
         public string? Error { get; init; }
         public string? LoginToken { get; init; }
         public ChallengeInfo Challenge { get; init; } = new();
+
+        /// <summary>
+        ///     The authenticator rejected the submitted solve and returned a replacement challenge.
+        ///     That is not a finished login: the new challenge has to be solved, or the attempt
+        ///     cancelled. A response with no replacement challenge is a real failure.
+        /// </summary>
+        public bool NeedsAnotherChallenge =>
+            Challenge.RequiresChallenge &&
+            string.IsNullOrWhiteSpace(LoginToken) &&
+            !string.Equals(Type, "success", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(Type, "multifactor", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         ///     The Riot Client's own reading of <see cref="Error"/>: the message it would show and

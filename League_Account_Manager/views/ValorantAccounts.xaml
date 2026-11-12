@@ -249,7 +249,7 @@
                                    TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <Grid Grid.Row="1" Height="48" Margin="0,20,0,16">
+                    <Grid x:Name="AccountOperationSpinner" Grid.Row="1" Height="48" Margin="0,20,0,16">
                         <Canvas Width="40" Height="40" HorizontalAlignment="Center">
                             <Ellipse Width="36" Height="36" Stroke="{StaticResource SuccessBrush}" StrokeThickness="3"
                                      StrokeDashArray="3 2" RenderTransformOrigin="0.5,0.5">

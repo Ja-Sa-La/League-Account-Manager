@@ -53,6 +53,37 @@ public class LoginErrorTests
     }
 
     [TestMethod]
+    public void RejectedSolveWithReplacementChallengeIsNotAFinishedLogin()
+    {
+        var result = new RsoLoginService.AuthResult
+        {
+            Type = "auth",
+            Error = "auth_failure",
+            Challenge = new RsoLoginService.ChallengeInfo
+            {
+                Type = "hcaptcha",
+                SiteKey = "019f1553-3845-481c-a6f5-5a60ccf6d830",
+                RqData = "replacement"
+            }
+        };
+
+        Assert.IsTrue(result.NeedsAnotherChallenge);
+        Assert.IsTrue(result.Failure.InvalidCredentials);
+    }
+
+    [TestMethod]
+    public void AuthFailureWithoutReplacementChallengeStaysAFinishedFailure()
+    {
+        var result = new RsoLoginService.AuthResult
+        {
+            Type = "error",
+            Error = "auth_failure"
+        };
+
+        Assert.IsFalse(result.NeedsAnotherChallenge);
+    }
+
+    [TestMethod]
     public void Describe_CredentialFailureDoesNotResetTheChallengeProfile()
     {
         var error = RsoLoginService.LoginError.Describe("auth_failure");

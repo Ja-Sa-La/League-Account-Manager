@@ -5,7 +5,6 @@ using System.Text;
 using System.Windows;
 using League_Account_Manager.Misc;
 using Microsoft.Web.WebView2.Wpf;
-using System.Text.Json.Nodes;
 using Microsoft.Web.WebView2.Core;
 
 namespace League_Account_Manager.Windows;
@@ -39,6 +38,14 @@ public partial class ChallengeWindow : Window
     /// <summary>Solved challenge token, or null if the user cancelled / closed the window.</summary>
     public string? Token { get; private set; }
 
+    /// <summary>Shows the embedded challenge and returns its token and failure state.</summary>
+    public static (string? Token, bool ChallengeFailed) Solve(string siteKey, string? rqData, string? host)
+    {
+        var window = new ChallengeWindow(siteKey, rqData, host);
+        window.ShowDialog();
+        return (window.Token, window.ChallengeFailed);
+    }
+
     /// <summary>
     ///     True when the sign-in challenge itself failed or rejected the solve. A burned browser
     ///     profile is the usual cause, so the caller deletes the profile before the next attempt.
@@ -57,6 +64,15 @@ public partial class ChallengeWindow : Window
 
     /// <summary>Test hook. Production leaves this null and uses <see cref="UserDataFolder"/>.</summary>
     internal static string? UserDataFolderOverride { get; set; }
+
+    /// <summary>
+    ///     Browser identity of the installed Riot Client (Chrome 150 / Electron 43.8.4).
+    ///     The challenge provider compares this with the client that normally solves on the
+    ///     authenticator origin, so the embedded browser has to present the same family.
+    /// </summary>
+    internal const string RiotClientUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/150.0.7871.250 Electron/43.8.4 Safari/537.36";
 
     private static int _consecutiveLoginFailures;
 
@@ -145,9 +161,38 @@ public partial class ChallengeWindow : Window
             WebViewHost.Child = _webView;
             var userDataFolder = UserDataFolder;
             Directory.CreateDirectory(userDataFolder);
-            var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+            // Riot Client is Electron, whose user agent is Chrome plus "Electron/<version>".
+            // A stock WebView2 agent ("Edg/") is a different browser family and is what the
+            // challenge provider uses to single this window out. Riot does not disable Blink
+            // automation features, so adding that switch would itself be a difference.
+            var options = new CoreWebView2EnvironmentOptions
+            {
+                AdditionalBrowserArguments =
+                    "--disable-features=msSmartScreenProtection,RendererCodeIntegrity,msWebView2EnableDraggableRegions",
+            };
+            options.EnableTrackingPrevention = false;
+            var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder, options);
             await _webView.EnsureCoreWebView2Async(environment);
-            await AttachNetworkLoggingAsync();
+            var settings = _webView.CoreWebView2.Settings;
+            settings.UserAgent = RiotClientUserAgent;
+            settings.AreBrowserAcceleratorKeysEnabled = false;
+            settings.AreDefaultContextMenusEnabled = false;
+            settings.AreDevToolsEnabled = false;
+            settings.IsStatusBarEnabled = false;
+            settings.IsSwipeNavigationEnabled = false;
+            settings.IsPinchZoomEnabled = false;
+            settings.IsPasswordAutosaveEnabled = false;
+            settings.IsGeneralAutofillEnabled = false;
+            // The page has to report a solved token, but window.chrome.webview only exists in
+            // WebView2. Keep that object out of the document and let the page call a plain function.
+            await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                "window.__lamReport=function(message){window.chrome.webview.postMessage(message);};" +
+                "try{delete window.chrome.webview;}catch(e){}");
+            // Setting UserAgent clears Sec-CH-UA and navigator.userAgentData. Chrome 150 still
+            // reports a Chromium brand there, so restore that instead of leaving Edge's data empty.
+            await ApplyRiotClientHintsAsync();
+            // Network.enable attaches DevTools before the widget loads. The challenge provider
+            // can see that debugger, and Riot Client does not attach one, so leave it off.
 
             // Tabasco tokens are validated against the page origin the widget runs on. The real
             // client runs the widget on the authenticator service_url origin, so we navigate to
@@ -193,71 +238,49 @@ public partial class ChallengeWindow : Window
     }
 
     /// <summary>
-    ///     Enables CDP network domain and logs every request, response and failure inside the
-    ///     challenge webview so the full traffic picture is visible in the debug console.
+    ///     Restores the client hints that <see cref="CoreWebView2Settings.UserAgent"/> clears.
+    ///     Riot Client is Chromium 150 branded as Chrome, not Microsoft Edge.
     /// </summary>
-    private async Task AttachNetworkLoggingAsync()
+    private async Task ApplyRiotClientHintsAsync()
     {
         try
         {
-            var cdp = _webView!.CoreWebView2;
-            await cdp.CallDevToolsProtocolMethodAsync("Network.enable", "{}");
-
-            var requested = cdp.GetDevToolsProtocolEventReceiver("Network.requestWillBeSent");
-            requested.DevToolsProtocolEventReceived += (s, e) =>
-            {
-                try
+            const string metadata = """
                 {
-                    var node = JsonNode.Parse(e.ParameterObjectAsJson);
-                    var req = node?["request"];
-                    var method = req?["method"]?.GetValue<string>();
-                    var url = req?["url"]?.GetValue<string>();
-                    var post = req?["postData"]?.GetValue<string>();
-                    var type = node?["type"]?.GetValue<string>();
-                    DebugConsole.WriteLine($"[ChallengeNet] → {method} {url} [{type}]" +
-                        (string.IsNullOrEmpty(post) ? "" : $" body={TruncateForLog(post)}"), ConsoleColor.DarkCyan);
+                  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.250 Electron/43.8.4 Safari/537.36",
+                  "acceptLanguage": "en-US,en",
+                  "platform": "Windows",
+                  "userAgentMetadata": {
+                    "brands": [
+                      { "brand": "Not;A=Brand", "version": "99" },
+                      { "brand": "Chromium", "version": "150" },
+                      { "brand": "Google Chrome", "version": "150" }
+                    ],
+                    "fullVersionList": [
+                      { "brand": "Not;A=Brand", "version": "99.0.0.0" },
+                      { "brand": "Chromium", "version": "150.0.7871.250" },
+                      { "brand": "Google Chrome", "version": "150.0.7871.250" }
+                    ],
+                    "fullVersion": "150.0.7871.250",
+                    "platform": "Windows",
+                    "platformVersion": "15.0.0",
+                    "architecture": "x86",
+                    "model": "",
+                    "mobile": false,
+                    "bitness": "64",
+                    "wow64": false
+                  }
                 }
-                catch { /* ignore malformed CDP payloads */ }
-            };
-
-            var received = cdp.GetDevToolsProtocolEventReceiver("Network.responseReceived");
-            received.DevToolsProtocolEventReceived += (s, e) =>
-            {
-                try
-                {
-                    var node = JsonNode.Parse(e.ParameterObjectAsJson);
-                    var resp = node?["response"];
-                    var status = resp?["status"]?.GetValue<int>();
-                    var url = resp?["url"]?.GetValue<string>();
-                    var mime = resp?["mimeType"]?.GetValue<string>();
-                    DebugConsole.WriteLine($"[ChallengeNet] ← HTTP {status} {url} [{mime}]", ConsoleColor.Cyan);
-                }
-                catch { /* ignore malformed CDP payloads */ }
-            };
-
-            var failed = cdp.GetDevToolsProtocolEventReceiver("Network.loadingFailed");
-            failed.DevToolsProtocolEventReceived += (s, e) =>
-            {
-                try
-                {
-                    var node = JsonNode.Parse(e.ParameterObjectAsJson);
-                    var errorText = node?["errorText"]?.GetValue<string>();
-                    var canceled = node?["canceled"]?.GetValue<bool>();
-                    DebugConsole.WriteLine($"[ChallengeNet] ✗ FAILED: {errorText} (canceled={canceled})", ConsoleColor.Red);
-                }
-                catch { /* ignore malformed CDP payloads */ }
-            };
-
-            DebugConsole.WriteLine("[ChallengeWindow] CDP Network logging enabled.", ConsoleColor.DarkGray);
+                """;
+            await _webView!.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "Emulation.setUserAgentOverride", metadata);
         }
         catch (Exception ex)
         {
-            DebugConsole.WriteLine($"[ChallengeWindow] Network logging unavailable: {ex.Message}", ConsoleColor.Yellow);
+            DebugConsole.WriteLine(
+                $"[ChallengeWindow] Could not apply Riot client hints: {ex.Message}", ConsoleColor.Yellow);
         }
     }
-
-    private static string TruncateForLog(string text) =>
-        text.Length <= 300 ? text : text[..300] + "…";
 
     private void OnWebMessageReceived(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -271,6 +294,13 @@ public partial class ChallengeWindow : Window
             {
                 Token = node?["token"]?.GetValue<string>();
                 DialogResult = !string.IsNullOrWhiteSpace(Token);
+            }
+            else if (type is "tabasco_closed" or "tabasco_expired")
+            {
+                // Riot treats a dismissed or expired challenge as a user outcome, not a rejected
+                // browser. Closing the window lets the caller start a fresh challenge.
+                DebugConsole.WriteLine($"[ChallengeWindow] Challenge {type}.", ConsoleColor.DarkGray);
+                DialogResult = false;
             }
             else if (type == "tabasco_error")
             {
@@ -294,62 +324,50 @@ public partial class ChallengeWindow : Window
         // Matches the language ("en_US") sent in the RSO start request: posixToBCP47 → "en-US".
         const string hl = "en-US";
 
-        // Script URL identical to the client's loader i0(): base params render=explicit + onload,
-        // then remaining props become query params (hl, host, recaptchacompat=off — the
-        // script loads synchronously (loadAsync:false), so no async/defer attributes.
-        var scriptUrl = $"https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad&hl={hl}&recaptchacompat=off";
+        // The client's React wrapper loads api.js asynchronously with render=explicit and
+        // recaptchacompat=off, then renders an invisible widget. A unique comment, hidden
+        // canvas, or status text is not part of that page and changes the document fingerprint.
+        var scriptUrl = "https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad&hl=" +
+                        hl + "&recaptchacompat=off";
         if (!string.IsNullOrWhiteSpace(_host))
-            scriptUrl += $"&host={Uri.EscapeDataString(_host)}";
-
-        // Random per-serve decorations: hidden canvas + random-length comment so the served
-        // HTML has a unique hash on every load without touching the Tabasco API surface.
-        var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(8));
-        var noise = Convert.ToHexString(RandomNumberGenerator.GetBytes(Random.Shared.Next(48, 224)));
+            scriptUrl += "&host=" + Uri.EscapeDataString(_host);
 
         var sb = new StringBuilder();
         sb.AppendLine("<!DOCTYPE html>");
-        sb.AppendLine("<html><head><meta charset='utf-8'>");
-        sb.AppendLine("<style>body{background:#1e1e2e;color:#cdd6f4;font-family:Segoe UI,sans-serif;margin:0;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 32px);box-sizing:border-box}#status{margin-bottom:12px;font-size:14px}#checkbox{min-width:303px;min-height:78px}</style>");
-        sb.AppendLine("<script>function hcaptchaOnLoad(){ window.__tabascoReady = true; }</script>");
-        sb.AppendLine($"<script src='{scriptUrl}'></script>");
+        sb.AppendLine("<html lang=\"en\"><head><meta charset=\"utf-8\">");
+        // Riot Client's document background is #121212. The challenge prompt itself uses the
+        // white theme passed to hcaptcha.render below, not a dark widget theme.
+        sb.AppendLine("<style>html,body{background:#121212;margin:0;height:100%}#checkbox{position:absolute;width:0;height:0;overflow:hidden}</style>");
+        sb.AppendLine("<script>function hcaptchaOnLoad(){window.__tabascoReady=true;}</script>");
+        sb.AppendLine($"<script src=\"{scriptUrl}\" async></script>");
         sb.AppendLine("</head><body>");
-        sb.AppendLine($"<!-- r:{nonce}:{noise} -->");
-        sb.AppendLine($"<canvas id='cvr{nonce[..6]}' width='24' height='24' data-n='{nonce}' style='display:none'></canvas>");
-        sb.AppendLine("<div id='status'>Loading challenge…</div>");
-        sb.AppendLine("<div id='checkbox'></div>");
+        sb.AppendLine("<div id=\"checkbox\"></div>");
         sb.AppendLine("<script>");
-        sb.AppendLine("try{var __cv=document.querySelector('canvas[data-n]');var __cx=__cv.getContext('2d');for(var __i=0;__i<96;__i++){__cx.fillStyle='rgba('+Math.floor(Math.random()*256)+','+Math.floor(Math.random()*256)+','+Math.floor(Math.random()*256)+',0.5)';__cx.fillRect(Math.floor(Math.random()*__cv.width),Math.floor(Math.random()*__cv.height),1,1);}}catch(__e){}");
         sb.AppendLine("function waitForReady(){");
-        sb.AppendLine("  if (!(window.__tabascoReady && typeof hcaptcha !== 'undefined')) { setTimeout(waitForReady, 100); return; }");
-        sb.AppendLine("  document.getElementById('status').textContent='Solving challenge…';");
+        sb.AppendLine("  if (!(window.__tabascoReady && typeof hcaptcha !== 'undefined')) { setTimeout(waitForReady, 50); return; }");
         sb.AppendLine("  try{");
-        // Render opts mirror the client's widget render call: sitekey, size invisible, host
-        // (authenticator service_url hostname), hl, plus the standard callbacks.
         sb.AppendLine($"    var opts = {{sitekey:{siteKeyJson}, size:'invisible', hl:'{hl}',");
-        sb.AppendLine("      'open-callback':function(){}, 'close-callback':function(){},");
-        sb.AppendLine("      'error-callback':function(code){ window.chrome.webview.postMessage({type:'tabasco_error', error:String(code)}); },");
-        sb.AppendLine("      'chalexpired-callback':function(){ document.getElementById('status').textContent='Challenge expired.'; },");
-        sb.AppendLine("      'expired-callback':function(){ document.getElementById('status').textContent='Token expired.'; },");
-        sb.AppendLine("      callback:function(token){ if (token) { window.chrome.webview.postMessage({type:'tabasco_result', token:token}); document.getElementById('status').textContent='Challenge solved.'; } }};");
+        sb.AppendLine("      theme:{component:{prompt:{main:{fill:'#ffffff',border:'#ffffff',text:'#000000'}}}},");
+        sb.AppendLine("      'open-callback':function(){},");
+        sb.AppendLine("      'close-callback':function(){ window.__lamReport({type:'tabasco_closed'}); },");
+        sb.AppendLine("      'error-callback':function(code){ window.__lamReport({type:'tabasco_error', error:String(code)}); },");
+        sb.AppendLine("      'chalexpired-callback':function(){ window.__lamReport({type:'tabasco_expired'}); },");
+        sb.AppendLine("      'expired-callback':function(){ window.__lamReport({type:'tabasco_expired'}); },");
+        sb.AppendLine("      callback:function(token){ if (token) window.__lamReport({type:'tabasco_result', token:token}); }};");
         sb.AppendLine($"    if ({hostJson} !== '') opts.host = {hostJson};");
         sb.AppendLine("    var widgetId = hcaptcha.render('checkbox', opts);");
-        // Execute identical to the client's executeChallenge(): {rqdata, async:true}; the async
-        // result is an object {response, key} — the client destructures .response.
-        sb.AppendLine($"    hcaptcha.execute(widgetId, {{rqdata:{rqDataJson}, async:true}}).then(function(result){{");
+        // Without async:true, execute() returns undefined and the promise chain throws
+        // "Cannot read properties of undefined (reading 'then')", which closes the window.
+        sb.AppendLine($"    var pending = hcaptcha.execute(widgetId, {{rqdata:{rqDataJson}, async:true}});");
+        sb.AppendLine("    if (!pending || typeof pending.then !== 'function') return;");
+        sb.AppendLine("    pending.then(function(result){");
         sb.AppendLine("      var token = (result && typeof result === 'object') ? result.response : result;");
-        sb.AppendLine("      if (!token) {");
-        sb.AppendLine("        window.chrome.webview.postMessage({type:'tabasco_error', error:'empty response'});");
-        sb.AppendLine("        return;");
-        sb.AppendLine("      }");
-        sb.AppendLine("      window.chrome.webview.postMessage({type:'tabasco_result', token:token});");
-        sb.AppendLine("      document.getElementById('status').textContent='Challenge solved.';");
+        sb.AppendLine("      if (token) window.__lamReport({type:'tabasco_result', token:token});");
         sb.AppendLine("    }).catch(function(err){");
-        sb.AppendLine("      window.chrome.webview.postMessage({type:'tabasco_error', error:String(err)});");
-        sb.AppendLine("      document.getElementById('status').textContent='Challenge failed. See log.';");
+        sb.AppendLine("      window.__lamReport({type:'tabasco_error', error:String(err)});");
         sb.AppendLine("    });");
         sb.AppendLine("  }catch(ex){");
-        sb.AppendLine("    window.chrome.webview.postMessage({type:'tabasco_error', error:String(ex)});");
-        sb.AppendLine("    document.getElementById('status').textContent='Error: '+String(ex);");
+        sb.AppendLine("    window.__lamReport({type:'tabasco_error', error:String(ex)});");
         sb.AppendLine("  }");
         sb.AppendLine("}");
         sb.AppendLine("waitForReady();");

@@ -485,6 +485,7 @@ public partial class ValorantAccounts : Page
         {
             AccountOperationTitle.Text = title;
             AccountOperationStatus.Text = "Preparing...";
+            AccountOperationSpinner.Visibility = Visibility.Visible;
             CancelAccountOperationButton.Content = "Close";
             TaskListBox.Items.Clear();
             foreach (var step in LoginSteps)
@@ -554,7 +555,9 @@ public partial class ValorantAccounts : Page
                 return;
             }
 
-            AccountOperationStatus.Text = "The login could not be completed.";
+            AccountOperationTitle.Text = "Login cancelled";
+            AccountOperationStatus.Text = "Login cancelled.";
+            AccountOperationSpinner.Visibility = Visibility.Collapsed;
             CancelAccountOperationButton.Content = "Close";
         }
 
@@ -710,35 +713,47 @@ public partial class ValorantAccounts : Page
             SetLoginStatus("Starting authentication...");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false,
                 "valorant");
-            var captchaToken = string.Empty;
-            if (challenge.RequiresChallenge)
+            RsoLoginService.AuthResult result;
+            var credentialsSubmitted = false;
+            while (true)
             {
-                DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Challenge required: {challenge.Type}");
-                SetLoginStatus("Solving challenge...");
-                ChallengeWindow? challengeWindow = null;
-                var challengeResult = await Dispatcher.InvokeAsync(() =>
+                var captchaToken = string.Empty;
+                if (challenge.RequiresChallenge)
                 {
-                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
-                        RsoLoginService.ClientlessHost);
-                    challengeWindow.ShowDialog();
-                    return challengeWindow.Token;
-                });
+                    DebugConsole.WriteLine($"[ValorantAccounts][RsoLogin] Challenge required: {challenge.Type}");
+                    SetLoginStatus(credentialsSubmitted ? "Retrying challenge..." : "Solving challenge...");
+                    var challengeOutcome = await Dispatcher.InvokeAsync(() =>
+                        ChallengeWindow.Solve(challenge.SiteKey!, challenge.RqData, RsoLoginService.ClientlessHost));
+                    var challengeResult = challengeOutcome.Token;
 
-                if (string.IsNullOrWhiteSpace(challengeResult))
-                {
-                    if (challengeWindow?.ChallengeFailed == true)
-                        NoteFailedLogin("RsoLogin");
-                    DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Challenge cancelled by user.",
-                        ConsoleColor.Yellow);
-                    return;
+                    if (string.IsNullOrWhiteSpace(challengeResult))
+                    {
+                        if (challengeOutcome.ChallengeFailed)
+                            NoteFailedLogin("RsoLogin");
+                        DebugConsole.WriteLine("[ValorantAccounts][RsoLogin] Challenge cancelled by user.",
+                            ConsoleColor.Yellow);
+                        return;
+                    }
+                    captchaToken = challengeResult;
                 }
-                captchaToken = challengeResult;
-            }
 
-            MarkLoginStepCompleted("Find login window");
-            SetLoginStatus("Submitting credentials...");
-            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+                if (!credentialsSubmitted)
+                {
+                    MarkLoginStepCompleted("Find login window");
+                    SetLoginStatus("Submitting credentials...");
+                }
+
+                result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                    SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+                credentialsSubmitted = true;
+                if (!result.NeedsAnotherChallenge)
+                    break;
+
+                DebugConsole.WriteLine(
+                    "[ValorantAccounts][RsoLogin] Challenge rejected. Solving the replacement challenge.",
+                    ConsoleColor.Yellow);
+                challenge = result.Challenge;
+            }
             MarkLoginStepCompleted("Submit credentials");
 
             if (result.Type == "multifactor")
@@ -2335,37 +2350,42 @@ public partial class ValorantAccounts : Page
             DebugConsole.WriteLine("[Accounts][GenerateToken] Starting clientless RSO flow");
             var challenge = await RsoLoginService.ClientlessStartSessionAsync(remember: persist ?? false,
                 "valorant");
-            var captchaToken = string.Empty;
-
-            if (challenge.RequiresChallenge)
+            RsoLoginService.AuthResult result;
+            while (true)
             {
-                DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
-                ChallengeWindow? challengeWindow = null;
-                var challengeResult = await Dispatcher.InvokeAsync(() =>
+                var captchaToken = string.Empty;
+                if (challenge.RequiresChallenge)
                 {
-                    challengeWindow = new ChallengeWindow(challenge.SiteKey!, challenge.RqData,
-                        RsoLoginService.ClientlessHost);
-                    challengeWindow.ShowDialog();
-                    return challengeWindow.Token;
-                });
+                    DebugConsole.WriteLine($"[Accounts][GenerateToken] Challenge required: {challenge.Type}");
+                    var challengeOutcome = await Dispatcher.InvokeAsync(() =>
+                        ChallengeWindow.Solve(challenge.SiteKey!, challenge.RqData, RsoLoginService.ClientlessHost));
+                    var challengeResult = challengeOutcome.Token;
 
-                if (string.IsNullOrWhiteSpace(challengeResult))
-                {
-                    if (challengeWindow?.ChallengeFailed == true)
-                        NoteFailedLogin("GenerateToken");
-                    DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
-                        ConsoleColor.Yellow);
-                    return;
+                    if (string.IsNullOrWhiteSpace(challengeResult))
+                    {
+                        if (challengeOutcome.ChallengeFailed)
+                            NoteFailedLogin("GenerateToken");
+                        DebugConsole.WriteLine("[Accounts][GenerateToken] Challenge cancelled by user.",
+                            ConsoleColor.Yellow);
+                        return;
+                    }
+                    captchaToken = challengeResult;
                 }
-                captchaToken = challengeResult;
-            }
-            else
-            {
-                DebugConsole.WriteLine("[Accounts][GenerateToken] No challenge required.");
-            }
+                else
+                {
+                    DebugConsole.WriteLine("[Accounts][GenerateToken] No challenge required.");
+                }
 
-            var result = await RsoLoginService.ClientlessCompleteAuthAsync(
-                SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+                result = await RsoLoginService.ClientlessCompleteAuthAsync(
+                    SelectedUsername!, SelectedPassword!, remember: persist ?? false, captchaToken);
+                if (!result.NeedsAnotherChallenge)
+                    break;
+
+                DebugConsole.WriteLine(
+                    "[Accounts][GenerateToken] Challenge rejected. Solving the replacement challenge.",
+                    ConsoleColor.Yellow);
+                challenge = result.Challenge;
+            }
 
             if (result.Type == "multifactor")
             {
@@ -2411,8 +2431,7 @@ public partial class ValorantAccounts : Page
                         NotificationType.Error);
                     break;
 
-                case "error":
-                case "auth_failure":
+                case not "success" when !string.IsNullOrWhiteSpace(result.Error):
                     NoteFailedLogin("GenerateToken");
                     Notif.notificationManager.Show("Generate token", result.Failure.Message,
                         NotificationType.Error);

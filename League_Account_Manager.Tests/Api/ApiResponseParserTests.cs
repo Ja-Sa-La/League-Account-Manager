@@ -34,6 +34,68 @@ public class ApiResponseParserTests
     }
 
     [TestMethod]
+    public void ParseAccountRestriction_ReadsPermanentBanAndReason()
+    {
+        const string json = """
+                            {
+                              "httpStatus": 400,
+                              "errorCode": "Player Banned",
+                              "message": "Player Banned",
+                              "restrictions": [
+                                {
+                                  "type": "PERMANENT_BAN",
+                                  "reason": "GENERIC",
+                                  "scope": "lol",
+                                  "dat": { "gameData": { "productName": "lol" } }
+                                }
+                              ]
+                            }
+                            """;
+
+        var result = ApiResponseParser.ParseAccountRestriction(json);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("Permanent ban", result.Value.Status);
+        Assert.AreEqual("Generic", result.Value.Reason);
+        Assert.AreEqual("Permanent", result.Value.Duration);
+        Assert.AreEqual("Generic, lol, Permanent", result.Value.Detail);
+    }
+
+    [TestMethod]
+    public void ParseAccountRestriction_ReadsSuspensionExpiryFromLoginSession()
+    {
+        const string json = """
+                            {
+                              "state": "ERROR",
+                              "restrictions": [
+                                {
+                                  "type": "TIME_BAN",
+                                  "reason": "INAPPROPRIATE_NAME",
+                                  "scope": "lol",
+                                  "expirationMillis": 1794345600000
+                                }
+                              ]
+                            }
+                            """;
+
+        var result = ApiResponseParser.ParseAccountRestriction(json);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("Time ban", result.Value.Status);
+        Assert.AreEqual("Inappropriate name", result.Value.Reason);
+        StringAssert.Contains(result.Value.Duration, "until ");
+        StringAssert.StartsWith(result.Value.Detail, "Inappropriate name, lol, ");
+    }
+
+    [TestMethod]
+    public void ParseAccountRestriction_IgnoresANormalLoginSession()
+    {
+        Assert.IsNull(ApiResponseParser.ParseAccountRestriction("{\"state\":\"SUCCEEDED\",\"accountId\":1}"));
+        Assert.IsNull(ApiResponseParser.ParseAccountRestriction("not-json"));
+        Assert.IsNull(ApiResponseParser.ParseAccountRestriction(null));
+    }
+
+    [TestMethod]
     public void ParseSummoner_RejectsPayloadWithoutRequiredIdentityFields()
     {
         Assert.IsNull(ApiResponseParser.ParseSummoner("{\"gameName\":\"Player\"}"));

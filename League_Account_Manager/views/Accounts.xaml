@@ -227,20 +227,72 @@
                         <DataGridTemplateColumn MinWidth="68" Width="72" Header="SoloQ" SortMemberPath="rank">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Image Width="48" Height="48" Stretch="Uniform"
-                                           HorizontalAlignment="Center"
-                                           ToolTip="{Binding rank}"
-                                           Source="{Binding rank, Converter={StaticResource RankIconConverter}}" />
+                                    <Grid ToolTip="{Binding rank}">
+                                        <Image Width="48" Height="48" Stretch="Uniform"
+                                               HorizontalAlignment="Center"
+                                               Source="{Binding rank, Converter={StaticResource RankIconConverter}}">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding rank, Converter={StaticResource RankIconConverter}}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                        <TextBlock Text="{Binding rank}" TextWrapping="Wrap"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   TextAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding rank, Converter={StaticResource RankIconConverter}}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn MinWidth="68" Width="72" Header="FlexQ" SortMemberPath="rank2">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Image Width="48" Height="48" Stretch="Uniform"
-                                           HorizontalAlignment="Center"
-                                           ToolTip="{Binding rank2}"
-                                           Source="{Binding rank2, Converter={StaticResource RankIconConverter}}" />
+                                    <Grid ToolTip="{Binding rank2}">
+                                        <Image Width="48" Height="48" Stretch="Uniform"
+                                               HorizontalAlignment="Center"
+                                               Source="{Binding rank2, Converter={StaticResource RankIconConverter}}">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding rank2, Converter={StaticResource RankIconConverter}}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                        <TextBlock Text="{Binding rank2}" TextWrapping="Wrap"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   TextAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding rank2, Converter={StaticResource RankIconConverter}}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -303,7 +355,7 @@
                                    TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <Grid Grid.Row="1" Height="48" Margin="0,20,0,16">
+                    <Grid x:Name="AccountOperationSpinner" Grid.Row="1" Height="48" Margin="0,20,0,16">
                         <Canvas Width="40" Height="40" HorizontalAlignment="Center">
                             <Ellipse Width="36" Height="36" Stroke="{StaticResource SuccessBrush}" StrokeThickness="3"
                                      StrokeDashArray="3 2" RenderTransformOrigin="0.5,0.5">
